@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4;
-export const APP_VERSION = '3.3.0';
+export const APP_VERSION = '3.4.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -67,7 +67,7 @@ export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported
       } else {
         const sentence = clean(r.sentence);
         if (sentence.length < 10 || sentence.length > 800) throw Error('Sentence must be 10–800 characters.');
-        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences', tags:clean(r.tags||r.Tags||r.topic).split(/[;|]/).map(clean).filter(Boolean), learningStage:clean(r.learning_stage||r.Learning_Stage)||'new' }));
+        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences', tags:clean(r.tags||r.Tags||r.topic).split(/[;|]/).map(clean).filter(Boolean), clozeTarget:clean(r.cloze_target||r.Cloze_Target||r.target), clozeAnswer:clean(r.cloze_answer||r.Cloze_Answer), learningStage:clean(r.learning_stage||r.Learning_Stage)||'new' }));
       }
     } catch (err) { errors.push(`Row ${i + 2}: ${err.message}`); }
   });
@@ -113,13 +113,19 @@ export function sentenceCloze(sentence) {
   return String(sentence).replace(/\b[A-Za-z][A-Za-z'-]*\b/g,w => selected.has(n++)?'________':w);
 }
 
-export function sentenceClozeParts(sentence) {
-  const text = String(sentence || '').trim();
-  const matches = [...text.matchAll(/\b[A-Za-z][A-Za-z'-]*\b/g)];
-  if (matches.length < 6) return null;
-  const index = Math.min(matches.length - 2, Math.max(2, Math.floor(matches.length * 0.6)));
-  const match = matches[index];
-  return {question:`${text.slice(0, match.index)}_____ ${text.slice(match.index + match[0].length)}`.replace(/\s+/g,' ').trim(), answer:match[0]};
+export function sentenceClozeParts(sentence, target='') {
+  const text = String(sentence || '').trim(); const wanted = clean(target);
+  if (!wanted) return null;
+  const pattern = wanted.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+');
+  const match = new RegExp(`(^|[^\\p{L}\\p{N}])(${pattern})(?=$|[^\\p{L}\\p{N}])`,'iu').exec(text);
+  if (!match) return null;
+  const start = match.index + match[1].length; const found = match[2];
+  return {question:`${text.slice(0,start)}_____ ${text.slice(start + found.length)}`.replace(/\s+/g,' ').trim(), answer:found};
+}
+export function dateKeyInTimeZone(value, timeZone='Asia/Shanghai') {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
@@ -139,7 +145,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
       } else {
         const text=clean(raw.text||raw.sentence||raw.english); if(text.length<10||text.length>800) throw Error('sentence 长度需为 10–800 个字符。');
         const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }
     } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
   });

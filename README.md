@@ -4,7 +4,7 @@
 
 A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
-## V3.3 upgrade
+## V3.4 upgrade
 
 - Day Cultivation and Night Cultivation themes, with System default and saved preference.
 - English Cultivation home with a 20-minute goal, active minutes, due count, Refine Words, Forge Sentences, Knowledge Vault, and Battle Reports.
@@ -17,6 +17,8 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Explicit mode switching: Words, Sentences, Mixed, today's pack only, or due review only. An unfinished session always asks before switching.
 - Word cloze and sentence missing-word inputs focus correctly on tap; sentence training clearly separates Missing Words from Full Sentence Recall.
 - `english-learning-pack.json` import with `schema_version`, `pack_id`, `title`, `source`, `language`, and flexible `items`; CSV/TXT/Markdown imports remain supported.
+- All practice entry points now send truly unlearned cards through Learn New Content first; learned cards can enter Independent Retrieval directly.
+- Sentence cloze now requires an explicit target/cloze answer; otherwise it falls back to full-sentence recall. Daily training minutes use Asia/Shanghai calendar dates.
 - New cards now use Learn New Content → Guided Practice → Independent Retrieval instead of forcing a first-contact guess. Complete targets, examples, trusted optional metadata, and progressive hints are shown before recall.
 - Learning records distinguish first independent answers, prompted answers, viewed-answer flows, and retry-after-error; no first-contact reading is counted as mastery.
 - Answer checks distinguish exact, case/punctuation-only, minor spelling, and different answers; optional immediate retry stores the first answer and retry separately.
@@ -45,4 +47,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.3.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.4.0` so a deployment receives a fresh cache.
