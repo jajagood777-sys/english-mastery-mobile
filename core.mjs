@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
-export const VERSION = 3;
-export const APP_VERSION = '3.0.0';
+export const VERSION = 4;
+export const APP_VERSION = '3.1.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -111,6 +111,40 @@ export function sentenceCloze(sentence) {
   let n=0;
   return String(sentence).replace(/\b[A-Za-z][A-Za-z'-]*\b/g,w => selected.has(n++)?'________':w);
 }
+
+export function sentenceClozeParts(sentence) {
+  const text = String(sentence || '').trim();
+  const matches = [...text.matchAll(/\b[A-Za-z][A-Za-z'-]*\b/g)];
+  if (matches.length < 6) return null;
+  const index = Math.min(matches.length - 2, Math.max(2, Math.floor(matches.length * 0.6)));
+  const match = matches[index];
+  return {question:`${text.slice(0, match.index)}_____ ${text.slice(match.index + match[0].length)}`.replace(/\s+/g,' ').trim(), answer:match[0]};
+}
+export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
+  const packId = clean(value.pack_id) || `pack:${stableHash(JSON.stringify(value.items))}`;
+  const packTitle = clean(value.title) || '今日学习包';
+  const importedAt = new Date().toISOString();
+  const items = []; const errors=[];
+  value.items.forEach((raw,index)=>{
+    try {
+      const kind=clean(raw.type||raw.kind).toLowerCase(); const sourceName=clean(raw.source||value.source)||source;
+      if (!['word','sentence'].includes(kind)) throw Error('类型必须是 word 或 sentence。');
+      if(kind==='word'){
+        const target=clean(raw.target||raw.english_target||raw.text), example=clean(raw.example||raw.example_en||raw.sentence);
+        if(!target||!example) throw Error('word 项目需要 target 和 example。');
+        const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
+        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),importedAt}));
+      } else {
+        const text=clean(raw.text||raw.sentence||raw.english); if(text.length<10||text.length>800) throw Error('sentence 长度需为 10–800 个字符。');
+        const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',importedAt}));
+      }
+    } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
+  });
+  if(!items.length) throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title:packTitle,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en'}};
+}
 export function nextDue(status, now = new Date()) {
   if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
   const start = new Date(now);return new Date(start.getTime()+REVIEW_DAYS[status]*86400000).toISOString();
@@ -177,7 +211,7 @@ export function validateBackup(value){
     if(item.kind==='sentence'&&typeof item.text!=='string')throw Error('Backup has invalid sentence data.');
     ids.add(item.id);
   }
-  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,...(value.settings||{})}};
+  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
@@ -223,6 +257,7 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
     ended_at: session.endedAt || now.toISOString(),
     active_seconds: Math.max(0, Math.round(Number(session.activeMs || 0) / 1000)),
     mode: session.mode,
+    pack_id: session.packId || null,
     mode_breakdown: {words, sentences},
     total_rated_attempts: sessionAttempts.length,
     skipped_items: skipped,
@@ -246,7 +281,7 @@ export function battleReportMarkdown(report) {
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,
-    `请按中央仙窍既有数据架构处理本次 English Cultivation 学习战报。先以 report_id 和 session_id 查重，再将实际学习数字写入原 Google Sheets，将必要错误与学习总结写入原 Notion，正式报告归档原 Google Drive。逐项回读验证，不得凭空补充训练数据或重复创建数据库。未成功的步骤明确标记待处理。`
+    `请中央仙窍处理这份 English Cultivation 学习战报。先检查 report_id 和 session_id，避免重复录入。然后把真实训练时间与 K/V/N 数据同步到原有 Google Sheets，把重点错误和学习总结保存到原有 Notion，并将正式报告按现有归档规则保存到 Google Drive。所有写入都必须回读验证，失败事项明确标注，不得凭空填补学习记录。`
   ];
   return lines.join('\n');
 }

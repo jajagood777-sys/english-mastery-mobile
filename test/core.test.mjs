@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV} from '../core.mjs';
+import {parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -56,3 +56,6 @@ test('battle report is derived from actual session attempts and has stable ident
  assert.equal(report.report_id,'report:session-1'); assert.equal(report.active_seconds,1200); assert.deepEqual(report.mode_breakdown,{words:1,sentences:1}); assert.deepEqual(report.ratings_summary,{K:1,V:0,N:1}); assert.equal(report.skipped_items,1); assert.match(battleReportMarkdown(report),/Central Immortal Aperture/);
 });
 test('v2 backup remains compatible with v3 report defaults',()=>{const out=migrateBackupPayload({items:[],attempts:[],sessions:[],settings:{duration:20}});assert.deepEqual(out.reports,[]);assert.equal(out.settings.theme,'system')});
+
+test('sentence fill mode returns one visible blank and exact missing word',()=>{const parts=sentenceClozeParts('Consistent practice is more important than occasional bursts of motivation.');assert.equal(parts.answer,'occasional');assert.ok(parts.question.includes('_____'));assert.ok(!parts.question.includes(parts.answer));});
+test('daily learning pack JSON imports words and sentences with stable pack IDs',()=>{const pack={schema_version:1,pack_id:'today-1',title:'Today English Pack',source:'Central Immortal Aperture',language:'en',items:[{id:'w1',type:'word',target:'address',example:'We need to address the problem.',hint_zh:'处理'},{id:'s1',type:'sentence',text:'Consistent practice matters every day.'}]};const out=recordsFromLearningPack(pack);assert.equal(out.items.length,2);assert.equal(out.pack.packId,'today-1');assert.equal(out.items[0].packId,'today-1');assert.equal(out.items[1].kind,'sentence');});

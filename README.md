@@ -4,7 +4,7 @@
 
 A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
-## V3 upgrade
+## V3.1 upgrade
 
 - Day Cultivation and Night Cultivation themes, with System default and saved preference.
 - English Cultivation home with a 20-minute goal, active minutes, due count, Refine Words, Forge Sentences, Knowledge Vault, and Battle Reports.
@@ -13,6 +13,10 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Copy, Web Share, Markdown download, JSON download, and local Battle Report archive. Sharing never claims that ChatGPT, Sheets, Notion, or Drive received data.
 - Material records carry content type, source, import time, stable IDs, and source identifiers where available.
 - V1/V2 local storage and backup migration remains available; old storage is never deleted.
+- 中文操作导航和帮助层；English questions, sentences, examples, and reading material remain in English.
+- Explicit mode switching: Words, Sentences, Mixed, today's pack only, or due review only. An unfinished session always asks before switching.
+- Word cloze and sentence missing-word inputs focus correctly on tap; sentence training clearly separates Missing Words from Full Sentence Recall.
+- `english-learning-pack.json` import with `schema_version`, `pack_id`, `title`, `source`, `language`, and flexible `items`; CSV/TXT/Markdown imports remain supported.
 
 ## Run locally
 
@@ -36,4 +40,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.0.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.1.0` so a deployment receives a fresh cache.
