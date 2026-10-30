@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -73,4 +73,38 @@ test('V4.1 version markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
  assert.equal(VERSION,4.1);assert.equal(APP_VERSION,'4.1.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
+});
+
+test('V4.2 reading selection uses the containing sentence and flags cross-sentence selections',()=>{
+ const one=readingSelectionContext('We address the problem. The team reviews the evidence.', 'address');
+ assert.equal(one.context,'We address the problem.'); assert.equal(one.crossSentence,false); assert.equal(one.start,3);
+ const cross=readingSelectionContext('We address the problem. The team reviews the evidence.', 'problem. The team');
+ assert.equal(cross.crossSentence,true); assert.equal(cross.context,'We address the problem. The team reviews the evidence.');
+ assert.equal(readingSelectionContext('We address the problem.','missing'),null);
+});
+
+test('V4.2 reading cards have stable context-aware IDs',()=>{
+ const a=readingCardId({readingId:'reading:1',kind:'word',target:'address',context:'We address the problem.'});
+ const b=readingCardId({readingId:'reading:1',kind:'word',target:' address ',context:'We address the problem.'});
+ const c=readingCardId({readingId:'reading:1',kind:'word',target:'address',context:'We address the evidence.'});
+ assert.equal(a,b); assert.notEqual(a,c);
+});
+
+test('V4.2 persistence reports failure and attempts rollback',()=>{
+ const calls=[];const storage={setItem(k,v){calls.push([k,v]);if(calls.length===1)throw Error('quota');}};
+ const result=persistState(storage,'state','new','old');
+ assert.equal(result.ok,false); assert.equal(calls.length,2); assert.deepEqual(calls[1],['state','old']);
+});
+
+test('V4.2 backup merge retains readings, pack metadata, history and existing progress',()=>{
+ const current={items:[{id:'w:1',kind:'word',target:'address',status:'N',attempts:2}],attempts:[{id:'a:1'}],sessions:[{id:'s:1'}],reports:[{report_id:'r:1'}],readings:[{id:'reading:1',text:'One.'}],dailyPack:{packId:'today',title:'Today'},packHistory:[{packId:'today'}],settings:{theme:'night'}};
+ const restored={items:[{id:'w:1',kind:'word',target:'address',status:'UNTESTED'},{id:'w:2',kind:'word',target:'evidence'}],attempts:[{id:'a:1'},{id:'a:2'}],sessions:[{id:'s:1'},{id:'s:2'}],reports:[{report_id:'r:1'},{report_id:'r:2'}],readings:[{id:'reading:1',text:'One.'},{id:'reading:2',text:'Two.'}],dailyPack:{packId:'later',title:'Later'},packHistory:[{packId:'later'}],settings:{theme:'day'}};
+ const merged=mergeBackupState(current,restored);
+ assert.equal(merged.items.find(x=>x.id==='w:1').attempts,2); assert.equal(merged.items.length,2); assert.equal(merged.attempts.length,2); assert.equal(merged.sessions.length,2); assert.equal(merged.reports.length,2); assert.equal(merged.readings.length,2); assert.equal(merged.dailyPack.packId,'today'); assert.equal(merged.packHistory.length,2); assert.equal(merged.settings.theme,'night');
+});
+
+test('V4.2 backup validation keeps reading and pack defaults explicit',()=>{
+ const out=validateBackup({items:[],attempts:[],sessions:[],readings:[{id:'reading:1',title:'Story',text:'A short story.',source:'Local'}],dailyPack:{packId:'p1',title:'Today'},packHistory:[{packId:'p1',title:'Today'}]});
+ assert.equal(out.readings[0].text,'A short story.'); assert.equal(out.dailyPack.packId,'p1'); assert.equal(out.packHistory.length,1);
+ assert.throws(()=>validateBackup({items:[],attempts:[],sessions:[],readings:[{id:'bad'}]}),/reading/i);
 });

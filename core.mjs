@@ -128,7 +128,7 @@ export function dateKeyInTimeZone(value, timeZone='Asia/Shanghai') {
   return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
 export function homeSummary(state, now = new Date()) {
-  const items = Array.isArray(state?.items) ? state.items : [];
+  const items = (Array.isArray(state?.items) ? state.items : []).filter(item => !item.archived && !item.paused);
   const sessions = Array.isArray(state?.sessions) ? state.sessions : [];
   const todayKey = dateKeyInTimeZone(now);
   const todayMinutes = Math.round(sessions.filter(session => dateKeyInTimeZone(session.endedAt) === todayKey).reduce((sum, session) => sum + Number(session.activeMs || 0), 0) / 60000);
@@ -139,6 +139,51 @@ export function homeSummary(state, now = new Date()) {
     weak: items.filter(item => item.status === 'N' || item.status === 'V').length,
     todayMinutes,
     packItems: packIds.size ? items.filter(item => packIds.has(item.id)).length : 0
+  };
+}
+export function readingSelectionContext(sourceText, selectedText, {startHint=0, paragraphIndex=0} = {}) {
+  const source = String(sourceText || '').replace(/\s+/g,' ').trim();
+  const selected = String(selectedText || '').replace(/\s+/g,' ').trim();
+  if (!source || !selected) return null;
+  const start = source.indexOf(selected, Math.max(0, Number(startHint) || 0));
+  if (start < 0) return null;
+  const end = start + selected.length;
+  const boundaries = [];
+  const sentenceEnd = /[.!?](?:["'”’)]*)?(?=\s|$)/g;
+  let match;
+  while ((match = sentenceEnd.exec(source))) boundaries.push({start: boundaries.at(-1)?.end || 0, end: match.index + match[0].length});
+  if (!boundaries.length || boundaries.at(-1).end < source.length) boundaries.push({start: boundaries.at(-1)?.end || 0, end: source.length});
+  const containing = boundaries.find(segment => start >= segment.start && start < segment.end) || boundaries.at(-1);
+  const finalSegment = boundaries.find(segment => end > segment.start && end <= segment.end) || boundaries.at(-1);
+  const crossSentence = containing !== finalSegment;
+  return {selected, context:source.slice(containing.start, finalSegment.end).trim(), start, end, paragraphIndex:Number(paragraphIndex)||0, crossSentence};
+}
+export function readingCardId({readingId='', kind='word', target='', context='', source=''}) {
+  return `${kind === 'sentence' ? 's' : 'w'}:reading:${stableHash([readingId, source, kind, normalized(target), normalized(context)].join('|'))}`;
+}
+export function persistState(storage, key, state, previousRaw=null) {
+  const serialized = typeof state === 'string' ? state : JSON.stringify(state);
+  try { storage.setItem(key, serialized); return {ok:true, serialized}; }
+  catch (error) {
+    if (previousRaw !== null) { try { storage.setItem(key, previousRaw); } catch {} }
+    return {ok:false, error:error instanceof Error ? error.message : String(error), serialized};
+  }
+}
+export function mergeBackupState(current={}, restored={}) {
+  const mergedItems = mergeItems(Array.isArray(current.items) ? current.items : [], Array.isArray(restored.items) ? restored.items : []);
+  const uniqueBy = (rows, key) => [...new Map(rows.filter(Boolean).map(row => [row?.[key], row])).values()];
+  const readings = uniqueBy([...(Array.isArray(current.readings) ? current.readings : []), ...(Array.isArray(restored.readings) ? restored.readings : [])], 'id');
+  const packHistory = uniqueBy([...(Array.isArray(current.packHistory) ? current.packHistory : []), ...(Array.isArray(restored.packHistory) ? restored.packHistory : []), current.dailyPack, restored.dailyPack], 'packId');
+  return {
+    ...current,
+    items:mergedItems.items,
+    attempts:uniqueBy([...(current.attempts||[]), ...(restored.attempts||[])], 'id'),
+    sessions:uniqueBy([...(current.sessions||[]), ...(restored.sessions||[])], 'id'),
+    reports:uniqueBy([...(current.reports||[]), ...(restored.reports||[])], 'report_id'),
+    readings,
+    dailyPack:current.dailyPack || restored.dailyPack || null,
+    packHistory,
+    settings:{...(restored.settings||{}),...(current.settings||{})}
   };
 }
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
@@ -265,9 +310,16 @@ export function validateBackup(value){
     if(item.kind==='sentence'&&typeof item.text!=='string')throw Error('Backup has invalid sentence data.');
     ids.add(item.id);
   }
-  const readings=Array.isArray(value.readings)?value.readings:[];
-  const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations)}));
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  if(value.readings!==undefined&&!Array.isArray(value.readings)) throw Error('Backup has invalid reading data.');
+  const readings=(value.readings||[]).map(reading=>{
+    if(!reading||typeof reading!=='object'||typeof reading.id!=='string'||typeof reading.text!=='string') throw Error('Backup has invalid reading data.');
+    return {...reading,title:clean(reading.title)||'Imported reading',source:clean(reading.source)||'Local material'};
+  });
+  if(value.packHistory!==undefined&&!Array.isArray(value.packHistory)) throw Error('Backup has invalid learning-pack history.');
+  const packHistory=(value.packHistory||[]).filter(Boolean).map(pack=>{if(typeof pack!=='object'||!clean(pack.packId))throw Error('Backup has invalid learning-pack history.');return {...pack,packId:clean(pack.packId)};});
+  const dailyPack=value.dailyPack===null||value.dailyPack===undefined?null:(typeof value.dailyPack==='object'&&clean(value.dailyPack.packId)?value.dailyPack: (()=>{throw Error('Backup has invalid learning-pack metadata.');})());
+  const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {

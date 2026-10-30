@@ -64,3 +64,10 @@ V3.5 batches
 - Version/cache: package and app version `4.1.0`; service worker cache `english-cultivation-static-v4.1.0`. No localStorage migration or deletion introduced.
 - Deployment status: feature commit `b7d585d` and final checkpoint commit `9931fe6` are pushed to `main`; GitHub Pages build for `9931fe6` is `built`; live shell returns HTTP 200 and exposes the V4.1 five-item navigation plus `english-cultivation-static-v4.1.0`. Physical iPhone Safari remains the only user-side acceptance step.
 - Next task: none for V4.1. Stop after final verification unless a new product request is supplied.
+
+## V4.2 audit and reliability progress
+
+- Confirmed defects: reading extraction used the first article paragraph; reading card IDs were timestamp-based; legacy localStorage migration referenced uninitialized `data`; normal answer submission was marked as viewed-answer; prompt counts incremented without a hint; sentence-cloze reports used the full sentence; backup merge omitted readings and could omit pack metadata; settings route landed on progress; word/cloze answers used multiline textareas.
+- Fixed in the current unversioned checkpoint: pure reading-context and stable-ID helpers; save failure rollback with explicit error; complete backup merge/validation for readings, pack history, attempts, sessions, reports, and settings; safe legacy migration; independent answer provenance; prompt counts; sentence-cloze reference answers; stable reading extraction metadata; archive/pause/relearn and card detail/edit/history; dedicated settings page; single-line word/cloze inputs; dynamic timer goal copy and explicit time-progress label.
+- Tests: 36/36 pass. Local Chromium smoke confirms single-line answer input, `viewedAnswer=false` for normal submission, sentence-cloze `referenceAnswer` is the missing expression, reading context is the containing sentence, duplicate reading extraction remains one card, and settings navigation works.
+- Next: update package/app version and PWA cache to V4.2.0, run final mobile/PWA regression, deploy, and verify the original Pages URL.
