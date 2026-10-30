@@ -52,7 +52,7 @@ function field(label,control){const wrap=div('field');const lab=el('label',label
 function stats(){const active=activeItems(),words=active.filter(x=>x.kind==='word'),sentences=active.filter(x=>x.kind==='sentence');const todayKey=dateKeyInTimeZone(new Date());const todayMinutes=Math.round(data.sessions.filter(x=>dateKeyInTimeZone(x.endedAt)===todayKey).reduce((sum,x)=>sum+Number(x.activeMs||0),0)/60000);return {words:words.length,sentences:sentences.length,due:active.filter(x=>isDue(x)).length,weak:active.filter(x=>x.status==='N'||x.status==='V').length,newItems:active.filter(x=>x.status==='UNTESTED').length,reviewed:active.filter(x=>x.attempts>0).length,todayMinutes};}
 function statistic(label,value){const box=div('stat');box.append(h('strong',String(value)),el('span',label));return box;}
 function navActive(){document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);b.setAttribute('aria-current',b.dataset.page===page?'page':'false');});}
-function setPage(which){if(data.activeSession&&which!=='practice'&&page==='practice') pauseSession();stopSpeech();page=which;render();window.scrollTo({top:0,behavior:'instant'});}
+function setPage(which){if(page==='reading'&&which!=='reading')pauseJourneyReading();if(data.activeSession&&which!=='practice'&&page==='practice') pauseSession();stopSpeech();page=which;render();window.scrollTo({top:0,behavior:'instant'});}
 function render(){app.replaceChildren();navActive();if(page==='home')return renderHome();if(page==='training')return renderTrainingHub();if(page==='more')return renderMore();if(page==='settings')return renderSettings();if(page==='practice')return renderPractice();if(page==='library')return renderLibrary();if(page==='reading')return renderReading();if(page==='progress')return renderProgress();if(page==='reports')return renderReports();if(page==='summary')return renderSummary();}
 function modeLabel(mode){return mode==='words'?'单词与词块':mode==='sentences'?'句子训练':mode==='journey'?'今日综合学习':'混合训练';}
 function showGuide(){document.getElementById('guide-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='guide-dialog';const card=section('switch-dialog guide-dialog');card.append(el('div','使用帮助 · QUICK GUIDE','eyebrow'),h('h2','第一次训练这样做'),p('1. 选择“炼词”只练单词与词块；选择“炼句”只练句子；“混合训练”才会混合两种题目。','subtle'),p('2. 词汇和句子填空只填写缺少的英文单词或词块；整句回忆才需要写完整句子。','subtle'),p('3. 查看答案后，K｜会用、V｜模糊、N｜不会会决定下一次复习时间。','subtle'),p('4. 训练结束后打开“修炼战报”，可以复制给中央仙窍、分享或下载。','subtle'),lines(btn('知道了',()=>backdrop.remove(),'btn primary')));backdrop.append(card);document.body.append(backdrop);}
@@ -92,6 +92,128 @@ function renderMore(){
   const settings=section('settings-card');settings.append(h('h2','外观与帮助'),p('主题、朗读速度、提示和备份仍然使用原有设置。','subtle'),lines(btn('打开设置',()=>setPage('settings'),'btn primary'),btn('重新打开使用帮助',showGuide,'btn secondary')));app.append(settings);
 }
 
+
+const JOURNEY_LABELS={words:'炼词',sentences:'炼句',reading:'阅读',listening:'听力'};
+function moduleForItem(item){return item.module==='listening'?'listening':item.kind==='word'?'words':'sentences';}
+function journeyStages(){
+  const ids=new Set(data.dailyPack?.itemIds||[]);
+  const relevant=activeItems().filter(item=>ids.has(item.id));
+  const readingIds=new Set(data.dailyPack?.readingIds||[]);
+  const hasReading=(data.readings||[]).some(reading=>readingIds.has(reading.id));
+  return ['words','sentences','reading','listening'].filter(stage=>stage==='reading'?hasReading:relevant.some(item=>moduleForItem(item)===stage));
+}
+function journeyReadings(){const ids=new Set(data.dailyPack?.readingIds||[]);return (data.readings||[]).filter(item=>ids.has(item.id));}
+function journeyStage(){const journey=data.dailyJourney;return journey&&!journey.finishedAt?journey.steps[journey.index]||null:null;}
+function journeyElapsedMs(){
+  const j=data.dailyJourney;if(!j)return 0;
+  const ids=new Set(j.sessionIds||[]);
+  const completed=(data.sessions||[]).filter(s=>ids.has(s.id)).reduce((sum,s)=>sum+Number(s.activeMs||0),0);
+  return completed+Number(j.readingMs||0)+(data.activeSession?.journeyId===j.id?Number(data.activeSession.activeMs||0):0);
+}
+function startDailyJourney(){
+  const pack=data.dailyPack;if(!pack)return setPage('library');
+  if(data.activeSession&&data.activeSession.journeyId!==data.dailyJourney?.id){notify('请先结束当前普通训练，再开始今日综合学习。');setPage('practice');return;}
+  const old=data.dailyJourney;
+  if(old?.packId===pack.packId&&!old.finishedAt)return beginJourneyStage();
+  if(old&&!old.finishedAt&&old.packId!==pack.packId&&!confirm('上一个综合学习尚未完成。切换新学习包？已有练习记录仍保留。'))return;
+  if(old?.packId===pack.packId&&old.finishedAt&&!confirm('这份学习包已经完成。确定重新开始一次综合学习？'))return;
+  const steps=journeyStages();
+  if(!steps.length){notify('此学习包没有可用模块，请检查导入内容。');return setPage('library');}
+  const id=`journey:${pack.packId}:${Date.now()}`;
+  data.dailyJourney={id,packId:pack.packId,startedAt:new Date().toISOString(),steps,index:0,completed:[],sessionIds:[],readingMs:0,readingRunning:false,readingLastTick:null,readingDoneIds:[],targetMinutes:Number(pack.recommendedMinutes||data.settings.duration)||40,finishedAt:null};
+  if(!save())return;
+  beginJourneyStage();
+}
+function beginJourneyStage(){
+  const j=data.dailyJourney;if(!j||j.finishedAt)return;
+  const stage=journeyStage();if(!stage)return finishDailyJourney();
+  if(stage==='reading'){
+    const pending=journeyReadings().filter(article=>!j.readingDoneIds.includes(article.id));
+    if(!pending.length){j.completed.push({stage,status:'completed',count:j.readingDoneIds.length});j.index++;if(save())beginJourneyStage();return;}
+    selectedReadingId=pending[0].id;
+    j.readingRunning=true;j.readingLastTick=Date.now();
+    if(save())setPage('reading');
+    return;
+  }
+  if(data.activeSession){
+    if(data.activeSession.journeyId===j.id){page='practice';render();return;}
+    notify('请先结束其他训练，再继续今日综合学习。');setPage('practice');return;
+  }
+  const mode=stage==='words'?'words':'sentences',opts={scope:'journey',journeyId:j.id,journeyStage:stage,packId:j.packId,sentenceStyle:stage==='listening'?'listening':'cloze',duration:j.targetMinutes};
+  const items=itemsForScope(opts);
+  if(!items.length){j.completed.push({stage,status:'skipped',count:0});j.index++;if(save())beginJourneyStage();return;}
+  data.activeSession=newSession(mode,opts);
+  if(!save())return;
+  setPage('practice');
+}
+function accrueJourneyReading(){
+  const j=data.dailyJourney;if(!j||journeyStage()!=='reading'||!j.readingRunning)return;
+  const now=Date.now();if(!document.hidden&&page==='reading')j.readingMs+=Math.max(0,Math.min(1800,now-(j.readingLastTick||now)));
+  j.readingLastTick=now;
+}
+function pauseJourneyReading(){
+  const j=data.dailyJourney;if(!j||!j.readingRunning)return;
+  accrueJourneyReading();j.readingRunning=false;j.readingLastTick=null;save();
+}
+function resumeJourneyReading(){
+  const j=data.dailyJourney;if(!j||journeyStage()!=='reading')return;
+  j.readingRunning=true;j.readingLastTick=Date.now();if(save())render();
+}
+function completeJourneyReading(){
+  const j=data.dailyJourney;if(!j||journeyStage()!=='reading')return;
+  const article=journeyReadings().find(x=>!j.readingDoneIds.includes(x.id));if(!article)return;
+  if(!confirm('确认已经认真阅读这篇文章？此操作只记录阅读完成，不代表理解测试已经通过。'))return;
+  pauseJourneyReading();j.readingDoneIds.push(article.id);
+  if(!save())return;
+  const pending=journeyReadings().filter(x=>!j.readingDoneIds.includes(x.id));
+  if(pending.length){selectedReadingId=pending[0].id;resumeJourneyReading();return;}
+  j.completed.push({stage:'reading',status:'completed',count:j.readingDoneIds.length});
+  j.index++;
+  if(save())beginJourneyStage();
+}
+function finishDailyJourney(){
+  const j=data.dailyJourney;if(!j||j.finishedAt)return;
+  const sessions=(data.sessions||[]).filter(session=>j.sessionIds.includes(session.id));
+  const ids=new Set(j.sessionIds);
+  const attempts=data.attempts.filter(attempt=>ids.has(attempt.sessionId));
+  const activeMs=sessions.reduce((sum,item)=>sum+Number(item.activeMs||0),0)+Number(j.readingMs||0);
+  const endedAt=new Date().toISOString();
+  const session={id:j.id,startedAt:j.startedAt,endedAt,activeMs,mode:'journey',scope:'today',packId:j.packId};
+  const report=buildBattleReport({session,attempts,items:data.items,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
+  report.reading_completed=j.readingDoneIds.length;
+  report.reading_seconds=Math.round(j.readingMs/1000);
+  report.target_minutes=j.targetMinutes;
+  report.modules_completed=j.completed.filter(x=>x.status==='completed').length;
+  report.modules_planned=j.steps.length;
+  report.data_quality={...report.data_quality,reading_completion_self_reported:true,goal_not_a_completion_rule:true};
+  if(j.readingMs>0){data.sessions.push({id:`${j.id}:reading`,startedAt:j.startedAt,endedAt,activeMs:j.readingMs,mode:'reading',scope:'today',packId:j.packId,count:0,words:0,sentences:0,K:0,V:0,N:0});}
+  data.reports.push(report);
+  j.finishedAt=endedAt;j.readingRunning=false;j.readingLastTick=null;
+  if(!save())return;
+  lastSessionSummary=report;setPage('summary');
+}
+function journeyPanel(){
+  const j=data.dailyJourney;if(!data.dailyPack)return null;
+  const pack=data.dailyPack;
+  const box=section('daily-journey-card');
+  box.append(el('div','一份文件 · 四类学习','eyebrow'),h('h2',pack.title||'今日综合英语学习'));
+  const stages=j?.packId===pack.packId?j.steps:journeyStages();
+  const completed=j?.packId===pack.packId?(j.completed||[]):[];
+  box.append(p(`学习模块：${stages.map(x=>JOURNEY_LABELS[x]).join(' → ')||'暂无可用模块'} · 建议 ${pack.recommendedMinutes||data.settings.duration||40} 分钟（不强制）`,'subtle'));
+  const summary=div('journey-stages');
+  for(const stage of ['words','sentences','reading','listening']){
+    const included=stages.includes(stage),done=completed.find(x=>x.stage===stage);
+    summary.append(el('span',`${done?(done.status==='completed'?'✓ ':'◐ '):included?'○ ':'— '}${JOURNEY_LABELS[stage]}`,'chip'));
+  }
+  box.append(summary);
+  if(j?.packId===pack.packId){
+    box.append(p(`累计正向计时：${fmtTime(journeyElapsedMs())} · ${j.finishedAt?'本次已结束':`已完成 ${completed.length}/${j.steps.length} 个模块`}`,'tiny'));
+  }
+  box.append(lines(btn(j?.packId===pack.packId&&!j.finishedAt?'继续今日综合学习':j?.finishedAt?'重新训练这份学习包':'一键开始今日完整学习',startDailyJourney,'btn primary')));
+  return box;
+}
+
 function activeItems(){return data.items.filter(item=>!item.archived&&!item.paused);}
 function itemsForScope(options={}){const available=activeItems();if(options.scope==='journey'){const ids=new Set(data.dailyPack?.itemIds||[]);return available.filter(item=>ids.has(item.id)&&((options.journeyStage==='words'&&item.kind==='word')||(options.journeyStage==='sentences'&&item.kind==='sentence'&&item.module!=='listening')||(options.journeyStage==='listening'&&item.module==='listening')));} if(options.scope==='today'){const ids=new Set(todayPackItems().map(item=>item.id));return available.filter(item=>ids.has(item.id));}if(options.scope==='due'){return available.filter(item=>isDue(item));}if(options.scope==='new'){return available.filter(item=>item.learningStage==='new'||item.status==='UNTESTED');}if(options.scope==='difficult'){return available.filter(item=>item.status==='N'||item.status==='V'||Number(item.errorCount||0)>=2);}return available;}
 function limitedQueue(candidates,mode,scope){const ids=buildQueue(candidates,mode);if(scope==='journey')return ids;if(scope==='new')return ids.slice(0,Math.max(1,Number(data.settings.newLimit)||10));if(scope==='due'||scope==='difficult')return ids.slice(0,Math.max(1,Number(data.settings.reviewLimit)||20));const newIds=ids.filter(id=>{const item=data.items.find(x=>x.id===id);return item?.learningStage==='new'||item?.status==='UNTESTED';}).slice(0,Math.max(1,Number(data.settings.newLimit)||10));const reviewIds=ids.filter(id=>!newIds.includes(id)).slice(0,Math.max(1,Number(data.settings.reviewLimit)||20));return [...reviewIds,...newIds];}
@@ -103,12 +225,12 @@ function accrue(){const s=data.activeSession;if(!s||!s.running)return;const now=
 function pauseSession(){accrue();const s=data.activeSession;if(s){s.running=false;s.lastTick=null;save();}}
 function resumeSession(){const s=data.activeSession;if(s){s.running=true;s.lastTick=Date.now();if(save())render();}}
 function fmtTime(ms){const min=Math.floor(ms/60000),sec=Math.floor(ms%60000/1000);return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
-function practiceTop(s){const head=div('practice-top');const info=div();info.append(el('div',`当前模式：${modeLabel(s.mode)} · ${scopeLabel(s.scope)}`,'eyebrow'),h('h2','专注修炼'),el('span',`${s.completed.length} 已完成 · ${s.queue.length-s.index} 题剩余`,'tiny'));const t=div();const timer=h('div',fmtTime(s.activeMs),'timer');timer.id='timer';t.append(timer,el('div',`目标 ${s.dueGoal} 分钟`,'time-goal'));head.append(info,t);return head;}
-function renderPractice(){const s=data.activeSession;if(!s){setPage('home');return;}const item=currentItem();const outer=section();outer.append(practiceTop(s));const progress=div('bar-track');const fill=div('bar-fill');fill.id='timer-bar';fill.style.width=`${Math.min(100,s.activeMs/(s.dueGoal*60000)*100)}%`;progress.append(fill);outer.append(progress,el('div','时间进度 · 只表示实际计时，不代表题目掌握程度','tiny'));
-outer.append(lines(btn(s.running?'暂停':'继续',()=>{if(s.running){pauseSession();render();}else resumeSession();},'btn'),btn('结束训练',()=>finishSession(),'btn danger'),btn('返回首页',()=>setPage('home'),'btn ghost')));
+function practiceTop(s){const head=div('practice-top');const info=div();info.append(el('div',`当前模式：${modeLabel(s.mode)} · ${scopeLabel(s.scope)}`,'eyebrow'),h('h2','专注修炼'),el('span',`${s.completed.length} 已完成 · ${s.queue.length-s.index} 题剩余`,'tiny'));const t=div();if(s.journeyStage)info.append(p(`今日综合学习 · ${JOURNEY_LABELS[s.journeyStage]} · 正向累计 ${fmtTime(journeyElapsedMs())}`,'tiny'));const timer=h('div',fmtTime(s.activeMs),'timer');timer.id='timer';t.append(timer,el('div',`正向计时 · 参考 ${s.dueGoal} 分钟，不强制结束`,'time-goal'));head.append(info,t);return head;}
+function renderPractice(){const s=data.activeSession;if(!s){setPage('home');return;}const item=currentItem();if(s.journeyStage==='listening')s.sentenceStyle='listening';const outer=section();outer.append(practiceTop(s));const progress=div('bar-track');const fill=div('bar-fill');fill.id='timer-bar';fill.style.width=`${Math.min(100,s.activeMs/(s.dueGoal*60000)*100)}%`;progress.append(fill);outer.append(progress,el('div','正向计时 · 参考目标不强制结束；实际完成以学习项目为准','tiny'));
+outer.append(lines(btn(s.running?'暂停':'继续',()=>{if(s.running){pauseSession();render();}else resumeSession();},'btn'),btn(s.journeyStage?'提前结束本模块':'结束训练',()=>{if(s.journeyStage&&s.index<s.queue.length&&!confirm('本模块还有未完成题目。提前结束会记录为部分完成并进入下一模块，确定吗？'))return;finishSession();},'btn danger'),btn('返回首页',()=>setPage('home'),'btn ghost')));
 if(!s.running){outer.append(h('h3','训练已暂停'),p('计时已停止。准备好后点击“继续”。','subtle'));app.append(outer);return;}
-if(!item){outer.append(h('h3','当前范围已完成'),p('可以结束训练并查看战报，也可以导入更多材料。','subtle'),lines(btn('完成并查看战报',finishSession,'btn primary')));app.append(outer);return;}
-if(item.learningStage==='new'||(!item.learningStage&&item.status==='UNTESTED')){buildLearnCard(outer,item,s);app.append(outer);return;}
+if(!item){outer.append(h('h3','当前范围已完成'),p(s.journeyStage?'本模块已完成，可以继续下一模块。':'可以结束训练并查看战报，也可以导入更多材料。','subtle'),lines(btn(s.journeyStage?'保存并继续下一模块':'完成并查看战报',finishSession,'btn primary')));app.append(outer);return;}
+if(s.journeyStage!=='listening'&&(item.learningStage==='new'||(!item.learningStage&&item.status==='UNTESTED'))){buildLearnCard(outer,item,s);app.append(outer);return;}
 const content=div();content.append(el('span',item.kind==='word'?'单词与词块':'句子训练','question-label'));
 if(item.kind==='word')buildWordQuestion(content,item,s);else buildSentenceQuestion(content,item,s);
 outer.append(content);app.append(outer);}
@@ -134,7 +256,16 @@ if(read){container.append(el('div','整句回忆 · Full Sentence Recall','quest
 function rateControls(container,item,s){container.append(h('h3','请根据真实回忆自评'));
 const choices=div('actions');for(const [rating,label,cls] of [['K','会用','k'],['V','模糊','v'],['N','不会','n']]){const b=el('button','','self-btn '+cls);b.append(h('strong',rating),el('small',label));b.disabled=(retryNeeded(s))||(!s.draft.trim()&&rating==='K');b.addEventListener('click',()=>grade(item,rating));choices.append(b);}container.append(choices,p('这是自我评价，不是自动英语评分。','tiny'));}
 function grade(item,status){const s=data.activeSession;if(!s||s.step!=='revealed')return;if(retryNeeded(s)){notify('请先完成错题重练，或在设置中关闭“答错后立即重练”。');return;}const date=new Date().toISOString();const reference=s.referenceAnswer|| (item.kind==='word'?item.target:item.text);const initialCheck=s.answerCheck||compareAnswer(s.draft,reference,{accepted:item.acceptedAnswers||[]});const stageBefore=item.learningStage||'review';const schedule=scheduleReview(status,item,new Date(date));const promptType=item.kind==='word'?'cloze':(s.sentenceStyle==='cloze'?'missing_words':(s.sentenceStyle==='listening'?'listening':'recall'));const row={id:`a-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,sessionId:s.id,itemId:item.id,kind:item.kind,status,answer:s.draft,skipped:Boolean(s.skipped),promptType,referenceAnswer:reference,initial_check:initialCheck,retry_answer:s.retryDraft||'',retry_check:s.retryCheck||null,retried_after_error:Boolean(s.retryCompleted),prompt_used:Boolean(s.promptUsed),viewed_answer:Boolean(s.viewedAnswer),learning_stage_before:stageBefore,at:date};data.attempts.push(row);item.status=status;item.attempts=(item.attempts||0)+1;if(s.promptUsed)item.promptCount=(item.promptCount||0)+1;if(s.viewedAnswer)item.viewedAnswerCount=(item.viewedAnswerCount||0)+1;item.lastAt=date;item.dueAt=schedule.dueAt;item.intervalDays=schedule.intervalDays;item.successStreak=status==='K'?(item.successStreak||0)+1:0;item.errorCount=status==='N'?(item.errorCount||0)+1:(item.errorCount||0);item.learningStage=stageBefore==='new'||stageBefore==='learning'?(item.successStreak>=2?'long_term':'learning'):(item.successStreak>=2?'long_term':'review');row.learning_stage_after=item.learningStage;s.completed.push(row.id);s.index++;s.step=null;s.draft='';s.referenceAnswer=null;s.hint=false;s.skipped=false;s.retryCompleted=false;s.retryDraft='';s.answerCheck=null;s.retryCheck=null;s.promptUsed=false;s.viewedAnswer=false;s.lastTick=Date.now();s.updatedAt=date;if(!save())return;render();if(s.index>=s.queue.length)notify('当前卡片已完成。结束训练后会保存修炼战报。');}
-function finishSession(next=null){accrue();stopSpeech();const s=data.activeSession;if(!s)return;const endedAt=new Date().toISOString();const attempts=data.attempts.filter(x=>x.sessionId===s.id);const sessionRecord={id:s.id,startedAt:s.startedAt,endedAt,activeMs:Math.round(s.activeMs),mode:s.mode,scope:s.scope||'all',packId:s.packId||null,count:attempts.length,words:attempts.filter(x=>x.kind==='word').length,sentences:attempts.filter(x=>x.kind==='sentence').length,K:attempts.filter(x=>x.status==='K').length,V:attempts.filter(x=>x.status==='V').length,N:attempts.filter(x=>x.status==='N').length};const report=buildBattleReport({session:sessionRecord,attempts,items:data.items,timezone:'Asia/Shanghai',appVersion:APP_VERSION});data.sessions.push(sessionRecord);data.reports=(data.reports||[]).filter(x=>x.report_id!==report.report_id);data.reports.push(report);data.activeSession=null;if(!save())return;lastSessionSummary=report;if(next){startSession(next.mode,next.options);return;}setPage('summary');}
+function finishSession(next=null){accrue();stopSpeech();const s=data.activeSession;if(!s)return;const endedAt=new Date().toISOString();const attempts=data.attempts.filter(x=>x.sessionId===s.id);const sessionRecord={id:s.id,startedAt:s.startedAt,endedAt,activeMs:Math.round(s.activeMs),mode:s.mode,scope:s.scope||'all',packId:s.packId||null,count:attempts.length,words:attempts.filter(x=>x.kind==='word').length,sentences:attempts.filter(x=>x.kind==='sentence').length,K:attempts.filter(x=>x.status==='K').length,V:attempts.filter(x=>x.status==='V').length,N:attempts.filter(x=>x.status==='N').length};const report=buildBattleReport({session:sessionRecord,attempts,items:data.items,timezone:'Asia/Shanghai',appVersion:APP_VERSION});if(s.journeyStage)report.journey_stage=s.journeyStage;data.sessions.push(sessionRecord);data.reports=(data.reports||[]).filter(x=>x.report_id!==report.report_id);data.reports.push(report);data.activeSession=null;
+const j=data.dailyJourney;
+if(s.journeyStage&&j&&!j.finishedAt&&j.id===s.journeyId&&j.steps[j.index]===s.journeyStage){
+  j.sessionIds.push(s.id);
+  j.completed.push({stage:s.journeyStage,status:s.index>=s.queue.length?'completed':'partial',count:attempts.length,planned:s.queue.length});
+  j.index++;
+  if(!save())return;
+  beginJourneyStage();return;
+}
+if(!save())return;lastSessionSummary=report;if(next){startSession(next.mode,next.options);return;}setPage('summary');}
 function reportFor(report){return report||lastSessionSummary||data.reports?.at(-1)||null;}
 function reportJSON(report){return JSON.stringify(reportFor(report),null,2);}
 function exportReportJSON(report){const x=reportFor(report);if(!x)return notify('请先完成一次训练，再导出修炼战报。');download(`english-cultivation-report-${x.session_id}.json`,reportJSON(x),'application/json');markReportExported(x);}
