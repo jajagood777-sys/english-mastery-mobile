@@ -17,6 +17,9 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Explicit mode switching: Words, Sentences, Mixed, today's pack only, or due review only. An unfinished session always asks before switching.
 - Word cloze and sentence missing-word inputs focus correctly on tap; sentence training clearly separates Missing Words from Full Sentence Recall.
 - `english-learning-pack.json` import with `schema_version`, `pack_id`, `title`, `source`, `language`, and flexible `items`; CSV/TXT/Markdown imports remain supported.
+- Answer checks distinguish exact, case/punctuation-only, minor spelling, and different answers; optional immediate retry stores the first answer and retry separately.
+- Review scheduling uses K/V/N with bounded adaptive intervals based on the previous interval, while the home queue shows due, weak, and new counts.
+- Optional tags, source, status, pack, and due filters are available in the local library.
 
 ## Run locally
 
