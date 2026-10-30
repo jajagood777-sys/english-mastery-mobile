@@ -77,4 +77,5 @@ V3.5 batches
 - Version/cache files now target `4.2.0` and `english-cultivation-static-v4.2.0`.
 - `npm run check` passes 37/37. Chromium mobile smoke passes at 375×844, 390×844, and 430×844 for bottom navigation, no overflow, onboarding persistence, single-line answer inputs, settings navigation, reading sentence context, stable duplicate extraction, and legacy localStorage migration. PWA registration works in the local HTTP smoke.
 - Physical iPhone Safari is not available in this environment and remains user acceptance only.
-- Deployment status: V4.2 release candidate is not pushed yet. Next: commit, push `main`, wait for Pages `built`, then verify live version/cache and update this line with the final commit.
+- Deployment status: final V4.2 code is pushed in commit `0067fec` (including the remote audit commit `c71af9f`), GitHub Pages build is `built`, live URL returns HTTP 200, `APP_VERSION` is `4.2.0`, manifest name is `言道修炼殿 · English Cultivation`, and Service Worker cache is `english-cultivation-static-v4.2.0`. Physical iPhone Safari remains user acceptance only.
+- Next task: none for V4.2. Stop after the final checkpoint commit unless a new product request is supplied.
