@@ -36,4 +36,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The intended Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/`. Enable Pages from the repository Settings using the `main` branch and root folder. The service worker cache is versioned as `english-cultivation-static-v3.0.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.0.0` so a deployment receives a fresh cache.

@@ -5,5 +5,5 @@
 - Preserved: Words & Phrases, Sentences, Mixed Practice, K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, PWA shell, and history export.
 - Data safety: old `english-mastery-v1` storage is read and migrated without deletion; V2 backups receive V3 defaults for reports/theme; public repository contains generic demo data only.
 - Tests: 12 core tests pass; Chromium iPhone 390×844 smoke passes for cultivation home, real practice, report creation/archive, theme persistence, service worker, and no horizontal overflow. Physical iPhone verification remains pending.
-- Deployment: source is pushed to `main`. GitHub Pages configuration/URL verification is the remaining delivery step; no external sync is claimed.
-- Next action: enable GitHub Pages on `main` + root in repository Settings, then verify `https://jajagood777-sys.github.io/english-mastery-mobile/`.
+- Deployment: source commit `86b31ac` is pushed to `main`; GitHub Pages status is `built`; HTTPS URL verified with all static resources returning 200. No external sync is claimed.
+- Live URL: `https://jajagood777-sys.github.io/english-mastery-mobile/`.
