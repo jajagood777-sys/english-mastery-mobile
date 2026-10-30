@@ -4,8 +4,9 @@
 
 A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
-## V3.8 upgrade
+## V4.0 upgrade
 
+- V4.0 consolidates the dashboard with due/new/difficult queues, actual training minutes, 7-day and 30-day trend summaries, reading, listening, daily packs, and provenance-rich battle reports.
 - V3.8 adds a listening-recall mode using browser SpeechSynthesis, adjustable by the existing speech speed setting, with text fallback and no pronunciation scoring.
 - V3.7 adds a local Reading Chamber for imported TXT/Markdown, paragraph reading, native speech playback, and selection-to-card extraction. Articles remain local and no dictionary or external text is fetched.
 - V3.6 adds progressive real-data hints (meaning, definition, part of speech, collocations, first letter), keyboard completion, accepted-answer visibility, and mobile focus scrolling without losing input.
@@ -52,4 +53,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.8.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.0.0` so a deployment receives a fresh cache.
