@@ -158,7 +158,12 @@ export function readingSelectionContext(sourceText, selectedText, {startHint=0, 
   const crossSentence = containing !== finalSegment;
   return {selected, context:source.slice(containing.start, finalSegment.end).trim(), start, end, paragraphIndex:Number(paragraphIndex)||0, crossSentence};
 }
-export function readingCardId({readingId='', kind='word', target='', context='', source=''}) {
+export function readingContextForSelection(sourceText, selectedText) {
+  return readingSelectionContext(sourceText, selectedText)?.context || '';
+}
+export function readingCardId(input, selectedText='', positionalKind='word') {
+  const value = typeof input === 'object' ? input : {readingId:input, target:selectedText, kind:positionalKind};
+  const {readingId='', kind='word', target='', context='', source=''} = value;
   return `${kind === 'sentence' ? 's' : 'w'}:reading:${stableHash([readingId, source, kind, normalized(target), normalized(context)].join('|'))}`;
 }
 export function persistState(storage, key, state, previousRaw=null) {
@@ -185,6 +190,18 @@ export function mergeBackupState(current={}, restored={}) {
     packHistory,
     settings:{...(restored.settings||{}),...(current.settings||{})}
   };
+}
+export function mergeReadings(existing=[], incoming=[]) {
+  const out = Array.isArray(existing) ? [...existing] : [];
+  const ids = new Set(out.map(reading => reading?.id).filter(Boolean));
+  const texts = new Set(out.map(reading => normalized(reading?.text)).filter(Boolean));
+  for (const reading of (Array.isArray(incoming) ? incoming : [])) {
+    if (!reading || typeof reading.text !== 'string' || !reading.text.trim()) continue;
+    const key = normalized(reading.text);
+    if ((reading.id && ids.has(reading.id)) || texts.has(key)) continue;
+    out.push(reading); if (reading.id) ids.add(reading.id); texts.add(key);
+  }
+  return out;
 }
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
