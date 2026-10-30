@@ -4,8 +4,9 @@
 
 A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
-## V3.5 upgrade
+## V3.6 upgrade
 
+- V3.6 adds progressive real-data hints (meaning, definition, part of speech, collocations, first letter), keyboard completion, accepted-answer visibility, and mobile focus scrolling without losing input.
 - Day Cultivation and Night Cultivation themes, with System default and saved preference.
 - English Cultivation home with a 20-minute goal, active minutes, due count, Refine Words, Forge Sentences, Knowledge Vault, and Battle Reports.
 - Existing V2 practice retained: cloze vocabulary, optional Chinese hint, sentence recall/missing words, browser English speech, mixed sessions, due-first review, K/V/N, import preview, duplicate-safe library, local backups, and offline PWA cache.
@@ -49,4 +50,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.5.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v3.6.0` so a deployment receives a fresh cache.
