@@ -1,5 +1,10 @@
 # English Cultivation checkpoint
 
+## V3.3 batches
+
+- Batch A complete: V3.2 audit and baseline finished; workspace clean; `npm run check` passes 18/18.
+- Batch B next: Learn New Content and Guided Practice stages with honest metadata and progressive hints.
+
 ## V3.2 batches
 
 - Batch A complete: V3.1 audit finished; baseline `npm run check` passes 14/14; workspace was clean before V3.2 changes.
