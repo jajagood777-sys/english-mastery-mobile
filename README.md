@@ -40,6 +40,15 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Reading typography and the selection toolbar are optimized for long English passages; report summaries use compact, readable metric cards.
 - Version `4.1.0` refreshes the service-worker cache to `english-cultivation-static-v4.1.0`. No storage migration or data deletion was introduced.
 
+## V4.2 upgrade
+
+- Reliability audit fixed reading-card context, stable duplicate IDs, safe legacy migration, save-failure rollback, and complete backup merge/validation for readings, packs, attempts, sessions, reports, and settings.
+- Answer provenance now distinguishes ordinary submission from skipped/viewed-answer flow; prompt counts only increase when a hint was used; sentence-cloze reports store the missing expression instead of the full sentence.
+- Reading extraction stores the containing English sentence, reading ID, source, paragraph index, original selection, and context. Cross-sentence word selections are refused with a clear message.
+- Knowledge Vault cards can be inspected, edited, paused, archived, restored, or sent back to learning without deleting practice history.
+- Settings now has its own page with target minutes, speech speed, theme, hint/retry controls, limits, and backup restore preview. Word and sentence-cloze answers use compact single-line inputs; recall and dictation remain multiline.
+- Version `4.2.0` refreshes the service-worker cache to `english-cultivation-static-v4.2.0`. Existing localStorage data remains the source of truth; no IndexedDB migration was introduced.
+
 ## Run locally
 
 ```sh
@@ -62,4 +71,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.1.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.2.0` so a deployment receives a fresh cache.

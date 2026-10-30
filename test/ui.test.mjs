@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 test('V4.1 shell exposes five clear Chinese mobile destinations', () => {
   for (const label of ['首页', '训练', '阅读', '进度', '我的']) assert.match(index, new RegExp(`>${label}<`));
@@ -63,4 +64,8 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
   assert.match(app,/每日目标分钟/);
   assert.match(app,/恢复 JSON 备份（先预览，再合并）/);
   assert.match(app,/if\(page==='settings'\)return renderSettings/);
+});
+
+test('V4.2 PWA cache marker is versioned for safe resource refresh',()=>{
+  assert.match(sw,/english-cultivation-static-v4\.2\.0/);
 });

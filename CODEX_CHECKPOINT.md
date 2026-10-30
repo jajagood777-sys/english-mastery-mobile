@@ -71,3 +71,10 @@ V3.5 batches
 - Fixed in the current unversioned checkpoint: pure reading-context and stable-ID helpers; save failure rollback with explicit error; complete backup merge/validation for readings, pack history, attempts, sessions, reports, and settings; safe legacy migration; independent answer provenance; prompt counts; sentence-cloze reference answers; stable reading extraction metadata; archive/pause/relearn and card detail/edit/history; dedicated settings page; single-line word/cloze inputs; dynamic timer goal copy and explicit time-progress label.
 - Tests: 36/36 pass. Local Chromium smoke confirms single-line answer input, `viewedAnswer=false` for normal submission, sentence-cloze `referenceAnswer` is the missing expression, reading context is the containing sentence, duplicate reading extraction remains one card, and settings navigation works.
 - Next: update package/app version and PWA cache to V4.2.0, run final mobile/PWA regression, deploy, and verify the original Pages URL.
+
+## V4.2 release candidate
+
+- Version/cache files now target `4.2.0` and `english-cultivation-static-v4.2.0`.
+- `npm run check` passes 37/37. Chromium mobile smoke passes at 375×844, 390×844, and 430×844 for bottom navigation, no overflow, onboarding persistence, single-line answer inputs, settings navigation, reading sentence context, stable duplicate extraction, and legacy localStorage migration. PWA registration works in the local HTTP smoke.
+- Physical iPhone Safari is not available in this environment and remains user acceptance only.
+- Deployment status: V4.2 release candidate is not pushed yet. Next: commit, push `main`, wait for Pages `built`, then verify live version/cache and update this line with the final commit.
