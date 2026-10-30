@@ -53,7 +53,7 @@ test('battle report is derived from actual session attempts and has stable ident
  const items=[{id:'w:1',kind:'word',target:'address',source:'CSV',dueAt:'2026-10-31T00:00:00.000Z'},{id:'s:1',kind:'sentence',text:'Practice matters.',source:'Story'}];
  const attempts=[{id:'a1',sessionId:'session-1',itemId:'w:1',kind:'word',status:'K',answer:'address',at:'2026-10-30T01:05:00.000Z'},{id:'a2',sessionId:'session-1',itemId:'s:1',kind:'sentence',status:'N',answer:'',skipped:true,at:'2026-10-30T01:10:00.000Z'}];
  const report=buildBattleReport({session,attempts,items,now:new Date('2026-10-30T01:20:00.000Z')});
- assert.equal(report.report_id,'report:session-1'); assert.equal(report.active_seconds,1200); assert.deepEqual(report.mode_breakdown,{words:1,sentences:1}); assert.deepEqual(report.ratings_summary,{K:1,V:0,N:1}); assert.equal(report.skipped_items,1); assert.match(battleReportMarkdown(report),/Central Immortal Aperture/);
+ assert.equal(report.report_id,'report:session-1'); assert.equal(report.active_seconds,1200); assert.deepEqual(report.mode_breakdown,{words:1,sentences:1}); assert.deepEqual(report.ratings_summary,{K:1,V:0,N:1}); assert.equal(report.skipped_items,1); assert.equal(report.prompt_stats.first_attempt_independent,2); assert.match(battleReportMarkdown(report),/Central Immortal Aperture/);
 });
 test('v2 backup remains compatible with v3 report defaults',()=>{const out=migrateBackupPayload({items:[],attempts:[],sessions:[],settings:{duration:20}});assert.deepEqual(out.reports,[]);assert.equal(out.settings.theme,'system')});
 

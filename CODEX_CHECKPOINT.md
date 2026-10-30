@@ -4,7 +4,8 @@
 
 - Batch A complete: V3.2 audit and baseline finished; workspace clean; `npm run check` passes 18/18.
 - Batch B complete: Learn New Content cards show complete target/context/trusted metadata; Guided Practice adds progressive meaning/first-letter hints; Independent Retrieval remains direct for learned cards; V3.3 metadata fields migrate safely.
-- Batch C next: independent retrieval feedback, stage-aware retry, and review/report verification.
+- Batch C complete: independent retrieval keeps first answers separate from prompts/retries; accepted_answers are honored; stage-aware K/V/N scheduling and report prompt/learning-stage statistics are verified.
+- Batch D next: final home/package/report regression and deployment verification.
 
 ## V3.2 batches
 
