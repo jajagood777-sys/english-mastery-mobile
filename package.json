@@ -1,1 +1,1 @@
-{"name":"english-mastery-mobile","version":"4.1.0","private":true,"type":"module","scripts":{"test":"node --test test/*.test.mjs","check":"node --check app.js && node --check core.mjs && npm test"},"engines":{"node":">=18"}}
+{"name":"english-mastery-mobile","version":"4.2.0","private":true,"type":"module","scripts":{"test":"node --test test/*.test.mjs","check":"node --check app.js && node --check core.mjs && npm test"},"engines":{"node":">=18"}}
