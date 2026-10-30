@@ -7,7 +7,7 @@
 - Batch C complete: independent retrieval keeps first answers separate from prompts/retries; accepted_answers are honored; stage-aware K/V/N scheduling and report prompt/learning-stage statistics are verified.
 - Batch D complete: home new-content entry, report provenance summary, accepted-answer flow, and learning-package mobile regression are covered.
 - Batch E: richer reading/listening material remains deferred by design; native SpeechSynthesis remains available.
-- Batch F next: final full test, commit, push, and Pages verification.
+- Batch F complete: full npm run check passes 20/20; local Chromium iPhone 390x844 new-learning, accepted-answer, retry, and mobile layout checks pass. Pages verification is being completed now.
 
 ## V3.2 batches
 
@@ -23,5 +23,5 @@
 - Preserved: K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, V3 battle reports, Day/Night theme, and PWA shell.
 - Data safety: old `english-mastery-v1` storage is read and migrated without deletion; V2/V3 backups receive V4 defaults; saved reports and daily-pack metadata merge without resetting progress. Public repository contains generic demo data only.
 - Tests: 20 core tests pass; Chromium iPhone 390×844 smoke passes for Chinese navigation, mode selection/switch confirmation, cloze focus, sentence mode separation, JSON pack preview/import, today's-only queue controls, retry-after-error, and no horizontal overflow. Continue-original-session and PWA cache `english-cultivation-static-v3.3.0` checks pass. Physical iPhone verification remains pending.
-- Deployment: V3.2 remains live; V3.3 changes are pending the next verified commit/push.
+- Deployment: V3.3 source commit `16fea17` is pushed to the existing `main` branch; Pages status and live resources are being verified.
 - Live URL: `https://jajagood777-sys.github.io/english-mastery-mobile/`.
