@@ -142,8 +142,10 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
       }
     } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
   });
-  if(!items.length) throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title:packTitle,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en'}};
+  const unique=[]; const seen=new Set();
+  for(const item of items){const key=item.kind==='word'?`word|${normalized(item.target)}`:`sentence|${normalized(item.text)}`;if(seen.has(key)){errors.push(`重复项目：${item.sourceItemId||item.id}`);continue;}seen.add(key);unique.push(item);}
+  if(!unique.length) throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items:unique,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title:packTitle,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en'}};
 }
 
 export function normalizeAnswer(value) {

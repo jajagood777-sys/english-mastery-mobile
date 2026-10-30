@@ -4,7 +4,8 @@
 
 - Batch A complete: V3.1 audit finished; baseline `npm run check` passes 14/14; workspace was clean before V3.2 changes.
 - Batch B complete: precise answer checks (exact, case/punctuation, minor spelling, incorrect), retry-after-error with separate initial/retry records, adaptive review intervals, tags/status/source filters, and richer battle-report attempt details.
-- Batch C next: review queue visibility and daily learning package quality checks.
+- Batch C complete: home review queue shows due/weak/new counts; daily pack preview shows date/source/counts and duplicate quality messages; normalized pack duplicates are removed without changing existing progress.
+- Batch D next: final import/tag regression and deployment verification.
 
 - Base project preserved from English Mastery V2; no new repository created.
 - V3.2 preserves: Chinese navigation/help, explicit Words/Sentences/Mixed mode switching with confirmation, touch-to-focus cloze inputs, distinct sentence Missing Words vs Full Sentence Recall, daily learning-pack JSON import and today-only queues.
