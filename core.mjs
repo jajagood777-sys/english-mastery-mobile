@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4;
-export const APP_VERSION = '3.1.0';
+export const APP_VERSION = '3.2.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -61,12 +61,12 @@ export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported
       if (type === 'word') {
         const id = clean(r.Item_ID); const target = clean(r.English_Target); const example = clean(r.Original_Example_EN);
         if (!id || !target || !example) throw Error('Item ID, target and English example are required.');
-        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', contentType:'Words', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group) }));
+        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', contentType:'Words', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group), tags:clean(r.Tags||r.Tag||r.Topic).split(/[;|]/).map(clean).filter(Boolean) }));
         if (includeExamples && example.length >= 12 && example.length <= 400) items.push(baseRecord({ id:`s:${stableHash(normalized(example))}`, kind:'sentence', contentType:'Sentences', text:example, group:clean(r.Group) || 'Examples', source:`${source} · ${id}` }));
       } else {
         const sentence = clean(r.sentence);
         if (sentence.length < 10 || sentence.length > 800) throw Error('Sentence must be 10–800 characters.');
-        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences' }));
+        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences', tags:clean(r.tags||r.Tags||r.topic).split(/[;|]/).map(clean).filter(Boolean) }));
       }
     } catch (err) { errors.push(`Row ${i + 2}: ${err.message}`); }
   });
@@ -85,7 +85,7 @@ export function sentencesFromText(raw, {source='Pasted text'}={}) {
     const s=v.replaceAll('<DOT>','.').replace(/^[\s\-—]+/,'').trim();
     if (s.length<18 || s.length>400 || s.split(/\s+/).length<4 || /^\d+[.)]/.test(s) || abbreviations.includes(s.toLowerCase())) continue;
     const key=normalized(s); if(seen.has(key)) continue;
-    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',contentType:'Reading Materials',text:s,source,group:'Reading'}));
+    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',contentType:'Reading Materials',text:s,source,group:'Reading', tags:['Reading Materials']}));
   }
   return {items:results, errors:[], sourceRows: results.length, sourceType:'text'};
 }
@@ -134,25 +134,54 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
         const target=clean(raw.target||raw.english_target||raw.text), example=clean(raw.example||raw.example_en||raw.sentence);
         if(!target||!example) throw Error('word 项目需要 target 和 example。');
         const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),importedAt}));
+        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),importedAt}));
       } else {
         const text=clean(raw.text||raw.sentence||raw.english); if(text.length<10||text.length>800) throw Error('sentence 长度需为 10–800 个字符。');
         const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),importedAt}));
       }
     } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
   });
   if(!items.length) throw Error(`学习包没有可导入项目。${errors[0]||''}`);
   return {items,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title:packTitle,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en'}};
 }
+
+export function normalizeAnswer(value) {
+  return clean(value).toLocaleLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[.,!?;:]+$/g,'').replace(/\s+/g,' ');
+}
+function answerKey(value) { return normalizeAnswer(value).replace(/[^\p{L}\p{N}]+/gu,''); }
+function editDistance(a,b){const row=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let prev=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const cur=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,prev+(a[i-1]===b[j-1]?0:1));prev=cur;}}return row[b.length];}
+export function compareAnswer(user, reference, {accepted=[]} = {}) {
+  const rawUser=clean(user), rawReference=clean(reference); if(!rawUser) return {status:'blank',user:rawUser,reference:rawReference,message:'没有填写答案。'};
+  const userNorm=normalizeAnswer(rawUser), refNorm=normalizeAnswer(rawReference);
+  if(rawUser===rawReference) return {status:'correct',user:rawUser,reference:rawReference,message:'答案正确。'};
+  if(userNorm===refNorm) return {status:'case_or_punctuation',user:rawUser,reference:rawReference,message:'内容一致，只有大小写或标点不同。'};
+  const acceptedNorm=accepted.map(normalizeAnswer); if(acceptedNorm.includes(userNorm)) return {status:'correct',user:rawUser,reference:rawReference,message:'答案符合允许表达。'};
+  if(answerKey(rawUser)===answerKey(rawReference)) return {status:'case_or_punctuation',user:rawUser,reference:rawReference,message:'内容一致，只有大小写或标点不同。'};
+  const distance=editDistance(answerKey(rawUser),answerKey(rawReference));
+  if(distance===1&&answerKey(rawReference).length>=4) return {status:'minor_spelling',user:rawUser,reference:rawReference,message:'可能有一个拼写差异，请比较参考表达。'};
+  return {status:'incorrect',user:rawUser,reference:rawReference,message:'答案与参考表达不同，请自行比较。'};
+}
 export function nextDue(status, now = new Date()) {
   if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
   const start = new Date(now);return new Date(start.getTime()+REVIEW_DAYS[status]*86400000).toISOString();
 }
+
+export function scheduleReview(status, item = {}, now = new Date()) {
+  if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
+  const previous = Number(item.intervalDays || 0);
+  let intervalDays;
+  if (status === 'N') intervalDays = 1;
+  else if (status === 'V') intervalDays = previous ? Math.max(2, Math.min(5, Math.round(previous * 0.6))) : 3;
+  else intervalDays = previous ? Math.min(30, Math.max(7, Math.round(previous * 1.8))) : 7;
+  const due = new Date(new Date(now).getTime() + intervalDays * 86400000).toISOString();
+  return {dueAt:due, intervalDays};
+}
 export function isDue(item, now=Date.now()) {return !!item.dueAt && new Date(item.dueAt).getTime() <= now;}
 export function buildQueue(items,mode='mixed',now=Date.now()) {
   const f=items.filter(i=>mode==='mixed'||i.kind===(mode==='words'?'word':'sentence'));
-  return [...f].sort((a,b)=>{
+  const unique=[...new Map(f.map(item=>[item.id,item])).values()];
+  return unique.sort((a,b)=>{
     const rank=x=>isDue(x,now)?0:x.status==='UNTESTED'?1:x.status==='N'?2:x.status==='V'?3:4;
     return rank(a)-rank(b) || (new Date(a.dueAt||'9999')-new Date(b.dueAt||'9999')) || a.id.localeCompare(b.id);
   }).map(x=>x.id);
@@ -176,7 +205,7 @@ export function migrateLegacyState(legacy) {
     wordIds.set(oldId, id);
     const attempts = attemptsFor(oldId, 'word');
     const last = attempts.at(-1);
-    items.push(baseRecord({id, sourceItemId:oldId, kind:'word', contentType:'Words', target, example, cue:clean(old.cue), group:clean(old.group)||'Legacy vocabulary', source:'English Mastery v1', evidence:clean(old.evidence), status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
+    items.push(baseRecord({id, sourceItemId:oldId, kind:'word', contentType:'Words', target, example, cue:clean(old.cue), group:clean(old.group)||'Legacy vocabulary', source:'English Mastery v1', evidence:clean(old.evidence), tags:Array.isArray(old.tags)?old.tags:[], status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
   }
   for (const old of legacy.sentences) {
     const oldId = String(old.id || '').trim();
@@ -186,7 +215,7 @@ export function migrateLegacyState(legacy) {
     sentenceIds.set(oldId, id);
     const attempts = attemptsFor(oldId, 'sentence');
     const last = attempts.at(-1);
-    items.push(baseRecord({id, kind:'sentence', contentType:'Sentences', text, source:clean(old.source)||'English Mastery v1', group:clean(old.topic)||'Legacy sentences', status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
+    items.push(baseRecord({id, kind:'sentence', contentType:'Sentences', text, source:clean(old.source)||'English Mastery v1', group:clean(old.topic)||'Legacy sentences', tags:Array.isArray(old.tags)?old.tags:[], status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
   }
   const attempts = legacy.history.map((h, index) => {
     const itemId = h.type === 'word' ? wordIds.get(String(h.itemId)) : sentenceIds.get(String(h.itemId));
@@ -194,7 +223,7 @@ export function migrateLegacyState(legacy) {
     return {id:`a:legacy:${index}:${stableHash(String(h.at||''))}`, sessionId:h.sessionId || null, itemId, kind:h.type, status:h.rating, answer:clean(h.answer), at:safeDate(h.at)||new Date(0).toISOString()};
   }).filter(Boolean);
   const sessions = (Array.isArray(legacy.sessions) ? legacy.sessions : []).map((s, index) => ({id:s.id || `session:legacy:${index}`, startedAt:s.startedAt || null, endedAt:s.endedAt || s.startedAt || null, activeMs:Math.max(0, Number(s.seconds||0)*1000), mode:'legacy', count:Number(s.items||0), words:0, sentences:0, K:0, V:0, N:0}));
-  return validateBackup({version:VERSION, items, attempts, sessions, reports:[], activeSession:null, settings:{duration:Number(legacy.settings?.goalMinutes)||20, speechRate:.9, theme:'system', chineseHints:true}});
+  return validateBackup({version:VERSION, items, attempts, sessions, reports:[], activeSession:null, settings:{duration:Number(legacy.settings?.goalMinutes)||20, speechRate:.9, theme:'system', chineseHints:true, retryAfterError:true}});
 }
 export function migrateBackupPayload(value) {
   if (value && Array.isArray(value.items) && Array.isArray(value.attempts) && Array.isArray(value.sessions)) return validateBackup(value);
@@ -211,7 +240,7 @@ export function validateBackup(value){
     if(item.kind==='sentence'&&typeof item.text!=='string')throw Error('Backup has invalid sentence data.');
     ids.add(item.id);
   }
-  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,...(value.settings||{})}};
+  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
@@ -229,6 +258,11 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
       reference_answer: attempt.referenceAnswer || item.target || item.text || '',
       rating: attempt.status,
       skipped: Boolean(attempt.skipped),
+      initial_check: attempt.initial_check || null,
+      retry_answer: attempt.retry_answer || '',
+      retry_check: attempt.retry_check || null,
+      retried_after_error: Boolean(attempt.retried_after_error),
+      tags: item.tags || [],
       attempt_timestamp: attempt.at,
       suggested_review_date: item.dueAt || null
     };
@@ -276,8 +310,8 @@ export function battleReportMarkdown(report) {
     `- Report ID: ${report.report_id}`, `- Session ID: ${report.session_id}`, `- Date: ${report.created_at}`, `- Time zone: ${report.timezone}`,
     `- Active study time: ${report.active_seconds} seconds`, `- Mode: ${report.mode}`, `- Words: ${report.mode_breakdown.words}`, `- Sentences: ${report.mode_breakdown.sentences}`,
     `- Rated attempts: ${report.total_rated_attempts}`, `- Skipped items: ${report.skipped_items}`, `- K / V / N: ${r.K} / ${r.V} / ${r.N}`, ``,
-    `## Practice details`, ``, `| Item | Type | Rating | Answer | Review |`, `|---|---|---|---|---|`,
-    ...(report.attempts || []).map(a => `| ${a.item_id} | ${a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.suggested_review_date||''} |`),
+    `## Practice details`, ``, `| 项目 | 类型 | 评价 | 初答 | 检查 | 重练 | 复习 |`, `|---|---|---|---|---|---|---|`,
+    ...(report.attempts || []).map(a => `| ${a.item_id} | ${a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,
