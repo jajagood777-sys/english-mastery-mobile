@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.2;
-export const APP_VERSION = '4.2.0';
+export const APP_VERSION = '4.3.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -96,6 +96,22 @@ export function mergeItems(existing, incoming) {
   return {items:out,added,skipped};
 }
 function escapeRE(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+/** Reuse a previously learned card when a new daily file contains the same exercise. */
+export function mergeDailyPackItems(existing=[], incoming=[]) {
+  const out=[...existing],byId=new Map(out.map(item=>[item.id,item.id])),byContent=new Map();
+  const contentKey=item=>item.kind==='word'
+    ? `w|${normalized(item.target)}|${normalized(item.example)}`
+    : `s|${item.module||'sentences'}|${normalized(item.text)}|${normalized(item.clozeTarget||item.clozeAnswer||'')}`;
+  for(const item of out){const key=contentKey(item);if(!byContent.has(key))byContent.set(key,item.id);}
+  const ids=[];let added=0,skipped=0;
+  for(const item of incoming){
+    const key=contentKey(item),id=byId.get(item.id)||byContent.get(key);
+    if(id){ids.push(id);skipped++;continue;}
+    out.push(item);byId.set(item.id,item.id);byContent.set(key,item.id);ids.push(item.id);added++;
+  }
+  return {items:out,itemIds:[...new Set(ids)],added,skipped};
+}
+
 export function wordPrompt(item) {
   const example=clean(item.example),target=clean(item.target);
   if(target){
@@ -188,6 +204,7 @@ export function mergeBackupState(current={}, restored={}) {
     readings,
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
+    dailyJourney: current.dailyJourney || restored.dailyJourney || null,
     settings:{...(restored.settings||{}),...(current.settings||{})}
   };
 }
@@ -204,31 +221,58 @@ export function mergeReadings(existing=[], incoming=[]) {
   return out;
 }
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
-  if (!value || typeof value !== 'object' || !Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
-  const packId = clean(value.pack_id) || `pack:${stableHash(JSON.stringify(value.items))}`;
-  const packTitle = clean(value.title) || '今日学习包';
-  const importedAt = new Date().toISOString();
-  const items = []; const errors=[];
+  if(!value||typeof value!=='object'||!Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
+  if(value.items.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
+  if(value.readings!==undefined&&!Array.isArray(value.readings))throw Error('readings 必须是阅读文章数组。');
+  if((value.readings||[]).length>20)throw Error('单份学习包最多包含 20 篇阅读文章。');
+  const packId=clean(value.pack_id)||`pack:${stableHash(JSON.stringify(value.items)+'|'+JSON.stringify(value.readings||[]))}`;
+  const title=clean(value.title)||'今日综合英语学习包';
+  const importedAt=new Date().toISOString();
+  const errors=[],items=[],readings=[];
+  const planned=Number(value.recommended_minutes??value.target_minutes??0);
+  const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
   value.items.forEach((raw,index)=>{
-    try {
-      const kind=clean(raw.type||raw.kind).toLowerCase(); const sourceName=clean(raw.source||value.source)||source;
-      if (!['word','sentence'].includes(kind)) throw Error('类型必须是 word 或 sentence。');
-      if(kind==='word'){
-        const target=clean(raw.target||raw.english_target||raw.text), example=clean(raw.example||raw.example_en||raw.sentence);
-        if(!target||!example) throw Error('word 项目需要 target 和 example。');
-        const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),meaningZh:clean(raw.meaning_zh||raw.meaningZh||raw.hint_zh||raw.cue),definitionEn:clean(raw.definition_en||raw.definitionEn),partOfSpeech:clean(raw.part_of_speech||raw.partOfSpeech),collocations:listValue(raw.collocations),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),difficulty:clean(raw.difficulty),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
-      } else {
-        const text=clean(raw.text||raw.sentence||raw.english); if(text.length<10||text.length>800) throw Error('sentence 长度需为 10–800 个字符。');
-        const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
-      }
-    } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
+    try{
+      if(!raw||typeof raw!=='object')throw Error('学习项目必须是对象。');
+      const type=clean(raw.type||raw.kind).toLowerCase();
+      const sourceName=clean(raw.source||value.source)||source;
+      const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
+      const tags=(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean);
+      if(type==='word'){
+        const target=clean(raw.target||raw.english_target||raw.text),example=clean(raw.example||raw.example_en||raw.sentence);
+        if(!target||!example||target.length>150||example.length>800)throw Error('word 需要 target、example，且长度必须合理。');
+        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle:title,kind:'word',module:'words',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags,meaningZh:clean(raw.meaning_zh||raw.meaningZh||raw.hint_zh||raw.cue),definitionEn:clean(raw.definition_en||raw.definitionEn),partOfSpeech:clean(raw.part_of_speech||raw.partOfSpeech),collocations:listValue(raw.collocations),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+      }else if(type==='sentence'||type==='listening'){
+        const text=clean(raw.text||raw.sentence||raw.english);
+        if(text.length<10||text.length>800)throw Error('句子或听力材料需要长度 10–800 的英文文本。');
+        const module=type==='listening'?'listening':'sentences';
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+      }else throw Error('type 仅支持 word、sentence 或 listening。');
+    }catch(error){errors.push(`第 ${index+1} 项：${error.message}`);}
   });
-  const unique=[]; const seen=new Set();
-  for(const item of items){const key=item.kind==='word'?`word|${normalized(item.target)}`:`sentence|${normalized(item.text)}`;if(seen.has(key)){errors.push(`重复项目：${item.sourceItemId||item.id}`);continue;}seen.add(key);unique.push(item);}
-  if(!unique.length) throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title:packTitle,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en'}};
+  (value.readings||[]).forEach((raw,index)=>{
+    try{
+      if(!raw||typeof raw!=='object')throw Error('阅读文章必须是对象。');
+      const text=clean(raw.text||raw.content),articleTitle=clean(raw.title);
+      if(!articleTitle||text.length<20||text.length>40000)throw Error('readings 需要 title 和长度 20–40000 的英文正文。');
+      const sourceId=clean(raw.id)||`reading-${index+1}`;
+      readings.push({id:`reading:pack:${stableHash(packId+'|'+sourceId)}`,sourceId,title:articleTitle,text,source:clean(raw.source||value.source)||source,packId,createdAt:importedAt});
+    }catch(error){errors.push(`阅读第 ${index+1} 篇：${error.message}`);}
+  });
+  const unique=[],seen=new Set();
+  for(const item of items){
+    const key=item.kind==='word'?`word|${normalized(item.target)}`:`${item.module}|${normalized(item.text)}`;
+    if(seen.has(key)){errors.push(`重复项目：${item.sourceItemId||item.id}`);continue;}
+    seen.add(key);unique.push(item);
+  }
+  const uniqueReadings=[],seenReading=new Set();
+  for(const reading of readings){
+    const key=normalized(reading.text);
+    if(seenReading.has(key)){errors.push(`重复阅读：${reading.title}`);continue;}
+    seenReading.add(key);uniqueReadings.push(reading);
+  }
+  if(!unique.length&&!uniqueReadings.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items:unique,readings:uniqueReadings,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -335,8 +379,16 @@ export function validateBackup(value){
   if(value.packHistory!==undefined&&!Array.isArray(value.packHistory)) throw Error('Backup has invalid learning-pack history.');
   const packHistory=(value.packHistory||[]).filter(Boolean).map(pack=>{if(typeof pack!=='object'||!clean(pack.packId))throw Error('Backup has invalid learning-pack history.');return {...pack,packId:clean(pack.packId)};});
   const dailyPack=value.dailyPack===null||value.dailyPack===undefined?null:(typeof value.dailyPack==='object'&&clean(value.dailyPack.packId)?value.dailyPack: (()=>{throw Error('Backup has invalid learning-pack metadata.');})());
+  const journey=value.dailyJourney;
+  const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','sentences','reading','listening'].includes(x))?{
+    ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
+    index:Math.max(0,Math.min(journey.steps.length,Number(journey.index)||0)),
+    completed:Array.isArray(journey.completed)?journey.completed.filter(x=>x&&typeof x.stage==='string'):[],
+    sessionIds:Array.isArray(journey.sessionIds)?journey.sessionIds.filter(x=>typeof x==='string'):[],
+    readingDoneIds:Array.isArray(journey.readingDoneIds)?journey.readingDoneIds.filter(x=>typeof x==='string'):[]
+  }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
@@ -412,6 +464,14 @@ export function battleReportMarkdown(report) {
     `- Report ID: ${report.report_id}`, `- Session ID: ${report.session_id}`, `- Date: ${report.created_at}`, `- Time zone: ${report.timezone}`,
     `- Active study time: ${report.active_seconds} seconds`, `- Mode: ${report.mode}`, `- Words: ${report.mode_breakdown.words}`, `- Sentences: ${report.mode_breakdown.sentences}`,
     `- Rated attempts: ${report.total_rated_attempts}`, `- Skipped items: ${report.skipped_items}`, `- K / V / N: ${r.K} / ${r.V} / ${r.N}`, `- First independent answers: ${report.prompt_stats?.first_attempt_independent||0}`, `- Prompted answers: ${report.prompt_stats?.prompted||0}`, `- Viewed-answer flows: ${report.prompt_stats?.viewed_answer||0}`, `- Retry-after-error flows: ${report.prompt_stats?.retried_after_error||0}`, ``,
+    ...(Array.isArray(report.module_coverage)?[
+      '## 今日综合学习模块', '',
+      `- Recommended time (not a completion condition): ${report.target_minutes||'not set'} minutes`,
+      `- Actual reading time: ${report.reading_seconds||0} seconds`,
+      `- Completed reading articles (self-reported): ${report.reading_completed||0}`,
+      ...report.module_coverage.map(m=>`- ${m.label||m.stage}: ${m.status==='completed'?'completed':m.status==='partial'?'partially completed':'skipped'}; ${m.count??0} items`),
+      ''
+    ]:[]),
     `## Practice details`, ``, `| 项目 | 类型 | 评价 | 初答 | 检查 | 重练 | 复习 |`, `|---|---|---|---|---|---|---|`,
     ...(report.attempts || []).map(a => `| ${a.item_id} | ${a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,

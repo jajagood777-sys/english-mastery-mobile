@@ -22,7 +22,7 @@ test('V4.1 design tokens include touch-safe mobile navigation and keyboard spaci
 });
 
 test('legacy UNTESTED cards still enter the new-content learning stage',()=>{
-  assert.match(app,/if\(item\.learningStage==='new'\|\|\(!item\.learningStage&&item\.status==='UNTESTED'\)\)\{buildLearnCard/);
+  assert.match(app,/s\.journeyStage!=='listening'&&\(item\.learningStage==='new'\|\|\(!item\.learningStage&&item\.status==='UNTESTED'\)\)\)\{buildLearnCard/);
 });
 
 test('home listening entry passes its requested sentence style into the session',()=>{
@@ -61,11 +61,22 @@ test('V4.2 compact answer controls use a real single-line input',()=>{
 
 test('V4.2 settings page owns duration, backup and theme controls',()=>{
   assert.match(app,/function renderSettings/);
-  assert.match(app,/每日目标分钟/);
+  assert.match(app,/参考目标分钟（正向计时，不强制结束）/);
   assert.match(app,/恢复 JSON 备份（先预览，再合并）/);
   assert.match(app,/if\(page==='settings'\)return renderSettings/);
 });
 
 test('V4.2 PWA cache marker is versioned for safe resource refresh',()=>{
-  assert.match(sw,/english-cultivation-static-v4\.2\.0/);
+  assert.match(sw,/english-cultivation-static-v4\.3\.0/);
+});
+
+test('V4.3 one-file daily journey has all four stages and positive active time',()=>{
+ assert.match(app,/function startDailyJourney/);
+ assert.match(app,/function beginJourneyStage/);
+ assert.match(app,/function completeJourneyReading/);
+ assert.match(app,/function finishDailyJourney/);
+ assert.match(app,/journeyElapsedMs/);
+ assert.match(app,/recommendedMinutes/);
+ assert.match(app,/今日综合学习 · 第三模块/);
+ assert.match(app,/不强制结束/);
 });

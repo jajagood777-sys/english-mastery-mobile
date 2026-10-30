@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "pack_id": "DEMO-2026-10-31-ALL-ENGLISH",
+  "title": "Daily English | Words, Sentences, Reading & Listening",
+  "created_at": "2026-10-31",
+  "source": "Original example material for English Cultivation",
+  "language": "en",
+  "recommended_minutes": 40,
+  "items": [
+    {
+      "id": "word-1",
+      "type": "word",
+      "target": "address",
+      "example": "We need to address the underlying problem.",
+      "meaning_zh": "处理；着手解决",
+      "definition_en": "to deal with a problem",
+      "part_of_speech": "verb",
+      "collocations": [
+        "address a problem"
+      ]
+    },
+    {
+      "id": "word-2",
+      "type": "word",
+      "target": "consistent",
+      "example": "Consistent practice helps learners improve.",
+      "meaning_zh": "持续的；一致的"
+    },
+    {
+      "id": "sentence-1",
+      "type": "sentence",
+      "text": "A little focused practice every day can make a difference.",
+      "cloze_target": "make a difference"
+    },
+    {
+      "id": "sentence-2",
+      "type": "sentence",
+      "text": "Good learners review their mistakes and try again.",
+      "cloze_target": "review"
+    },
+    {
+      "id": "listening-1",
+      "type": "listening",
+      "text": "Listen carefully and write down what you hear."
+    },
+    {
+      "id": "listening-2",
+      "type": "listening",
+      "text": "Practice helps us remember useful English expressions."
+    }
+  ],
+  "readings": [
+    {
+      "id": "reading-1",
+      "title": "A Better Way to Learn English",
+      "source": "Original sample written for this app",
+      "text": "Learning a language takes time, but practice does not have to be complicated. You can read a short story, notice a useful expression, and then try to recall it without looking.\n\nReviewing your answers helps you discover what you remember and what still needs practice. Small, consistent efforts can become a meaningful habit."
+    }
+  ]
+}

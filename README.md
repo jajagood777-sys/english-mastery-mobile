@@ -72,3 +72,13 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 ## GitHub Pages
 
 The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.2.0` so a deployment receives a fresh cache.
+
+## V4.3 — one JSON file for all today's English study
+
+The Central Immortal Aperture now generates **one UTF-8 JSON daily pack** named `english-daily-master-pack.json`. Import once under 资料库; the app previews and automatically separates **炼词 → 炼句 → 阅读 → 听力**, then walks through the available modules. A missing module is shown as absent; it is never fabricated or marked completed. Original V1–V4.2 packs, CSV, TXT, Markdown and local backup import still work.
+
+JSON structure: `schema_version`, `pack_id`, `title`, `source`, `created_at`, `language`, `recommended_minutes`, `items` (`type: word | sentence | listening`) and `readings` (article objects with `id, title, text, source`). Use the checked-in example `examples/english-daily-master-pack.json` as the handoff template. Words require `target, example`; sentence tasks require `text` and may include `cloze_target`; listening tasks require `text` and use native browser speech synthesis; readings require `title, text`. Every task must have authentic or clearly authored, appropriately attributed English material.
+
+A daily journey stores actual word/sentence/listening attempts in their original sessions. Reading is explicitly confirmed by the learner (not graded as proven comprehension); a combined battle report shows module completion status, real active reading time, attempts, K/V/N and provenance. All data is local and can be backed up; no external synchronization is implied.
+
+**Timer**: elapsed time starts at 00:00 and counts upward. Recommended 30/40/60 or a custom goal (5–180 minutes in a pack; 1–180 minutes in settings) is a *soft target*, never an automatic finish. Pausing, hiding or exiting the reading page pauses reading time. User may continue after goal; results only count actual recorded learning.
