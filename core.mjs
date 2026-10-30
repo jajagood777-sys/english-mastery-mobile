@@ -96,6 +96,22 @@ export function mergeItems(existing, incoming) {
   return {items:out,added,skipped};
 }
 function escapeRE(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+/** Reuse a previously learned card when a new daily file contains the same exercise. */
+export function mergeDailyPackItems(existing=[], incoming=[]) {
+  const out=[...existing],byId=new Map(out.map(item=>[item.id,item.id])),byContent=new Map();
+  const contentKey=item=>item.kind==='word'
+    ? `w|${normalized(item.target)}|${normalized(item.example)}`
+    : `s|${item.module||'sentences'}|${normalized(item.text)}|${normalized(item.clozeTarget||item.clozeAnswer||'')}`;
+  for(const item of out){const key=contentKey(item);if(!byContent.has(key))byContent.set(key,item.id);}
+  const ids=[];let added=0,skipped=0;
+  for(const item of incoming){
+    const key=contentKey(item),id=byId.get(item.id)||byContent.get(key);
+    if(id){ids.push(id);skipped++;continue;}
+    out.push(item);byId.set(item.id,item.id);byContent.set(key,item.id);ids.push(item.id);added++;
+  }
+  return {items:out,itemIds:[...new Set(ids)],added,skipped};
+}
+
 export function wordPrompt(item) {
   const example=clean(item.example),target=clean(item.target);
   if(target){
