@@ -31,6 +31,15 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Review scheduling uses K/V/N with bounded adaptive intervals based on the previous interval, while the home queue shows due, weak, and new counts.
 - Optional tags, source, status, pack, and due filters are available in the local library.
 
+## V4.1 upgrade
+
+- Mobile-first home now centers on one honest “今日修炼” card showing due reviews, new items, and actual minutes, with a single primary start action.
+- Five touch-safe destinations — 首页、训练、阅读、进度、我的 — keep the library, reports, help, and local settings reachable without crowding the iPhone header.
+- Training hub separates new learning, due review, free vocabulary/sentence practice, difficult items, and today's pack while reusing the existing queue and confirmation rules.
+- Practice cards have stronger single-question hierarchy, real keyboard-safe answer spacing, visible answer feedback, and touch feedback. Legacy `UNTESTED` cards still enter Learn New Content before recall.
+- Reading typography and the selection toolbar are optimized for long English passages; report summaries use compact, readable metric cards.
+- Version `4.1.0` refreshes the service-worker cache to `english-cultivation-static-v4.1.0`. No storage migration or data deletion was introduced.
+
 ## Run locally
 
 ```sh
@@ -53,4 +62,4 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.0.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.1.0` so a deployment receives a fresh cache.

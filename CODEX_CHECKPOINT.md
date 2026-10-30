@@ -54,3 +54,12 @@ V3.5 batches
 - Tests: 21 core tests pass; Chromium iPhone 390×844 smoke passes for Chinese navigation, mode selection/switch confirmation, cloze focus, sentence mode separation, JSON pack preview/import, today's-only queue controls, retry-after-error, and no horizontal overflow. Continue-original-session and PWA cache `english-cultivation-static-v4.0.0` checks pass. Physical iPhone verification remains pending.
 - Deployment: V3.3 source remains live; V3.8 source remains live; V4.0 source commit `75c8697` is pushed; Pages status is built; live reading/listening/navigation resources and `english-cultivation-static-v4.0.0` cache are verified; Pages status is built; live v3.6 cache and Chinese resources are verified to the existing `main` branch; Pages status is `built`; live new-learning flow, HTTPS resources, and `english-cultivation-static-v4.0.0` cache are verified.
 - Live URL: `https://jajagood777-sys.github.io/english-mastery-mobile/`.
+
+## V4.1 mobile experience
+
+- V4.1 Batch A–E complete locally: the homepage now leads with today's due/new/actual-minute summary; the five-item mobile navigation is 首页、训练、阅读、进度、我的; library, reports, help, and local settings remain reachable from 我的.
+- Practice cards received stronger single-question hierarchy, keyboard-safe scroll spacing, touch feedback, and a regression guard so legacy `UNTESTED` cards without `learningStage` still enter Learn New Content.
+- Reading page typography and selection controls received the same mobile-first treatment; report summary metrics use compact cards. Core learning, review scheduling, backup, and report data paths were not changed.
+- Tests: `npm run check` passes 25/25. Chromium mobile smoke passes at 375×844, 390×844, and 430×844 for Chinese navigation, bottom-nav positioning, no horizontal overflow, day/night toggle, new-card learning, real textarea focus, answer feedback, reading navigation, and 我的 navigation. Physical iPhone Safari remains pending.
+- Version/cache: package and app version `4.1.0`; service worker cache `english-cultivation-static-v4.1.0`. No localStorage migration or deletion introduced.
+- Deployment status: pending commit and Pages push for this batch. Next task: commit, push `main`, poll Pages, fetch live shell and cache, then update this checkpoint with the final commit.

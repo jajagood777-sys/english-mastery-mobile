@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
-export const VERSION = 4;
-export const APP_VERSION = '4.0.0';
+export const VERSION = 4.1;
+export const APP_VERSION = '4.1.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -126,6 +126,20 @@ export function dateKeyInTimeZone(value, timeZone='Asia/Shanghai') {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+}
+export function homeSummary(state, now = new Date()) {
+  const items = Array.isArray(state?.items) ? state.items : [];
+  const sessions = Array.isArray(state?.sessions) ? state.sessions : [];
+  const todayKey = dateKeyInTimeZone(now);
+  const todayMinutes = Math.round(sessions.filter(session => dateKeyInTimeZone(session.endedAt) === todayKey).reduce((sum, session) => sum + Number(session.activeMs || 0), 0) / 60000);
+  const packIds = new Set(Array.isArray(state?.dailyPack?.itemIds) ? state.dailyPack.itemIds : []);
+  return {
+    due: items.filter(item => isDue(item, now)).length,
+    newItems: items.filter(item => item.status === 'UNTESTED' || item.learningStage === 'new').length,
+    weak: items.filter(item => item.status === 'N' || item.status === 'V').length,
+    todayMinutes,
+    packItems: packIds.size ? items.filter(item => packIds.has(item.id)).length : 0
+  };
 }
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');

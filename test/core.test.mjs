@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -68,3 +68,9 @@ test('new learning metadata stays explicit and does not imply mastery',()=>{cons
 test('battle report markdown exposes learning-stage and prompt provenance',()=>{const report=buildBattleReport({session:{id:'s2',startedAt:'2026-10-30T00:00:00Z',endedAt:'2026-10-30T00:01:00Z',activeMs:60000,mode:'words'},attempts:[{id:'a',sessionId:'s2',itemId:'w',kind:'word',status:'K',answer:'address',prompt_used:true,viewed_answer:true,retried_after_error:false,learning_stage_before:'new',at:'2026-10-30T00:00:30Z'}],items:[{id:'w',kind:'word',target:'address',source:'Pack',dueAt:null}],now:new Date('2026-10-30T00:01:00Z')});const md=battleReportMarkdown(report);assert.match(md,/Prompted answers: 1/);assert.match(md,/Viewed-answer flows: 1/);});
 
 test('explicit sentence target is required for cloze and Beijing date keys cross UTC boundaries correctly',()=>{assert.equal(sentenceClozeParts('We need to address the problem.','address').answer,'address');assert.equal(sentenceClozeParts('We need to address the problem.','solve'),null);assert.equal(dateKeyInTimeZone('2026-10-29T16:30:00.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T15:59:59.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T16:00:00.000Z'),'2026-10-31');});
+
+test('V4.1 version markers and honest home summary are available',()=>{
+ const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
+ assert.equal(VERSION,4.1);assert.equal(APP_VERSION,'4.1.0');
+ assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
+});
