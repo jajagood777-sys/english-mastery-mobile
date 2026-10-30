@@ -35,4 +35,4 @@ The app stores learning data in browser local storage. Safari website-data delet
 
 ## GitHub Pages
 
-This repository is designed for GitHub Pages. Enable Pages from the repository Settings using the `main` branch and root folder. The deployed app registers its service worker only on HTTPS or localhost. Current deployment is pending because the connected GitHub token cannot create a repository (HTTP 403); see `CODEX_CHECKPOINT.md`.
+This repository is designed for GitHub Pages. Enable Pages from the repository Settings using the `main` branch and root folder. The deployed app registers its service worker only on HTTPS or localhost. Current deployment is pending because the connected GitHub App token cannot write repository contents (HTTP 403); see `CODEX_CHECKPOINT.md`.
