@@ -113,7 +113,7 @@ function journeyElapsedMs(){
 }
 function startDailyJourney(){
   const pack=data.dailyPack;if(!pack)return setPage('library');
-  if(data.activeSession&&data.activeSession.journeyId!==data.dailyJourney?.id){notify('请先结束当前普通训练，再开始今日综合学习。');setPage('practice');return;}
+  if(data.activeSession&&(data.activeSession.journeyId!==data.dailyJourney?.id||data.dailyJourney?.packId!==pack.packId)){notify('请先完成或结束上一个训练，再开始新的今日综合学习。');setPage('practice');return;}
   const old=data.dailyJourney;
   if(old?.packId===pack.packId&&!old.finishedAt)return beginJourneyStage();
   if(old&&!old.finishedAt&&old.packId!==pack.packId&&!confirm('上一个综合学习尚未完成。切换新学习包？已有练习记录仍保留。'))return;
