@@ -79,3 +79,11 @@ V3.5 batches
 - Physical iPhone Safari is not available in this environment and remains user acceptance only.
 - Deployment status: final V4.2 code is pushed in commit `0067fec` (including the remote audit commit `c71af9f`), GitHub Pages build is `built`, live URL returns HTTP 200, `APP_VERSION` is `4.2.0`, manifest name is `言道修炼殿 · English Cultivation`, and Service Worker cache is `english-cultivation-static-v4.2.0`. Physical iPhone Safari remains user acceptance only.
 - Next task: none for V4.2. Stop after the final checkpoint commit unless a new product request is supplied.
+
+## V4.3 — Unified Daily Master Pack (2026-10-31)
+
+- Branch: feature/v4-3-unified-daily-pack. Source: main at 6ee969d.
+- New single-file pack: English word, sentence, reading and listening types; legacy format maintained.
+- One-click staged learning flow and cumulative positive-count timer; modules completed separately and combined report generated with evidence and self-reported reading status.
+- Reading articles and module progress included in backups, with safe paused resume after reload.
+- Demo fixture and tests must pass before merging to main or deployment. Physical iPhone Safari keyboard/reading interactions remain user acceptance, not automation proof.
