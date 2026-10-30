@@ -1,10 +1,11 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4;
-export const APP_VERSION = '3.2.0';
+export const APP_VERSION = '3.3.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
 const clean = value => String(value ?? '').trim();
+const listValue = value => Array.isArray(value) ? value.map(clean).filter(Boolean) : clean(value).split(/[;|]/).map(clean).filter(Boolean);
 
 export function parseCSV(raw) {
   const input = String(raw ?? '').replace(/^\uFEFF/, '');
@@ -51,7 +52,7 @@ export function stableHash(s) {
   return (h >>> 0).toString(36);
 }
 function baseRecord(item) {
-  const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, createdAt:importedAt, importedAt, ...item };
+  const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, intervalDays:0, successStreak:0, errorCount:0, learningStage:'new', promptCount:0, viewedAnswerCount:0, createdAt:importedAt, importedAt, ...item };
 }
 export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported CSV' } = {}) {
   const parsed = parseCSV(raw); const type = detectCSVType(parsed.headers);
@@ -61,12 +62,12 @@ export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported
       if (type === 'word') {
         const id = clean(r.Item_ID); const target = clean(r.English_Target); const example = clean(r.Original_Example_EN);
         if (!id || !target || !example) throw Error('Item ID, target and English example are required.');
-        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', contentType:'Words', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group), tags:clean(r.Tags||r.Tag||r.Topic).split(/[;|]/).map(clean).filter(Boolean) }));
+        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', contentType:'Words', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group), tags:clean(r.Tags||r.Tag||r.Topic).split(/[;|]/).map(clean).filter(Boolean), meaningZh:clean(r.Meaning_ZH||r.meaning_zh||r.Diagnostic_Cue_ZH), definitionEn:clean(r.Definition_EN||r.definition_en), partOfSpeech:clean(r.Part_of_Speech||r.part_of_speech), collocations:listValue(r.Collocations||r.collocations), acceptedAnswers:listValue(r.Accepted_Answers||r.accepted_answers), difficulty:clean(r.Difficulty||r.difficulty), learningStage:clean(r.learning_stage)||'new' }));
         if (includeExamples && example.length >= 12 && example.length <= 400) items.push(baseRecord({ id:`s:${stableHash(normalized(example))}`, kind:'sentence', contentType:'Sentences', text:example, group:clean(r.Group) || 'Examples', source:`${source} · ${id}` }));
       } else {
         const sentence = clean(r.sentence);
         if (sentence.length < 10 || sentence.length > 800) throw Error('Sentence must be 10–800 characters.');
-        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences', tags:clean(r.tags||r.Tags||r.topic).split(/[;|]/).map(clean).filter(Boolean) }));
+        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences', tags:clean(r.tags||r.Tags||r.topic).split(/[;|]/).map(clean).filter(Boolean), learningStage:clean(r.learning_stage||r.Learning_Stage)||'new' }));
       }
     } catch (err) { errors.push(`Row ${i + 2}: ${err.message}`); }
   });
@@ -85,7 +86,7 @@ export function sentencesFromText(raw, {source='Pasted text'}={}) {
     const s=v.replaceAll('<DOT>','.').replace(/^[\s\-—]+/,'').trim();
     if (s.length<18 || s.length>400 || s.split(/\s+/).length<4 || /^\d+[.)]/.test(s) || abbreviations.includes(s.toLowerCase())) continue;
     const key=normalized(s); if(seen.has(key)) continue;
-    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',contentType:'Reading Materials',text:s,source,group:'Reading', tags:['Reading Materials']}));
+    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',contentType:'Reading Materials',text:s,source,group:'Reading', tags:['Reading Materials'], learningStage:'new'}));
   }
   return {items:results, errors:[], sourceRows: results.length, sourceType:'text'};
 }
@@ -134,11 +135,11 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
         const target=clean(raw.target||raw.english_target||raw.text), example=clean(raw.example||raw.example_en||raw.sentence);
         if(!target||!example) throw Error('word 项目需要 target 和 example。');
         const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),importedAt}));
+        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle,kind:'word',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),meaningZh:clean(raw.meaning_zh||raw.meaningZh||raw.hint_zh||raw.cue),definitionEn:clean(raw.definition_en||raw.definitionEn),partOfSpeech:clean(raw.part_of_speech||raw.partOfSpeech),collocations:listValue(raw.collocations),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),difficulty:clean(raw.difficulty),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       } else {
         const text=clean(raw.text||raw.sentence||raw.english); if(text.length<10||text.length>800) throw Error('sentence 长度需为 10–800 个字符。');
         const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle,kind:'sentence',contentType:'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',tags:(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }
     } catch (error) { errors.push(`第 ${index+1} 项：${error.message}`); }
   });
@@ -173,7 +174,9 @@ export function scheduleReview(status, item = {}, now = new Date()) {
   if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
   const previous = Number(item.intervalDays || 0);
   let intervalDays;
-  if (status === 'N') intervalDays = 1;
+  if (item.learningStage === 'new' || item.learningStage === 'learning') {
+    intervalDays = status === 'K' ? 2 : 1;
+  } else if (status === 'N') intervalDays = 1;
   else if (status === 'V') intervalDays = previous ? Math.max(2, Math.min(5, Math.round(previous * 0.6))) : 3;
   else intervalDays = previous ? Math.min(30, Math.max(7, Math.round(previous * 1.8))) : 7;
   const due = new Date(new Date(now).getTime() + intervalDays * 86400000).toISOString();
@@ -242,7 +245,8 @@ export function validateBackup(value){
     if(item.kind==='sentence'&&typeof item.text!=='string')throw Error('Backup has invalid sentence data.');
     ids.add(item.id);
   }
-  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,...(value.settings||{})}};
+  const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations)}));
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],dailyPack:value.dailyPack||null,activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
@@ -264,6 +268,10 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
       retry_answer: attempt.retry_answer || '',
       retry_check: attempt.retry_check || null,
       retried_after_error: Boolean(attempt.retried_after_error),
+      prompt_used: Boolean(attempt.prompt_used),
+      viewed_answer: Boolean(attempt.viewed_answer),
+      learning_stage_before: attempt.learning_stage_before || null,
+      learning_stage_after: attempt.learning_stage_after || null,
       tags: item.tags || [],
       attempt_timestamp: attempt.at,
       suggested_review_date: item.dueAt || null
@@ -295,6 +303,8 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
     mode: session.mode,
     pack_id: session.packId || null,
     mode_breakdown: {words, sentences},
+    learning_breakdown: {new_items:sessionAttempts.filter(a=>a.learning_stage_before==='new').length, learning_stage_items:sessionAttempts.filter(a=>a.learning_stage_before==='learning').length, review_items:sessionAttempts.filter(a=>['review','long_term'].includes(a.learning_stage_before)).length},
+    prompt_stats: {prompted:sessionAttempts.filter(a=>a.prompt_used).length, viewed_answer:sessionAttempts.filter(a=>a.viewed_answer).length, retried_after_error:sessionAttempts.filter(a=>a.retried_after_error).length, first_attempt_independent:sessionAttempts.filter(a=>!a.prompt_used&&!a.viewed_answer).length},
     total_rated_attempts: sessionAttempts.length,
     skipped_items: skipped,
     ratings_summary: {K:count('K'), V:count('V'), N:count('N')},
