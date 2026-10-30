@@ -1,4 +1,4 @@
-import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId} from './core.mjs';
+import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,mergeDailyPackItems} from './core.mjs';
 
 const STORE='central-english-mastery.v2';
 const LEGACY_STORE='english-mastery-v1';
@@ -54,7 +54,7 @@ function statistic(label,value){const box=div('stat');box.append(h('strong',Stri
 function navActive(){document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);b.setAttribute('aria-current',b.dataset.page===page?'page':'false');});}
 function setPage(which){if(page==='reading'&&which!=='reading')pauseJourneyReading();if(data.activeSession&&which!=='practice'&&page==='practice') pauseSession();stopSpeech();page=which;render();window.scrollTo({top:0,behavior:'instant'});}
 function render(){app.replaceChildren();navActive();if(page==='home')return renderHome();if(page==='training')return renderTrainingHub();if(page==='more')return renderMore();if(page==='settings')return renderSettings();if(page==='practice')return renderPractice();if(page==='library')return renderLibrary();if(page==='reading')return renderReading();if(page==='progress')return renderProgress();if(page==='reports')return renderReports();if(page==='summary')return renderSummary();}
-function modeLabel(mode){return mode==='words'?'单词与词块':mode==='sentences'?'句子训练':mode==='journey'?'今日综合学习':'混合训练';}
+function modeLabel(mode){return mode==='words'?'单词与词块':mode==='sentences'?'句子训练':mode==='reading'?'英文阅读':mode==='journey'?'今日综合学习':'混合训练';}
 function showGuide(){document.getElementById('guide-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='guide-dialog';const card=section('switch-dialog guide-dialog');card.append(el('div','使用帮助 · QUICK GUIDE','eyebrow'),h('h2','第一次训练这样做'),p('1. 选择“炼词”只练单词与词块；选择“炼句”只练句子；“混合训练”才会混合两种题目。','subtle'),p('2. 词汇和句子填空只填写缺少的英文单词或词块；整句回忆才需要写完整句子。','subtle'),p('3. 查看答案后，K｜会用、V｜模糊、N｜不会会决定下一次复习时间。','subtle'),p('4. 训练结束后打开“修炼战报”，可以复制给中央仙窍、分享或下载。','subtle'),lines(btn('知道了',()=>backdrop.remove(),'btn primary')));backdrop.append(card);document.body.append(backdrop);}
 
 function scopeLabel(scope){return scope==='journey'?'今日综合学习':scope==='today'?'今日学习':scope==='due'?'历史到期复习':'全部资料';}
@@ -298,10 +298,15 @@ wrap.append(lines(btn(draft.pack?'确认导入一份文件并开始综合学习'
   if(isPack&&data.dailyJourney&&!data.dailyJourney.finishedAt&&data.dailyJourney.packId!==packMeta.packId){
     if(!confirm('上一个综合学习包还有未完成模块。确定切换到新学习包？旧作答和战报仍会保留。'))return;
   }
-  const merged=mergeItems(data.items,draft.items);data.items=merged.items;
-  for(const article of (draft.readings||[])){if(!data.readings.some(r=>r.id===article.id||r.text===article.text))data.readings.push(article);}
+  const merged=isPack?mergeDailyPackItems(data.items,draft.items):mergeItems(data.items,draft.items);data.items=merged.items;
+  const readingIds=[];
+  for(const article of (draft.readings||[])){
+    let existing=data.readings.find(r=>r.id===article.id||r.text===article.text);
+    if(!existing){data.readings.push(article);existing=article;}
+    readingIds.push(existing.id);
+  }
   if(draft.reading&&!data.readings.some(r=>r.text===draft.reading.text))data.readings.push(draft.reading);
-  if(isPack){data.dailyPack={...packMeta,itemIds:draft.items.map(x=>x.id)};data.packHistory=[...(data.packHistory||[]).filter(x=>x.packId!==packMeta.packId),data.dailyPack];}
+  if(isPack){data.dailyPack={...packMeta,itemIds:merged.itemIds,readingIds};data.packHistory=[...(data.packHistory||[]).filter(x=>x.packId!==packMeta.packId),data.dailyPack];}
   if(!save())return;
   notify(`已识别并导入：词汇 ${words}、句子 ${sentences}、阅读 ${readings}、听力 ${listening}。`);
   draft=null;importRaw='';if(isPack)startDailyJourney();else render();
