@@ -80,3 +80,13 @@ test('V4.3 one-file daily journey has all four stages and positive active time',
  assert.match(app,/今日综合学习 · 第三模块/);
  assert.match(app,/不强制结束/);
 });
+
+test('V4.3 keeps full backup restore separate from daily pack import',()=>{
+ assert.match(app,/isFullBackup\(parsed\)/);
+ assert.match(app,/完整数据备份，请从“设置 → 恢复 JSON 备份”导入/);
+});
+
+test('V4.3 marks the last journey module as the combined-report handoff',()=>{
+ assert.match(app,/完成并查看综合战报/);
+ assert.match(app,/if\(!s\.journeyStage\)\{data\.reports/);
+});

@@ -81,4 +81,9 @@ JSON structure: `schema_version`, `pack_id`, `title`, `source`, `created_at`, `l
 
 A daily journey stores actual word/sentence/listening attempts in their original sessions. Reading is explicitly confirmed by the learner (not graded as proven comprehension); a combined battle report shows module completion status, real active reading time, attempts, K/V/N and provenance. All data is local and can be backed up; no external synchronization is implied.
 
+## V4.3 Codex Verified Edition
+
+- Independent review corrected the V4.3 data-version mismatch, separated full-backup restore from daily-pack import, constrained the free listening entry to listening items, added the standard mobile answer-input class to listening dictation, and removed per-module report duplicates from a daily journey.
+- The complete journey now archives one combined `journey` report after the four stages. Module session records remain available for accurate timing and history.
+
 **Timer**: elapsed time starts at 00:00 and counts upward. Recommended 30/40/60 or a custom goal (5–180 minutes in a pack; 1–180 minutes in settings) is a *soft target*, never an automatic finish. Pausing, hiding or exiting the reading page pauses reading time. User may continue after goal; results only count actual recorded learning.

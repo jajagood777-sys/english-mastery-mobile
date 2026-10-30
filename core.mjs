@@ -1,9 +1,12 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
-export const VERSION = 4.2;
+export const VERSION = 4.3;
 export const APP_VERSION = '4.3.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
+export function isFullBackup(value) {
+  return Boolean(value && typeof value === 'object' && Array.isArray(value.items) && Array.isArray(value.attempts) && Array.isArray(value.sessions));
+}
 const clean = value => String(value ?? '').trim();
 const listValue = value => Array.isArray(value) ? value.map(clean).filter(Boolean) : clean(value).split(/[;|]/).map(clean).filter(Boolean);
 

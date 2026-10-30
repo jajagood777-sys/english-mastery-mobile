@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -71,8 +71,13 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.2);assert.equal(APP_VERSION,'4.3.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
+});
+
+test('V4.3 distinguishes a complete backup from a daily learning pack',()=>{
+ assert.equal(isFullBackup({items:[],attempts:[],sessions:[]}),true);
+ assert.equal(isFullBackup({items:[{type:'word'}],pack_id:'today'}),false);
 });
 
 test('V4.2 reading selection uses the containing sentence and flags cross-sentence selections',()=>{
