@@ -1,5 +1,10 @@
 # English Cultivation checkpoint
 
+## V3.2 batches
+
+- Batch A complete: V3.1 audit finished; baseline `npm run check` passes 14/14; workspace clean before V3.2 changes.
+- Current next batch: B — precise retrieval checks, retry-after-error, and review scheduling.
+
 - Base project preserved from English Mastery V2; no new repository created.
 - V3.1 in progress: Chinese navigation/help, explicit Words/Sentences/Mixed mode switching with confirmation, touch-to-focus cloze inputs, distinct sentence Missing Words vs Full Sentence Recall, daily learning-pack JSON import and today-only queues.
 - Preserved: K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, V3 battle reports, Day/Night theme, and PWA shell.
