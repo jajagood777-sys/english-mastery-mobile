@@ -62,4 +62,5 @@ V3.5 batches
 - Reading page typography and selection controls received the same mobile-first treatment; report summary metrics use compact cards. Core learning, review scheduling, backup, and report data paths were not changed.
 - Tests: `npm run check` passes 25/25. Chromium mobile smoke passes at 375×844, 390×844, and 430×844 for Chinese navigation, bottom-nav positioning, no horizontal overflow, day/night toggle, new-card learning, real textarea focus, answer feedback, reading navigation, and 我的 navigation. Physical iPhone Safari remains pending.
 - Version/cache: package and app version `4.1.0`; service worker cache `english-cultivation-static-v4.1.0`. No localStorage migration or deletion introduced.
-- Deployment status: pending commit and Pages push for this batch. Next task: commit, push `main`, poll Pages, fetch live shell and cache, then update this checkpoint with the final commit.
+- Deployment status: commit `b7d585d` pushed to `main`; GitHub Pages build `1327225986` is `built`; live shell returns HTTP 200 and exposes the V4.1 five-item navigation plus `english-cultivation-static-v4.1.0`. Physical iPhone Safari remains the only user-side acceptance step.
+- Next task: none for V4.1. Stop after final verification unless a new product request is supplied.
