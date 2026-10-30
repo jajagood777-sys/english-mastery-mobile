@@ -1,5 +1,7 @@
-/** English Mastery: pure, testable data transforms. No network or private data. */
-export const VERSION = 2;
+/** English Cultivation: pure, testable data transforms. No network or private data. */
+export const VERSION = 3;
+export const APP_VERSION = '3.0.0';
+export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
 const clean = value => String(value ?? '').trim();
@@ -49,7 +51,7 @@ export function stableHash(s) {
   return (h >>> 0).toString(36);
 }
 function baseRecord(item) {
-  return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, createdAt:new Date().toISOString(), ...item };
+  const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, createdAt:importedAt, importedAt, ...item };
 }
 export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported CSV' } = {}) {
   const parsed = parseCSV(raw); const type = detectCSVType(parsed.headers);
@@ -59,12 +61,12 @@ export function recordsFromCSV(raw, { includeExamples = true, source = 'Imported
       if (type === 'word') {
         const id = clean(r.Item_ID); const target = clean(r.English_Target); const example = clean(r.Original_Example_EN);
         if (!id || !target || !example) throw Error('Item ID, target and English example are required.');
-        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group) }));
-        if (includeExamples && example.length >= 12 && example.length <= 400) items.push(baseRecord({ id:`s:${stableHash(normalized(example))}`, kind:'sentence', text:example, group:clean(r.Group) || 'Examples', source:`${source} · ${id}` }));
+        items.push(baseRecord({ id:`w:${id}:${stableHash(normalized(target+'|'+example))}`, sourceItemId:id, kind:'word', contentType:'Words', group:clean(r.Group) || 'Vocabulary', target, cue:clean(r.Diagnostic_Cue_ZH), example, source, evidence:clean(r.Evidence_Group) }));
+        if (includeExamples && example.length >= 12 && example.length <= 400) items.push(baseRecord({ id:`s:${stableHash(normalized(example))}`, kind:'sentence', contentType:'Sentences', text:example, group:clean(r.Group) || 'Examples', source:`${source} · ${id}` }));
       } else {
         const sentence = clean(r.sentence);
         if (sentence.length < 10 || sentence.length > 800) throw Error('Sentence must be 10–800 characters.');
-        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences' }));
+        items.push(baseRecord({ id:`s:${stableHash(normalized(sentence))}`, kind:'sentence', contentType:'Sentences', text:sentence, source:clean(r.source) || source, group:clean(r.topic) || 'Sentences' }));
       }
     } catch (err) { errors.push(`Row ${i + 2}: ${err.message}`); }
   });
@@ -83,7 +85,7 @@ export function sentencesFromText(raw, {source='Pasted text'}={}) {
     const s=v.replaceAll('<DOT>','.').replace(/^[\s\-—]+/,'').trim();
     if (s.length<18 || s.length>400 || s.split(/\s+/).length<4 || /^\d+[.)]/.test(s) || abbreviations.includes(s.toLowerCase())) continue;
     const key=normalized(s); if(seen.has(key)) continue;
-    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',text:s,source,group:'Reading'}));
+    seen.add(key);results.push(baseRecord({id:`s:${stableHash(key)}`,kind:'sentence',contentType:'Reading Materials',text:s,source,group:'Reading'}));
   }
   return {items:results, errors:[], sourceRows: results.length, sourceType:'text'};
 }
@@ -140,7 +142,7 @@ export function migrateLegacyState(legacy) {
     wordIds.set(oldId, id);
     const attempts = attemptsFor(oldId, 'word');
     const last = attempts.at(-1);
-    items.push(baseRecord({id, sourceItemId:oldId, kind:'word', target, example, cue:clean(old.cue), group:clean(old.group)||'Legacy vocabulary', source:'English Mastery v1', evidence:clean(old.evidence), status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
+    items.push(baseRecord({id, sourceItemId:oldId, kind:'word', contentType:'Words', target, example, cue:clean(old.cue), group:clean(old.group)||'Legacy vocabulary', source:'English Mastery v1', evidence:clean(old.evidence), status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
   }
   for (const old of legacy.sentences) {
     const oldId = String(old.id || '').trim();
@@ -150,7 +152,7 @@ export function migrateLegacyState(legacy) {
     sentenceIds.set(oldId, id);
     const attempts = attemptsFor(oldId, 'sentence');
     const last = attempts.at(-1);
-    items.push(baseRecord({id, kind:'sentence', text, source:clean(old.source)||'English Mastery v1', group:clean(old.topic)||'Legacy sentences', status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
+    items.push(baseRecord({id, kind:'sentence', contentType:'Sentences', text, source:clean(old.source)||'English Mastery v1', group:clean(old.topic)||'Legacy sentences', status:safeStatus(last?.rating || old.status), attempts:attempts.length, lastAt:safeDate(last?.at), dueAt:safeDate(old.nextReview)}));
   }
   const attempts = legacy.history.map((h, index) => {
     const itemId = h.type === 'word' ? wordIds.get(String(h.itemId)) : sentenceIds.get(String(h.itemId));
@@ -158,7 +160,7 @@ export function migrateLegacyState(legacy) {
     return {id:`a:legacy:${index}:${stableHash(String(h.at||''))}`, sessionId:h.sessionId || null, itemId, kind:h.type, status:h.rating, answer:clean(h.answer), at:safeDate(h.at)||new Date(0).toISOString()};
   }).filter(Boolean);
   const sessions = (Array.isArray(legacy.sessions) ? legacy.sessions : []).map((s, index) => ({id:s.id || `session:legacy:${index}`, startedAt:s.startedAt || null, endedAt:s.endedAt || s.startedAt || null, activeMs:Math.max(0, Number(s.seconds||0)*1000), mode:'legacy', count:Number(s.items||0), words:0, sentences:0, K:0, V:0, N:0}));
-  return validateBackup({version:VERSION, items, attempts, sessions, activeSession:null, settings:{duration:Number(legacy.settings?.goalMinutes)||20, speechRate:.9}});
+  return validateBackup({version:VERSION, items, attempts, sessions, reports:[], activeSession:null, settings:{duration:Number(legacy.settings?.goalMinutes)||20, speechRate:.9, theme:'system', chineseHints:true}});
 }
 export function migrateBackupPayload(value) {
   if (value && Array.isArray(value.items) && Array.isArray(value.attempts) && Array.isArray(value.sessions)) return validateBackup(value);
@@ -175,8 +177,80 @@ export function validateBackup(value){
     if(item.kind==='sentence'&&typeof item.text!=='string')throw Error('Backup has invalid sentence data.');
     ids.add(item.id);
   }
-  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,activeSession:null,settings:{duration:20,...(value.settings||{})}};
+  return {version:VERSION,items:value.items,attempts:value.attempts,sessions:value.sessions,reports:Array.isArray(value.reports)?value.reports:[],activeSession:null,settings:{duration:20,speechRate:.9,theme:'system',chineseHints:true,...(value.settings||{})}};
 }
+
+export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
+  const itemMap = new Map(items.map(item => [item.id, item]));
+  const sessionAttempts = attempts.filter(attempt => attempt.sessionId === session.id);
+  const detail = sessionAttempts.map(attempt => {
+    const item = itemMap.get(attempt.itemId) || {};
+    return {
+      attempt_id: attempt.id,
+      item_id: attempt.itemId,
+      content_type: attempt.kind,
+      source: item.source || 'Unknown source',
+      prompt_type: attempt.promptType || (attempt.kind === 'word' ? 'cloze' : 'recall'),
+      user_answer: attempt.answer || '',
+      reference_answer: attempt.referenceAnswer || item.target || item.text || '',
+      rating: attempt.status,
+      skipped: Boolean(attempt.skipped),
+      attempt_timestamp: attempt.at,
+      suggested_review_date: item.dueAt || null
+    };
+  });
+  const count = rating => sessionAttempts.filter(attempt => attempt.status === rating).length;
+  const words = sessionAttempts.filter(attempt => attempt.kind === 'word').length;
+  const sentences = sessionAttempts.filter(attempt => attempt.kind === 'sentence').length;
+  const skipped = sessionAttempts.filter(attempt => attempt.skipped).length;
+  const reviewItems = {due_tomorrow:[], review_soon:[], stronger_recall:[], needing_practice:[]};
+  for (const attempt of detail) {
+    if (attempt.rating === 'N') reviewItems.needing_practice.push(attempt.item_id);
+    else if (attempt.rating === 'V') reviewItems.review_soon.push(attempt.item_id);
+    else if (attempt.rating === 'K') reviewItems.stronger_recall.push(attempt.item_id);
+    if (attempt.suggested_review_date && attempt.rating === 'N') reviewItems.due_tomorrow.push(attempt.item_id);
+  }
+  const reportId = `report:${session.id}`;
+  return {
+    schema_version: REPORT_SCHEMA_VERSION,
+    report_id: reportId,
+    session_id: session.id,
+    created_at: now.toISOString(),
+    timezone,
+    source_app: 'English Cultivation',
+    app_version: appVersion,
+    started_at: session.startedAt,
+    ended_at: session.endedAt || now.toISOString(),
+    active_seconds: Math.max(0, Math.round(Number(session.activeMs || 0) / 1000)),
+    mode: session.mode,
+    mode_breakdown: {words, sentences},
+    total_rated_attempts: sessionAttempts.length,
+    skipped_items: skipped,
+    ratings_summary: {K:count('K'), V:count('V'), N:count('N')},
+    attempts: detail,
+    review_items: reviewItems,
+    next_practice: {priority:['due_tomorrow','needing_practice','review_soon','untested'], source:'local review records'},
+    data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false},
+    sync_status: 'NOT_SUBMITTED'
+  };
+}
+export function battleReportMarkdown(report) {
+  const r = report.ratings_summary || {K:0,V:0,N:0};
+  const lines = [
+    `# English Cultivation Battle Report`, ``,
+    `- Report ID: ${report.report_id}`, `- Session ID: ${report.session_id}`, `- Date: ${report.created_at}`, `- Time zone: ${report.timezone}`,
+    `- Active study time: ${report.active_seconds} seconds`, `- Mode: ${report.mode}`, `- Words: ${report.mode_breakdown.words}`, `- Sentences: ${report.mode_breakdown.sentences}`,
+    `- Rated attempts: ${report.total_rated_attempts}`, `- Skipped items: ${report.skipped_items}`, `- K / V / N: ${r.K} / ${r.V} / ${r.N}`, ``,
+    `## Practice details`, ``, `| Item | Type | Rating | Answer | Review |`, `|---|---|---|---|---|`,
+    ...(report.attempts || []).map(a => `| ${a.item_id} | ${a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.suggested_review_date||''} |`),
+    ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
+    `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
+    `## Central Immortal Aperture handoff`, ``,
+    `请按中央仙窍既有数据架构处理本次 English Cultivation 学习战报。先以 report_id 和 session_id 查重，再将实际学习数字写入原 Google Sheets，将必要错误与学习总结写入原 Notion，正式报告归档原 Google Drive。逐项回读验证，不得凭空补充训练数据或重复创建数据库。未成功的步骤明确标记待处理。`
+  ];
+  return lines.join('\n');
+}
+
 export function makeCSV(rows,columns){
   const q=v=>`"${String(v??'').replaceAll('"','""')}"`;
   return '\uFEFF'+[columns.map(q).join(','),...rows.map(row=>columns.map(c=>q(row[c])).join(','))].join('\r\n');

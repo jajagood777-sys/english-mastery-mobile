@@ -1,17 +1,18 @@
-# English Mastery
+# English Cultivation
 
-English-first daily retrieval practice for Words & Phrases and Sentences. This is a static site with no account, backend, analytics, external requests, or paid AI API.
+**The Language Immortal Aperture** · Learn. Recall. Refine. Advance.
 
-## Included
+A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
-- Context cloze vocabulary practice with optional Chinese hints and browser English speech.
-- Sentence Read → Hide → Recall → Compare practice, with full-sentence and missing-word modes.
-- Mixed or focused sessions with active-time tracking, pause/resume, and 20-minute goal.
-- Due-first review queue: N ≈ 1 day, V ≈ 3 days, K ≈ 7 days.
-- Local CSV/TXT/Markdown/paste imports with preview, duplicate-safe merging, source labels, search and filters.
-- JSON backup/restore and quoted CSV practice-history export.
-- Offline-ready PWA assets for HTTPS or localhost.
-- Migration from the previous MVP's `english-mastery-v1` storage and backup shape; the old storage key is left untouched.
+## V3 upgrade
+
+- Day Cultivation and Night Cultivation themes, with System default and saved preference.
+- English Cultivation home with a 20-minute goal, active minutes, due count, Refine Words, Forge Sentences, Knowledge Vault, and Battle Reports.
+- Existing V2 practice retained: cloze vocabulary, optional Chinese hint, sentence recall/missing words, browser English speech, mixed sessions, due-first review, K/V/N, import preview, duplicate-safe library, local backups, and offline PWA cache.
+- Structured local Battle Reports with stable report/session IDs, Asia/Shanghai timezone metadata, actual active seconds, mode breakdown, practice details, K/V/N summary, review recommendations, and `NOT_SUBMITTED`/`EXPORTED` sync state.
+- Copy, Web Share, Markdown download, JSON download, and local Battle Report archive. Sharing never claims that ChatGPT, Sheets, Notion, or Drive received data.
+- Material records carry content type, source, import time, stable IDs, and source identifiers where available.
+- V1/V2 local storage and backup migration remains available; old storage is never deleted.
 
 ## Run locally
 
@@ -19,20 +20,20 @@ English-first daily retrieval practice for Words & Phrases and Sentences. This i
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/`. Service workers and ES modules require HTTP(S), so do not use a `file://` URL.
+Open `http://localhost:8000/`. ES modules and the service worker require HTTP(S), not a `file://` URL.
 
-Run tests:
+Run automated checks:
 
 ```sh
 npm run check
 ```
 
-## Privacy
+## Privacy and handoff
 
-Only generic demo cards are included in this repository. Personal CSV files, answers, backups, tokens, and private study notes must stay on the user's device and must never be committed.
+Only generic demo cards are committed. Personal CSV files, answers, backups, tokens, and private notes stay on the device. Local storage can be erased by Safari website-data deletion, so export JSON regularly.
 
-The app stores learning data in browser local storage. Safari website-data deletion or changing devices can remove local progress; export a JSON backup regularly.
+The Markdown battle report ends with a Chinese Central Immortal Aperture handoff request. It is a user-approved handoff instruction, not an automatic sync. External systems must verify report and session IDs before writing anything.
 
 ## GitHub Pages
 
-This repository is designed for GitHub Pages. Enable Pages from the repository Settings using the `main` branch and root folder. The deployed app registers its service worker only on HTTPS or localhost. Current deployment is pending because the connected GitHub App token cannot configure GitHub Pages (HTTP 403); source is already pushed to `main`. See `CODEX_CHECKPOINT.md`.
+The intended Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/`. Enable Pages from the repository Settings using the `main` branch and root folder. The service worker cache is versioned as `english-cultivation-static-v3.0.0` so a deployment receives a fresh cache.

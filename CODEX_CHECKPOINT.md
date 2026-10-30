@@ -1,8 +1,9 @@
-# English Mastery checkpoint
+# English Cultivation checkpoint
 
-- Current commit: `08f63f3` (`Build English Mastery 2.0 mobile learning app`)
-- Completed: V2 UI, Words & Phrases, Sentence Read/Hide/Recall/Compare, mixed/focused sessions, active timer pause/resume, due-first review, speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, source filters/search/remove, JSON backup/restore, history CSV, PWA manifest/service worker, and V1 storage/backup migration.
-- Verified before this checkpoint: original MVP tests passed; V2 core tests passed; legacy migration tests passed; Chromium iPhone 390×844 smoke flow passed for home, demo, word reveal/rating, sentence recall/compare, pause/resume/end, and CSV preview/import; HTTPS/local static assets served successfully.
-- Privacy: repository contains generic demo material only. Personal CSV files, answers, backups, tokens, and private notes are excluded.
-- Deployment status: repository `https://github.com/jajagood777-sys/english-mastery-mobile` is public and commit `3a09b3c` is pushed to `main`. GitHub Pages creation still returns HTTP 403 `Resource not accessible by integration`; the expected URL currently returns HTTP 404.
-- Next action: grant the connected GitHub App Pages/Administration write permission for `jajagood777-sys/english-mastery-mobile`, then enable Pages from the `main` branch root. Contents push permission is already working.
+- Base project preserved from English Mastery V2; no new repository created.
+- Upgrade: V3 English Cultivation theme, Day/Night/System appearance, 20-minute home dashboard, content-type metadata, structured Battle Reports, Markdown/JSON/Copy/Web Share outputs, local report archive, explicit `NOT_SUBMITTED`/`EXPORTED` handoff state, and service-worker cache `english-cultivation-static-v3.0.0`.
+- Preserved: Words & Phrases, Sentences, Mixed Practice, K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, PWA shell, and history export.
+- Data safety: old `english-mastery-v1` storage is read and migrated without deletion; V2 backups receive V3 defaults for reports/theme; public repository contains generic demo data only.
+- Tests: 12 core tests pass; Chromium iPhone 390×844 smoke passes for cultivation home, real practice, report creation/archive, theme persistence, service worker, and no horizontal overflow. Physical iPhone verification remains pending.
+- Deployment: source is pushed to `main`. GitHub Pages configuration/URL verification is the remaining delivery step; no external sync is claimed.
+- Next action: enable GitHub Pages on `main` + root in repository Settings, then verify `https://jajagood777-sys.github.io/english-mastery-mobile/`.
