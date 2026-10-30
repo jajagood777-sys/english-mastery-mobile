@@ -64,3 +64,14 @@ V3.5 batches
 - Version/cache: package and app version `4.1.0`; service worker cache `english-cultivation-static-v4.1.0`. No localStorage migration or deletion introduced.
 - Deployment status: feature commit `b7d585d` and final checkpoint commit `9931fe6` are pushed to `main`; GitHub Pages build for `9931fe6` is `built`; live shell returns HTTP 200 and exposes the V4.1 five-item navigation plus `english-cultivation-static-v4.1.0`. Physical iPhone Safari remains the only user-side acceptance step.
 - Next task: none for V4.1. Stop after final verification unless a new product request is supplied.
+
+## V4.2 — direct quality audit fixes (2026-10-30)
+
+- Base: V4.1 on main. Implemented from independent code review and disposable browser UX inspection.
+- Reading selection: use containing sentence or paragraph and stable per-article card IDs; duplicate attempts do not overwrite study history.
+- Backup merge: include reading articles, preserve preexisting content, rollback on failed persist.
+- Grading: rollback on failed localStorage write; distinguish prompted retrieval and intentional pre-answer reveal in summary counters.
+- UI: compact cloze answer boxes; configured training-goal notice; Chinese home-screen manifest name; corrected settings navigation wording.
+- Trend periods: 7/30 Asia/Shanghai calendar days, not trailing hours.
+- No IndexedDB migration or deletion. Old localStorage and historical item IDs remain untouched.
+- Must verify: complete `npm run check`, mobile Safari keyboard/reading selection, full backup roundtrip, GitHub Pages deployment. Report unverified items explicitly.

@@ -69,8 +69,8 @@ test('battle report markdown exposes learning-stage and prompt provenance',()=>{
 
 test('explicit sentence target is required for cloze and Beijing date keys cross UTC boundaries correctly',()=>{assert.equal(sentenceClozeParts('We need to address the problem.','address').answer,'address');assert.equal(sentenceClozeParts('We need to address the problem.','solve'),null);assert.equal(dateKeyInTimeZone('2026-10-29T16:30:00.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T15:59:59.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T16:00:00.000Z'),'2026-10-31');});
 
-test('V4.1 version markers and honest home summary are available',()=>{
+test('V4.2 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.1);assert.equal(APP_VERSION,'4.1.0');
+ assert.equal(VERSION,4.1);assert.equal(APP_VERSION,'4.2.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });

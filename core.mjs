@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.1;
-export const APP_VERSION = '4.1.0';
+export const APP_VERSION = '4.2.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -51,6 +51,39 @@ export function stableHash(s) {
   for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); }
   return (h >>> 0).toString(36);
 }
+
+/** Keep the exact reading context when turning an article selection into a study card. */
+export function readingContextForSelection(articleText, selectedText) {
+  const wanted=normalized(selectedText);
+  if(!wanted)return '';
+  const paragraphs=String(articleText||'').split(/\n\s*\n|\n/).map(x=>x.trim()).filter(Boolean);
+  for(const paragraph of paragraphs) {
+    if(!normalized(paragraph).includes(wanted))continue;
+    const sentences=paragraph.split(/(?<=[.!?])\s+(?=[“"'A-Z0-9])/);
+    return (sentences.find(sentence=>normalized(sentence).includes(wanted))||paragraph).trim();
+  }
+  return '';
+}
+/** Stable per-reading card IDs prevent duplicate extraction of identical text. */
+export function readingCardId(readingId, selectedText, kind='word') {
+  return `${kind==='sentence'?'s':'w'}:reading:${stableHash(normalized(readingId)+'|'+normalized(selectedText))}`;
+}
+/** Merge backed-up articles without discarding pre-existing local readings. */
+export function mergeReadings(existing=[], incoming=[]) {
+  const out=Array.isArray(existing)?[...existing]:[];
+  const ids=new Set(out.map(item=>item.id).filter(Boolean));
+  const texts=new Set(out.map(item=>normalized(item.text)).filter(Boolean));
+  for(const reading of (Array.isArray(incoming)?incoming:[])) {
+    if(!reading||typeof reading.text!=='string'||!reading.text.trim())continue;
+    const key=normalized(reading.text);
+    if((reading.id&&ids.has(reading.id))||texts.has(key))continue;
+    out.push(reading);
+    if(reading.id)ids.add(reading.id);
+    texts.add(key);
+  }
+  return out;
+}
+
 function baseRecord(item) {
   const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, intervalDays:0, successStreak:0, errorCount:0, learningStage:'new', promptCount:0, viewedAnswerCount:0, createdAt:importedAt, importedAt, ...item };
 }

@@ -63,3 +63,14 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 ## GitHub Pages
 
 The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.1.0` so a deployment receives a fresh cache.
+
+## V4.2 quality and safety corrections
+
+- Reading selections preserve the sentence/paragraph containing the selected expression, rather than taking the article's first paragraph.
+- Repeated selection from the same article uses a stable card ID to avoid duplicate local cards.
+- Restoring a backup merges preserved reading articles as well as cards, attempts, reports, and sessions.
+- Study grading and backup import roll back in-memory state if the browser refuses to persist changes.
+- The prompt-used and viewed-answer metrics now distinguish real guidance/skips from merely checking an attempted answer.
+- Vocabulary and sentence cloze use compact touch-friendly input while full-sentence recall remains multiline.
+- 7/30-day summaries align with Asia/Shanghai calendar days and the study-goal notice displays the configured minutes.
+- This release changes no existing storage keys and does not clear localStorage.
