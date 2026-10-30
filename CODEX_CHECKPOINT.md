@@ -1,6 +1,11 @@
 # English Cultivation checkpoint
 
-## V3.8 batches
+## V3.9 batches
+
+- V3.9 audit complete: localStorage remains the stable store; readings, reports, backups, and migration defaults are preserved. IndexedDB migration is intentionally deferred until a non-destructive migration/rollback test exists.
+- Next: V4.0 dashboard trends and final integration.
+
+V3.8 batches
 
 - V3.8 complete: listening-recall mode plays native speech, supports replay and full-sentence dictation comparison, and explicitly avoids pronunciation scoring.
 - Next: V3.9 backup/storage audit; IndexedDB only if migration is proven safe.
@@ -47,5 +52,5 @@ V3.5 batches
 - Preserved: K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, V3 battle reports, Day/Night theme, and PWA shell.
 - Data safety: old `english-mastery-v1` storage is read and migrated without deletion; V2/V3 backups receive V4 defaults; saved reports and daily-pack metadata merge without resetting progress. Public repository contains generic demo data only.
 - Tests: 21 core tests pass; Chromium iPhone 390×844 smoke passes for Chinese navigation, mode selection/switch confirmation, cloze focus, sentence mode separation, JSON pack preview/import, today's-only queue controls, retry-after-error, and no horizontal overflow. Continue-original-session and PWA cache `english-cultivation-static-v3.8.0` checks pass. Physical iPhone verification remains pending.
-- Deployment: V3.3 source remains live; V3.7 source remains live; V3.8 changes are pending the next push; Pages status is built; live v3.6 cache and Chinese resources are verified to the existing `main` branch; Pages status is `built`; live new-learning flow, HTTPS resources, and `english-cultivation-static-v3.8.0` cache are verified.
+- Deployment: V3.3 source remains live; V3.7 source remains live; V3.8 source is now pushed and deployed; Pages status is built; live v3.6 cache and Chinese resources are verified to the existing `main` branch; Pages status is `built`; live new-learning flow, HTTPS resources, and `english-cultivation-static-v3.8.0` cache are verified.
 - Live URL: `https://jajagood777-sys.github.io/english-mastery-mobile/`.
