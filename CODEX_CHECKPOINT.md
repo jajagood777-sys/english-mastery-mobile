@@ -1,6 +1,9 @@
 # English Cultivation checkpoint
 
-## V3.4 batches
+## V3.5 batches
+
+- V3.5 complete: configurable daily new/review limits and difficult-card scope added with existing local scheduling.
+- V3.4 batches
 
 - V3.4 audit/fix complete: unlearned cards now enter Learn New Content from every practice entry; explicit sentence targets control cloze, otherwise recall fallback; Asia/Shanghai date keys fix daily-minute boundaries.
 - Tests: 21 core tests pass; free-practice new-card mobile smoke passes.
@@ -28,6 +31,6 @@
 - V3.2 preserves: Chinese navigation/help, explicit Words/Sentences/Mixed mode switching with confirmation, touch-to-focus cloze inputs, distinct sentence Missing Words vs Full Sentence Recall, daily learning-pack JSON import and today-only queues.
 - Preserved: K/V/N, due review, browser speech synthesis, CSV/TXT/Markdown/paste import, duplicate-safe merge, local backups, V1/V2 migration, V3 battle reports, Day/Night theme, and PWA shell.
 - Data safety: old `english-mastery-v1` storage is read and migrated without deletion; V2/V3 backups receive V4 defaults; saved reports and daily-pack metadata merge without resetting progress. Public repository contains generic demo data only.
-- Tests: 21 core tests pass; Chromium iPhone 390×844 smoke passes for Chinese navigation, mode selection/switch confirmation, cloze focus, sentence mode separation, JSON pack preview/import, today's-only queue controls, retry-after-error, and no horizontal overflow. Continue-original-session and PWA cache `english-cultivation-static-v3.4.0` checks pass. Physical iPhone verification remains pending.
-- Deployment: V3.3 source remains live; V3.4 changes are pending the next push to the existing `main` branch; Pages status is `built`; live new-learning flow, HTTPS resources, and `english-cultivation-static-v3.4.0` cache are verified.
+- Tests: 21 core tests pass; Chromium iPhone 390×844 smoke passes for Chinese navigation, mode selection/switch confirmation, cloze focus, sentence mode separation, JSON pack preview/import, today's-only queue controls, retry-after-error, and no horizontal overflow. Continue-original-session and PWA cache `english-cultivation-static-v3.5.0` checks pass. Physical iPhone verification remains pending.
+- Deployment: V3.3 source remains live; V3.4 source is live; V3.5 changes are pending the next push to the existing `main` branch; Pages status is `built`; live new-learning flow, HTTPS resources, and `english-cultivation-static-v3.5.0` cache are verified.
 - Live URL: `https://jajagood777-sys.github.io/english-mastery-mobile/`.
