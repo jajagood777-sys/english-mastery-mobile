@@ -61,6 +61,7 @@ main{padding-top:var(--space-7)}
 .answer-feedback.minor_spelling{color:#8a6c20}
 .answer-feedback.incorrect,.answer-feedback.blank{color:#9d4b43}
 .answer-input{scroll-margin-bottom:calc(220px + env(safe-area-inset-bottom));padding:14px 15px;border-width:2px}
+.compact-answer-input{height:56px;min-height:56px;max-height:56px;resize:none;overflow-y:hidden;line-height:24px}
 .answer-input:focus{box-shadow:0 0 0 4px color-mix(in srgb,var(--antique-gold) 28%,transparent)}
 .self-btn{min-height:78px;transition:transform .15s ease}
 .self-btn:active,.btn:active{transform:scale(.98)}
