@@ -67,11 +67,14 @@ function todayPackItems(){const ids=new Set(data.dailyPack?.itemIds||[]);return 
 function renderHome(){
   const s=homeSummary(data,new Date());
   const hero=section('hero home-hero');
-  const heroAsset=visualAsset('09');const heroVisual=div('home-hero-visual');heroVisual.append(visualFrame(heroAsset));heroVisual.append(el('span','山水仙鹤 · QUIET CULTIVATION','visual-caption'));hero.append(heroVisual);
-  hero.append(el('div','今日修炼 · DAILY CULTIVATION','eyebrow'),h('h1','今天，练一点英语。'),p('用英语学习英语：先理解，再回忆，最后复习。','lead'));
+  const heroAsset=visualAsset('09');const heroVisual=div('home-hero-visual');heroVisual.append(visualFrame(heroAsset));heroVisual.append(el('span','山水仙鹤 · QUIET CULTIVATION','visual-caption'));
+  const heroCopy=div('home-hero-copy');
+  heroCopy.append(el('div','今日修炼 · DAILY CULTIVATION','eyebrow'),h('h1','把今天的英语，练成自己的表达。'),p('用英语学习英语：先理解，再回忆，最后复习。','lead'));
   const summary=div('today-summary');
   summary.append(statistic('待复习',s.due),statistic('新内容',s.newItems),statistic('实际训练',`${s.todayMinutes} 分钟`));
-  hero.append(summary,lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn(s.packItems?'查看今日总学习包':'导入今日总学习包',()=>s.packItems?setPage('training'):setPage('library'),'btn secondary')));
+  const heroActions=lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn(s.packItems?'查看今日总学习包':'导入今日总学习包',()=>s.packItems?setPage('training'):setPage('library'),'btn secondary'));
+  heroActions.classList.add('home-hero-actions');
+  hero.append(heroVisual,heroCopy,summary,heroActions);
   app.append(hero);if(data.dailyPack)app.append(journeyPanel());
   if(data.activeSession){const resume=section('resume-card');resume.append(el('div','继续上次训练','eyebrow'),h('h2',`${modeLabel(data.activeSession.mode)} · ${scopeLabel(data.activeSession.scope)}`),p('未完成的训练已保留，计时会在继续后恢复。','subtle'),lines(btn('继续训练',()=>{page='practice';render();},'btn primary'),btn('结束并保存',()=>finishSession(),'btn ghost')));app.append(resume);}
   const head=div('section-head');head.append(h('h2','选择学习方式'),el('span','英语内容保持英文','tiny'));app.append(head);
