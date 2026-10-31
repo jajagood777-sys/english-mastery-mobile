@@ -9,6 +9,9 @@ Use the relevant skill in `.agents/skills/` only when it matches the task:
 - `gh-fix-ci`: debug failing GitHub Actions CI on a PR after verifying GitHub CLI authentication. Follow the skill's approval gate before a repair.
 - `frontend-design`: user-requested UI polish and responsive/mobile accessibility; not permission for unsolicited redesign.
 - `english-daily-master-pack-qa`: quality gate for one-file JSON import and four-module schema.
+- `learning-data-safety`: run safe synthetic data regression probes before any backup, K/V/N, session or `localStorage` code change; never touch real Safari data.
+- `mobile-accessibility-review`: verify iPhone-sized controls, focus, long text and reading selection; static probes are not real-device WCAG conformance.
+- `pwa-release-audit`: check app/package/SW cache versions and local precache assets before or after a public Pages release; never clear learner storage to force updates.
 
 These are project-scoped files, not evidence of a global Codex installation. Existing central-control skills remain in their separate PRIVATE repository; do not duplicate personal knowledge bases here.
 
