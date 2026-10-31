@@ -196,3 +196,15 @@ h1{font-size:clamp(30px,4.6vw,48px);letter-spacing:-1.65px;line-height:1.12}h2{l
 }
 @media(max-width:360px){.home-hero-actions{grid-template-columns:1fr}.mobile-nav button span:last-child{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.mobile-nav button,.feature-card{transition:none}.home-hero-visual img{filter:none}}
+
+/* V4.5 contrast and fixed-navigation clearance corrections. */
+html[data-theme="night"] .mode-card span,
+html[data-theme="night"] .mode-english,
+html[data-theme="night"] .self-btn small,
+html[data-theme="night"] .question-label,
+html[data-theme="night"] .hint,
+html[data-theme="night"] .chip,
+html[data-theme="night"] .input-help,
+html[data-theme="night"] .label-counter{color:var(--theme-muted)!important}
+html[data-theme="night"] .question-label{color:var(--quiet-gold)!important}
+@media(min-width:860px){.site-wrap{padding-bottom:calc(128px + env(safe-area-inset-bottom))}}

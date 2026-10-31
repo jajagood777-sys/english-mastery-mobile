@@ -23,6 +23,12 @@ test('V4.5 navigation uses a consistent inline SVG icon system',()=>{
   assert.match(index,/aria-label="主导航"/);
 });
 
+test('V4.5 night theme protects helper contrast and desktop nav clearance',()=>{
+  assert.match(css,/html\[data-theme=\"night\"\] \.mode-card span/);
+  assert.match(css,/html\[data-theme=\"night\"\] \.question-label/);
+  assert.match(css,/@media\(min-width:860px\)\{[^}]*\.site-wrap\{padding-bottom:calc\(128px/);
+});
+
 test('V4.1 design tokens include touch-safe mobile navigation and keyboard spacing', () => {
   assert.match(css, /--space-/);
   assert.match(css, /\.mobile-nav/);
