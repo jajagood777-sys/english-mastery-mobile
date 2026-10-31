@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const core = fs.readFileSync(new URL('../core.mjs', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
@@ -67,7 +68,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V4.2 PWA cache marker is versioned for safe resource refresh',()=>{
-  assert.match(sw,/english-cultivation-static-v4\.3\.0/);
+ assert.match(sw,/english-cultivation-static-v4\.3\.1/);
 });
 
 test('V4.3 one-file daily journey has all four stages and positive active time',()=>{
@@ -89,4 +90,26 @@ test('V4.3 keeps full backup restore separate from daily pack import',()=>{
 test('V4.3 marks the last journey module as the combined-report handoff',()=>{
  assert.match(app,/完成并查看综合战报/);
  assert.match(app,/if\(!s\.journeyStage\)\{data\.reports/);
+});
+
+test('real-user repair keeps journey attempts and listening evidence in the combined report',()=>{
+ assert.match(app,/allowedSessionIds:ids/);
+ assert.match(core,/session_id: attempt\.sessionId/);
+ assert.match(core,/unrated_attempts/);
+});
+
+test('English-first new cards hide Chinese until a per-card action records the hint',()=>{
+ assert.match(app,/显示中文释义/);
+ assert.match(app,/s\.viewedChinese=true/);
+ assert.match(app,/promptEvents/);
+ assert.match(app,/s\.meaningShown=false/);
+});
+
+test('reading vocabulary marks support double-click selection, persistence and batch save',()=>{
+ assert.match(app,/function toggleReadingMark/);
+ assert.match(app,/function saveMarkedReadingWords/);
+ assert.match(app,/保存已标记生词/);
+ assert.match(app,/readingMarkId/);
+ assert.match(app,/article\.addEventListener\('dblclick'/);
+ assert.match(core,/mergeReadingMarks/);
 });

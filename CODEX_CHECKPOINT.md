@@ -1,5 +1,16 @@
 # English Cultivation checkpoint
 
+## V4.3.1 — Codex real-user quality repair (in progress)
+
+- Baseline audited: main at `d7fb6a2`, workspace was clean, V4.3 tests were 53/53 before this repair.
+- Confirmed P0: `finishDailyJourney()` passed stage attempts to `buildBattleReport()` while the report builder filtered by the combined journey ID, producing empty `attempts` and zero K/V/N. Fixed with explicit allowed stage-session IDs, stable deduplication, original session IDs, listening separation, and explicit unrated rows.
+- Added local recovery path for a finished journey. It reconstructs a new report from preserved raw attempts and stage sessions without overwriting the original report.
+- Added persistent reading marks with stable occurrence IDs, double-click/selection fallback, cancel, batch-save, context preservation, duplicate-safe card creation, backup merge/validation, and report export evidence.
+- New cards now hide Chinese meaning by default. `显示中文释义` is per-card, records a prompt event, and resets when the next card appears.
+- Version/cache target: `4.3.1` / `english-cultivation-static-v4.3.1`.
+- Tests currently pass 60/60; local Chromium 390×844 smoke covers reading marks, English-first hidden meaning, full four-module journey aggregation, one combined report, and no horizontal overflow. Physical iPhone Safari remains user acceptance only.
+- Next: review the final diff, commit, push main, verify GitHub Pages build and live assets, then stop.
+
 ## V3.9 batches
 
 - V3.9 audit complete: localStorage remains the stable store; readings, reports, backups, and migration defaults are preserved. IndexedDB migration is intentionally deferred until a non-destructive migration/rollback test exists.

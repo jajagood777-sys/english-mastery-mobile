@@ -49,6 +49,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Settings now has its own page with target minutes, speech speed, theme, hint/retry controls, limits, and backup restore preview. Word and sentence-cloze answers use compact single-line inputs; recall and dictation remain multiline.
 - Version `4.2.0` refreshes the service-worker cache to `english-cultivation-static-v4.2.0`. Existing localStorage data remains the source of truth; no IndexedDB migration was introduced.
 
+## V4.3.1 — Codex real-user data repair
+
+- Combined journey reports now aggregate the actual stage session IDs, retain each original `session_id`, keep retries/prompts/raw answers, split vocabulary, sentences, and listening, and count only valid K/V/N rows as rated. Unrated or skipped actions remain explicit.
+- Existing completed journeys can be rebuilt locally from preserved stage sessions and attempts. The rebuilt report receives a new recovery ID; the original report is never overwritten.
+- New cards are English-first: Chinese meaning is hidden until the learner taps `显示中文释义`; that action is recorded as a prompt event and does not become an independent first answer.
+- Reading supports native iPhone selection plus a lightweight double-tap fallback to mark multiple unfamiliar words. Marks persist locally, can be cancelled, batch-save as context-rich word cards, and appear in journey report exports. Existing selection-to-card saving remains available.
+- Reading marks, articles, packs, attempts, sessions, reports, and old progress are included in backup validation and merge. Cache marker and app version are now `4.3.1`.
+
 ## Run locally
 
 ```sh
@@ -71,7 +79,7 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned as `english-cultivation-static-v4.2.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V4.3.1 uses `english-cultivation-static-v4.3.1` so a deployment receives a fresh cache.
 
 ## V4.3 — one JSON file for all today's English study
 
