@@ -1,13 +1,16 @@
 # English Cultivation checkpoint
 
-## V4.3.2 — ink-wash visual integration (pending asset authorization)
+## V4.3.2 — ink-wash visual integration (complete; user images pending authorization)
 
 - Baseline verified from `main` at `d59d749`; prior automated baseline was 60/60 and the working tree was clean.
 - Added a non-invasive visual layer: optional hero slot for image 09, training calligraphy slot, progress portrait/quote slots, and a collapsible gallery with accessible enlargement in 我的. Reading text, answer controls, K/V/N, and local study data remain unchanged.
 - Added optional `visuals.mjs` asset registry, `assets/visuals/README.md` mapping, CSS placeholders, lazy loading for gallery assets, eager hero loading, safe-area sizing, reduced-motion compatibility, and PWA cache inclusion.
 - The nine supplied JPEGs were inspected locally (total about 1.2 MB; 1220px wide). Their public copyright/redistribution rights were not supplied, so optimized copies were used only in local preview and intentionally excluded from the public repository and deployment.
 - Local Chromium visual smoke passed at 375×844, 390×844, and 430×844: hero slot, progress card, gallery enlargement, no horizontal overflow, and navigation remain usable. `npm run check` currently passes 61/61.
-- Next: commit and push the safe visual layer. Public image upload/deployment remains blocked until the user confirms redistribution authorization or supplies licensed replacements.
+- Pull Request: #4 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/4`) merged into `main`.
+- Safe visual-layer commit: `d2a53eb`; GitHub Actions checks and Pages deployment completed successfully. Live HTTPS verification exposes `APP_VERSION='4.3.2'`, `visuals.mjs`, and `english-cultivation-static-v4.3.2`; the original URL is unchanged.
+- Public image upload/deployment remains blocked until the user confirms redistribution authorization or supplies licensed replacements. No supplied JPEG was committed.
+- Next: none for the safe visual layer. If authorization is later confirmed, add only optimized WebP files listed in `assets/visuals/README.md`, update the PWA asset list, rerun the visual smoke, and deploy a small follow-up.
 
 ## V4.3.1 — Codex real-user quality repair (complete)
 
