@@ -1,16 +1,15 @@
 # English Cultivation checkpoint
 
-## V5.0.0 — transfer, speaking, source traceability and delayed mastery (implementation complete; release pending)
+## V5.0.0 — transfer, speaking, source traceability and delayed mastery (complete)
 
-- Baseline: latest synchronized `main` `5e7de7687528e678d5080ea5fa073fb0f7f9ee5f`; package/app/SW `4.5.0`, learning data `VERSION=4.3`, `npm run check` 76/76.
-- Added optional V5 fields and helpers in `core.mjs`: safe source metadata/URL validation, stable weaknesses, transfer attempts, conservative evidence status, analytics and backup merge. Existing K/V/N, attempts, sessions, reports, reading marks and daily packs remain intact.
-- Added `recordings.mjs`: runtime MediaRecorder MIME detection and IndexedDB-only blob storage with original/retry roles, replay/export and text fallback. Audio is not written into localStorage backups or reports.
-- Added a Training → “弱项迁移｜Transfer & Mastery” room with three groups, independent answer → staged hints → reference → self-correction → K/V/N, source trace links, delayed review dates and optional recording controls.
-- Progress now exposes transparent transfer denominators/categories and “尚未测量” states. No IELTS, pronunciation or semantic score is fabricated; no child classroom module was added.
-- Current local verification: `npm run check` passes 89/89; V5 source/weakness/backup/report tests pass; recording capability tests pass; PWA local audit reports 18 assets with 5.0.0 alignment and no warnings; public asset safety scan passes.
-- Direct Chromium smoke at 390×844 confirms the transfer hub, source link, independent answer, reference-hidden state, recording panel, persisted transfer attempt, progress analytics and no horizontal overflow. This is Chromium emulation only; physical iPhone Safari microphone/keyboard/selection remains unverified.
-- Playwright CLI wrapper remains discoverable with `npx`, but its default Chrome binary is absent; direct `/usr/bin/chromium` was used. No private localStorage or recordings were accessed.
-- Next: run final Skills/static/browser verification, bump only the software/cache marker to `5.0.0`, open PR, wait for CI, merge and verify Pages/SW/live assets.
+- Baseline: synchronized `main` `5e7de7687528e678d5080ea5fa073fb0f7f9ee5f`; PR #14 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/14`) merged into `main` at `65ce91f01e12117e1e5f9a9ad63b9e4a69c61779`.
+- Added optional `weaknesses`, `transferAttempts` and source metadata with stable IDs, safe URL handling, alternate contexts, conservative delayed evidence and backup merge. `VERSION=4.3` remains unchanged.
+- Added the Training → 弱项迁移｜Transfer & Mastery room, source trace panels, independent answer/reference gate, staged hints, self-correction, K/V/N, delayed scheduling and transparent progress denominators.
+- Added `recordings.mjs`: runtime MediaRecorder MIME detection, IndexedDB-only original/retry blobs, replay/export and text fallback. Audio is excluded from localStorage backups and Battle Reports.
+- Local verification: `npm run check` passes 89/89; learning-data-safety 4/4; mobile static baseline 11/11; pwa-release-audit 18 assets, 5.0.0 aligned, no warnings; Daily Pack QA valid (words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2); public asset scan clean.
+- Browser verification: direct Chromium smoke at 375/390/430 confirms no horizontal overflow and five-tab navigation; 390 confirms transfer hub, source link, reference-hidden state, recording panel, persisted attempt, progress analytics and recovery-safe report path. This is not physical iPhone Safari evidence.
+- CI run `41212032927` passed; Pages deployment run `41212032913` passed. Live `index.html`, `app.js`, `core.mjs`, `recordings.mjs`, `sw.js`, manifest and all 18 precache assets return HTTP 200. Live app reports `APP_VERSION=5.0.0` and `english-cultivation-static-v5.0.0`.
+- No private localStorage, backups or recordings were accessed. Remaining user-side checks: iPhone Safari keyboard focus, microphone permission/recording playback, native text selection, offline refresh and existing history visibility.
 
 ## V4.4 — evidence-based learning upgrade (complete)
 
