@@ -2,7 +2,7 @@
 
 ## V4.5.0 — Quiet Mastery visual and navigation upgrade (complete)
 
-- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`; latest main checkpoint commit: `f955232ba0ccbbe7a32436db2c355fa2f80268c3`.
+- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`; latest main checkpoint commit: `faaa74f6858129b6342c29539f2fdcba36b4bcd8`.
 - Added the Quiet Mastery design system, responsive premium home hierarchy, five consistent inline SVG navigation icons, safe-area-aware mobile navigation, day/night tokens, reading typography and shared page surfaces.
 - Home values remain driven by `homeSummary`, `dailyPack` and existing journey state; no demo numbers or new storage fields were added.
 - Software/cache markers are `4.5.0`; learning data `VERSION=4.3` remains unchanged.
