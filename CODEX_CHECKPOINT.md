@@ -1,8 +1,8 @@
 # English Cultivation checkpoint
 
-## V4.5.0 — Quiet Mastery visual and navigation upgrade (implementation complete; release pending)
+## V4.5.0 — Quiet Mastery visual and navigation upgrade (complete)
 
-- Baseline: `main` at `228c4fe`; branch `codex/v4-5-quiet-mastery` contains the V4.5 implementation.
+- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`.
 - Added the Quiet Mastery design system, responsive premium home hierarchy, five consistent inline SVG navigation icons, safe-area-aware mobile navigation, day/night tokens, reading typography and shared page surfaces.
 - Home values remain driven by `homeSummary`, `dailyPack` and existing journey state; no demo numbers or new storage fields were added.
 - Software/cache markers are `4.5.0`; learning data `VERSION=4.3` remains unchanged.
@@ -10,7 +10,9 @@
 - Direct Chromium smoke passes visual assets, no horizontal overflow at 375/390/430, five nav destinations at 375/390/393/430/768/1280, day/night switching, reading selection CSS, transfer first-answer/reference flow, optional reading check and one combined report.
 - Playwright CLI wrapper is discoverable and `npx` is available, but the wrapper cannot launch because its default Chrome binary is absent (`/opt/google/chrome/chrome`); direct project runtime Chromium at `/usr/bin/chromium` was used instead. This is Chromium emulation only, not physical iPhone Safari.
 - Real iPhone Safari, virtual keyboard, native selection and private localStorage remain unverified; synthetic fixture data only was used.
-- Next: commit documentation, open/merge the authorized PR, verify CI/Pages/SW live assets, then record the final merge SHA.
+- GitHub Actions: checks run `41194233725` passed; Pages deployment run `41194233341` passed. Live `index.html`, `app.js`, `core.mjs`, `sw.js`, `manifest.webmanifest` and all 17 SW assets return HTTP 200; live app reports `APP_VERSION=4.5.0`, cache `english-cultivation-static-v4.5.0`, and hero WebP loads in Chromium.
+- Screenshots: local `/tmp/v45-live-home-390x844.png` and `/tmp/v45-live-home-1280x800.png` (Chromium emulation).
+- Next: user-side acceptance on a real iPhone Safari: open the live URL, switch day/night, focus a practice input with the keyboard, long-press/select a reading word, and verify existing private records remain visible. No private storage was accessed by Codex.
 
 ## V4.4 — evidence-based learning upgrade (complete)
 
