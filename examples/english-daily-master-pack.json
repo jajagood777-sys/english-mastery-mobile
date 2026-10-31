@@ -49,12 +49,30 @@
       "text": "Practice helps us remember useful English expressions."
     }
   ],
+  "transfer_tasks": [
+    {
+      "id": "transfer-1",
+      "prompt": "Your students keep forgetting new words. What would you do to address this problem?",
+      "model_answer": "I would address the problem with short, consistent review activities.",
+      "hints": ["Use address with a problem or issue.", "Give one practical action."]
+    },
+    {
+      "id": "transfer-2",
+      "prompt": "Describe one way to make a difference in your English learning this week.",
+      "model_answer": "I can make a difference by reviewing a few useful expressions every day.",
+      "hints": ["Use make a difference.", "Mention a specific routine."]
+    }
+  ],
   "readings": [
     {
       "id": "reading-1",
       "title": "A Better Way to Learn English",
       "source": "Original sample written for this app",
-      "text": "Learning a language takes time, but practice does not have to be complicated. You can read a short story, notice a useful expression, and then try to recall it without looking.\n\nReviewing your answers helps you discover what you remember and what still needs practice. Small, consistent efforts can become a meaningful habit."
+      "text": "Learning a language takes time, but practice does not have to be complicated. You can read a short story, notice a useful expression, and then try to recall it without looking.\n\nReviewing your answers helps you discover what you remember and what still needs practice. Small, consistent efforts can become a meaningful habit.",
+      "questions": [
+        {"id":"reading-1-q1","type":"choice","prompt":"What is the main idea of this passage?","options":["Small, consistent practice supports language learning.","Language learning should always be complicated."],"answer":"Small, consistent practice supports language learning."},
+        {"id":"reading-1-q2","type":"open","prompt":"What can a learner do after noticing a useful expression?","model_answer":"Try to recall it without looking."}
+      ]
     }
   ]
 }

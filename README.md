@@ -57,13 +57,21 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Reading supports native iPhone selection plus a lightweight double-tap fallback to mark multiple unfamiliar words. Marks persist locally, can be cancelled, batch-save as context-rich word cards, and appear in journey report exports. Existing selection-to-card saving remains available.
 - Reading marks, articles, packs, attempts, sessions, reports, and old progress are included in backup validation and merge. Cache marker and app version are now `4.3.1`.
 
+## V4.4 — evidence-based transfer and comprehension upgrade
+
+- Daily JSON remains backward-compatible and can optionally include `transfer_tasks` plus `readings[].questions`.
+- The optional journey stage “迁移挑战” records independent first answers, prompt use, model-answer viewing, self-correction and K/V/N without replacing the original answer.
+- Reading articles can expose an optional comprehension check. Choice answers are checked deterministically; open answers remain unassessed for human comparison.
+- Battle reports preserve evidence layers and explicit unmeasured states; no IELTS or semantic score is fabricated.
+- Version `4.4.0` refreshes the PWA cache without changing the learning data schema (`VERSION` remains backward-compatible).
+
 ## V4.3.2 — ink-wash visual layer
 
 - The home page now has an optional mountain-and-crane hero slot, training-page calligraphy detail, progress-page growth portrait/quote slots, and a collapsible visual scroll in 我的.
 - Visual assets are optional and fail back to an ink-wash CSS placeholder. Missing images never block English practice, reading, keyboard input, or offline startup.
 - The reading surface remains a clean high-contrast English page; no image is placed behind reading text or answer controls.
 - The nine owner-authorized images are mapped in [`assets/visuals/README.md`](assets/visuals/README.md) and are served as optimized WebP files from `assets/visuals/`.
-- Version `4.3.3` refreshes the PWA cache and includes `visuals.mjs` plus all nine visual assets in the offline shell.
+- Version `4.3.3` refreshed the PWA cache and included `visuals.mjs` plus all nine visual assets in the offline shell.
 
 ## Run locally
 

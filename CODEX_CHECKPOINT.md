@@ -1,5 +1,15 @@
 # English Cultivation checkpoint
 
+## V4.4 — evidence-based learning upgrade (implementation complete; deployment pending)
+
+- Baseline: `main` at `125a130` with seven project-scoped Skills; prior Skills acceptance was recorded in `8e1293d` and `npm run check` passed 71/71.
+- Implemented optional backward-compatible `transfer_tasks` and `readings[].questions` parsing, a journey transfer stage, evidence-layer fields, optional reading comprehension checks, backup preservation for reading checks, and an extended daily-pack QA summary.
+- Synthetic browser smoke confirms transfer first answer → reference reveal → K self-assessment, optional reading choice check, report creation, and no mobile overflow.
+- Current release target is `4.4.0`; learning data schema remains `VERSION=4.3` and is not reset or migrated for cosmetic changes.
+- Full local verification: `npm run check` passes 74/74; the daily-pack QA validator reports words 2, sentences 2, readings 1, listening 2, transfer 2 and reading questions 2 with no warnings.
+- Chromium 390×844 smoke confirms transfer first answer → reference reveal → K self-assessment, optional reading choice check, one report and no horizontal overflow. Physical iPhone Safari remains unverified.
+- Next: commit this branch, create/merge PR, deploy, verify live resources and update this checkpoint with the final merge SHA.
+
 ## Project-scoped Skills acceptance (2026-10-31)
 
 - Baseline synchronized to `main` commit `125a130` (`125a1308...`); workspace was clean before this documentation-only checkpoint.
