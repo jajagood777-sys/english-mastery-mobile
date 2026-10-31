@@ -10,7 +10,7 @@
 - Direct Chromium smoke passes visual assets, no horizontal overflow at 375/390/430, five nav destinations at 375/390/393/430/768/1280, day/night switching, reading selection CSS, transfer first-answer/reference flow, optional reading check and one combined report.
 - Playwright CLI wrapper is discoverable and `npx` is available, but the wrapper cannot launch because its default Chrome binary is absent (`/opt/google/chrome/chrome`); direct project runtime Chromium at `/usr/bin/chromium` was used instead. This is Chromium emulation only, not physical iPhone Safari.
 - Real iPhone Safari, virtual keyboard, native selection and private localStorage remain unverified; synthetic fixture data only was used.
-- GitHub Actions: checks run `41194233725` passed; Pages deployment run `41194233341` passed. Live `index.html`, `app.js`, `core.mjs`, `sw.js`, `manifest.webmanifest` and all 17 SW assets return HTTP 200; live app reports `APP_VERSION=4.5.0`, cache `english-cultivation-static-v4.5.0`, and hero WebP loads in Chromium.
+- GitHub Actions: checks run `41194450685` passed; Pages deployment run `41194450230` passed. Live `index.html`, `app.js`, `core.mjs`, `sw.js`, `manifest.webmanifest` and all 17 SW assets return HTTP 200; live app reports `APP_VERSION=4.5.0`, cache `english-cultivation-static-v4.5.0`, and hero WebP loads in Chromium.
 - Screenshots: local `/tmp/v45-live-home-390x844.png` and `/tmp/v45-live-home-1280x800.png` (Chromium emulation).
 - Next: user-side acceptance on a real iPhone Safari: open the live URL, switch day/night, focus a practice input with the keyboard, long-press/select a reading word, and verify existing private records remain visible. No private storage was accessed by Codex.
 
