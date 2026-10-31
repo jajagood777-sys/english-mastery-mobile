@@ -1,12 +1,15 @@
 # English Cultivation checkpoint
 
-## V4.3.3 — authorized visual assets (in progress)
+## V4.3.3 — authorized visual assets (complete)
 
 - Owner authorization for public use of all nine supplied images was received on 2026-10-31.
 - Converted the nine attached JPEGs to WebP in `assets/visuals/`, preserving dimensions, watermarks, and text readability. Current total is approximately 525 KB versus approximately 1.22 MB of JPEG originals.
 - Updated `APP_VERSION`, package version, PWA cache, and cache asset list to `4.3.3`; no localStorage or learning-data changes.
 - Full checks currently pass 62/62. Local visual smoke at 375×844, 390×844, and 430×844 confirms real hero, training, progress, gallery, and enlargement images load with no horizontal overflow.
-- Next: commit, push, merge PR, deploy and verify all nine HTTPS assets.
+- Pull Request: #5 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/5`) merged into `main`.
+- Release commit: `96605cf`. GitHub Actions checks and Pages deployment completed successfully. All nine HTTPS WebP URLs return HTTP 200 with `image/webp`, and the live app reports `APP_VERSION='4.3.3'` with cache `english-cultivation-static-v4.3.3`.
+- Chromium visual smoke at 375×844, 390×844, and 430×844 confirms real hero-09, training calligraphy, progress portrait/quote, five gallery tiles, enlargement image, and no horizontal overflow. Physical iPhone Safari/PWA remains user acceptance only.
+- Next: none for this image deployment batch.
 
 ## V4.3.2 — ink-wash visual integration (complete; user images pending authorization)
 
