@@ -1,5 +1,15 @@
 # English Cultivation checkpoint
 
+## V5.1.1 — Transfer skip navigation bugfix (implementation ready)
+
+- Baseline: main `176fa281ca934e670daa871b99c3d2d647d119ca` / V5.1.0. Branch: `codex/v5-1-1-transfer-skip`.
+- Root cause reproduced with the synthetic equivalent of `EN-V51-SPEAK-TEST-20261031-006`: the old skip handler incremented `transferIndex`, cleared `transferState`, and rendered directly. On the first writing task, `transferDraft` was undefined and `renderTransferChallenge()` called `.trim()`, after the main content had already been cleared.
+- Fixed with bounded `advanceTransferTask()`, explicit skipped-task IDs, transfer-stage finalization, safe draft normalization/autosave, active-recording stop-before-skip handling, and a recoverable render/error panel. Skips do not create attempts or mark a task completed; the final skipped transfer stage is reported as partial/skipped.
+- Added synthetic fixture `test/fixtures/v51-1-006.json` and regression assertions in `test/v51-1-skip.test.mjs`. Local Chromium flow covers 006 at 375/390/430: T01 → T02 → Writing → Grammar → summary, writing draft restore, no page errors, no horizontal overflow, and synthetic IndexedDB recording metadata preservation.
+- Software/cache target is `5.1.1`; learning data `VERSION=4.3` and the existing recording IndexedDB remain unchanged. No real Safari storage or private pack was accessed.
+- Local verification: `npm run check` passes 94/94; learning-data-safety 4/4; mobile-accessibility-review 11/11; PWA audit 18 assets aligned with 5.1.1 and no warnings.
+- Release pending: commit, PR, CI, Pages deployment and live 5.1.1 resource verification.
+
 ## V5.1.0 — Daily Pack modules and speaking integration (complete)
 
 - Baseline: V5.0.0 main `aca6007`. V5.1 implementation branch `codex/v5-1-daily-pack-integration` was merged through Pull Request [#15](https://github.com/jajagood777-sys/english-mastery-mobile/pull/15).
