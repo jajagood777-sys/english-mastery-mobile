@@ -6,7 +6,7 @@ export const VISUAL_ASSETS = [
   {id:'01', file:'assets/visuals/calligraphy-01.webp', title:'书法并置', caption:'墨与金的书法细节', placement:'gallery'},
   {id:'02', file:'assets/visuals/calligraphy-02.webp', title:'深色书法', caption:'深色背景上的金色笔触', placement:'training'},
   {id:'03', file:'assets/visuals/archive-03.webp', title:'修炼典籍', caption:'典籍文字图像，仅作世界观画卷', placement:'gallery'},
-  {id:'04', file:'assets/visuals/calligraphy-04.webp', title:'水墨分隔', caption:'浅墨与留白', placement:'training'},
+  {id:'04', file:'assets/visuals/calligraphy-04.webp', title:'水墨分隔', caption:'浅墨与留白', placement:'gallery'},
   {id:'05', file:'assets/visuals/quote-05.webp', title:'阶段语录', caption:'阶段总结用语录图', placement:'progress'},
   {id:'06', file:'assets/visuals/archive-06.webp', title:'前世经历', caption:'可展开查看的修炼故事', placement:'gallery'},
   {id:'07', file:'assets/visuals/portrait-07.webp', title:'成长画像', caption:'进度页的安静人物装饰', placement:'progress'},
