@@ -104,7 +104,7 @@ function sourcePanel(raw,label='查看原始来源'){
   const box=div('source-trace');box.append(el('span','来源回链 · SOURCE TRACE','eyebrow'));
   const name=meta.sourceName||meta.sourceType||'本地材料';const details=[name,meta.sourceId,meta.sourceLocator,meta.sourceDate].filter(Boolean).join(' · ');box.append(p(details,'tiny'));
   if(meta.learningGoal)box.append(p(`学习目标：${meta.learningGoal}`,'tiny'));
-  const rawUrl=raw?.sourceUrl||raw?.source_url||'';const href=sourceHref(meta);if(href){const link=el('a',label,'source-link');link.href=href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}else if(rawUrl)box.append(p('链接未通过安全校验，仅显示来源文字。','tiny'));
+  const rawUrl=raw?.sourceUrl||raw?.source_url||'';const href=(!rawUrl||safeSourceUrl(rawUrl))?sourceHref(meta):null;if(href){const link=el('a',label,'source-link');link.href=href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}else if(rawUrl)box.append(p('链接未通过安全校验，仅显示来源文字。','tiny'));
   return box;
 }
 function inferredWeaknesses(){
@@ -292,8 +292,9 @@ function rebuildJourneyReport(){
   if(!ids.length){notify('本机没有保存综合学习的阶段 session ID，无法无损重建。');return null;}
   const sessions=(data.sessions||[]).filter(session=>ids.includes(session.id));
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
+  const journeyTransferAttempts=mergeTransferAttempts(j.transferAttempts||[],(data.transferAttempts||[]).filter(attempt=>inferredWeaknesses().some(weakness=>weakness.id===attempt.weaknessId&&(!weakness.sourceId||weakness.sourceId===j.packId))));
   const session={id:j.id,startedAt:j.startedAt,endedAt:j.finishedAt,activeMs:sessions.reduce((sum,item)=>sum+Number(item.activeMs||0),0)+Number(j.readingMs||0)+Number(j.transferMs||0),mode:'journey',scope:'today',packId:j.packId};
-  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:(data.readingMarks||[]).filter(mark=>readingIds.has(mark.readingId)),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:(data.readingMarks||[]).filter(mark=>readingIds.has(mark.readingId)),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.report_id=`report:${j.id}:recovered:${Date.now()}`;report.recovered_from_report_id=`report:${j.id}`;report.recovery={source:'local raw attempts and stage sessions',verified:true};
   report.module_coverage=(j.completed||[]).map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));report.reading_completed=(j.readingDoneIds||[]).length;report.reading_seconds=Math.round(Number(j.readingMs||0)/1000);report.target_minutes=j.targetMinutes;report.modules_completed=(j.completed||[]).filter(x=>x.status==='completed').length;report.modules_planned=j.steps?.length||0;report.data_quality={...report.data_quality,recovered_without_overwriting_original:true,reading_completion_self_reported:true,goal_not_a_completion_rule:true};
   report.transfer_attempts=journeyTransferAttempts;report.transfer_summary={attempted:report.transfer_evidence?.counts.total||0,independent:report.transfer_evidence?.counts.independent||0,prompted:report.transfer_evidence?.counts.prompted||0,self_corrected:journeyTransferAttempts.filter(x=>x.retryAnswer).length,unassessed:journeyTransferAttempts.filter(x=>!x.rating).length};

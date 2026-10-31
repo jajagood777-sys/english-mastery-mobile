@@ -200,3 +200,8 @@ test('V5 transfer tasks preserve optional alternate contexts for delayed re-test
  const out=recordsFromLearningPack({pack_id:'contexts',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'t-contexts',prompt:'Use address in work.',model_answer:'I address the issue at work.',contexts:[{id:'life',prompt:'Use address in daily life.',model_answer:'I address the problem at home.',hints:['Use a different setting.']}]}]});
  assert.equal(out.pack.transferTasks[0].contexts.length,1);assert.equal(out.pack.transferTasks[0].contexts[0].id,'life');
 });
+
+test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
+ const analytics=buildTransferAnalytics({weaknesses:[makeWeakness({id:'weak-hint'})],transferAttempts:[{id:'hint-only',weaknessId:'weak-hint',hintUsed:true,referenceViewed:false,firstAnswer:'',retryAnswer:''}]});
+ assert.equal(analytics.denominators.prompted,0);assert.equal(analytics.counts.prompted,0);
+});

@@ -162,3 +162,9 @@ test('V5 training exposes a single transfer room route and local recording fallb
 test('V5 source links use safe external navigation and do not execute imported text',()=>{
  assert.match(app,/safeSourceUrl/);assert.match(app,/rel='noopener noreferrer'/);assert.match(app,/source_url|sourceUrl/);assert.doesNotMatch(app,/innerHTML=.*source/);
 });
+
+test('V5 journey report recovery passes transfer evidence locally',()=>{
+ const block=app.slice(app.indexOf('function rebuildJourneyReport'),app.indexOf('function renderSummary'));
+ assert.match(block,/const journeyTransferAttempts=mergeTransferAttempts/);
+ assert.match(block,/transferAttempts:journeyTransferAttempts/);
+});

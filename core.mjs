@@ -120,7 +120,7 @@ export function buildTransferAnalytics({weaknesses=[],transferAttempts=[],now=Da
   const measured=rows.filter(row=>row.firstAnswer||row.retryAnswer); const categories={}; const sources={};
   for(const row of rows){const weakness=(Array.isArray(weaknesses)?weaknesses:[]).find(item=>item.id===row.weaknessId)||{};const category=weakness.skillType||'Unclassified',source=weakness.sourceType||'unknown';categories[category]=(categories[category]||0)+1;sources[source]=(sources[source]||0)+1;}
   const independentRows=rows.filter(row=>!row.hintUsed&&!row.referenceViewed&&(row.firstAnswer||row.retryAnswer));
-  const promptedRows=rows.filter(row=>row.hintUsed||row.referenceViewed);
+  const promptedRows=rows.filter(row=>(row.hintUsed||row.referenceViewed)&&(row.firstAnswer||row.retryAnswer));
   const retryRows=rows.filter(row=>row.retryAnswer);
   const delayedRows=rows.filter(row=>row.delayed);
   return {counts:{total:rows.length,measured:measured.length,unmeasured:rows.length-measured.length,independent:independentRows.filter(row=>row.rating==='K').length,prompted:promptedRows.filter(row=>row.rating==='K').length,retry:retryRows.filter(row=>row.rating==='K').length,delayed:delayedRows.filter(row=>row.rating==='K').length},denominators:{independent:independentRows.length,prompted:promptedRows.length,retry:retryRows.length,delayed:delayedRows.length},due,byCategory:categories,bySource:sources};
