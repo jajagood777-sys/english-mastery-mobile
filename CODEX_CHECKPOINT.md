@@ -1,6 +1,6 @@
 # English Cultivation checkpoint
 
-## V4.3.1 — Codex real-user quality repair (in progress)
+## V4.3.1 — Codex real-user quality repair (complete)
 
 - Baseline audited: main at `d7fb6a2`, workspace was clean, V4.3 tests were 53/53 before this repair.
 - Confirmed P0: `finishDailyJourney()` passed stage attempts to `buildBattleReport()` while the report builder filtered by the combined journey ID, producing empty `attempts` and zero K/V/N. Fixed with explicit allowed stage-session IDs, stable deduplication, original session IDs, listening separation, and explicit unrated rows.
@@ -9,7 +9,11 @@
 - New cards now hide Chinese meaning by default. `显示中文释义` is per-card, records a prompt event, and resets when the next card appears.
 - Version/cache target: `4.3.1` / `english-cultivation-static-v4.3.1`.
 - Tests currently pass 60/60; local Chromium 390×844 smoke covers reading marks, English-first hidden meaning, full four-module journey aggregation, one combined report, and no horizontal overflow. Physical iPhone Safari remains user acceptance only.
-- Next: review the final diff, commit, push main, verify GitHub Pages build and live assets, then stop.
+- Pull Request: #3 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/3`) merged into `main`.
+- Release commit before this checkpoint: `6ccd1bb`. This checkpoint documents the final verification commit below.
+- GitHub Actions checks and Pages deployment for `6ccd1bb` completed successfully. Live HTTPS verification returned the V4.3.1 app shell, `APP_VERSION='4.3.1'`, and `english-cultivation-static-v4.3.1`; original URL is unchanged.
+- Physical iPhone Safari/PWA acceptance remains the only user-side verification. No external ChatGPT, Sheets, Notion, or Drive sync is claimed.
+- Next: none for this repair batch; stop unless a new user request is supplied.
 
 ## V3.9 batches
 
