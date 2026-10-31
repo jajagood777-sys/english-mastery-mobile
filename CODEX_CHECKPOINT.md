@@ -7,7 +7,7 @@
 - Added `recordings.mjs`: runtime MediaRecorder MIME detection and IndexedDB-only blob storage with original/retry roles, replay/export and text fallback. Audio is not written into localStorage backups or reports.
 - Added a Training → “弱项迁移｜Transfer & Mastery” room with three groups, independent answer → staged hints → reference → self-correction → K/V/N, source trace links, delayed review dates and optional recording controls.
 - Progress now exposes transparent transfer denominators/categories and “尚未测量” states. No IELTS, pronunciation or semantic score is fabricated; no child classroom module was added.
-- Current local verification: `npm run check` passes 86/86; V5 source/weakness/backup/report tests pass; recording capability tests pass; PWA local audit reports 18 assets with 5.0.0 alignment and no warnings; public asset safety scan passes.
+- Current local verification: `npm run check` passes 87/87; V5 source/weakness/backup/report tests pass; recording capability tests pass; PWA local audit reports 18 assets with 5.0.0 alignment and no warnings; public asset safety scan passes.
 - Direct Chromium smoke at 390×844 confirms the transfer hub, source link, independent answer, reference-hidden state, recording panel, persisted transfer attempt, progress analytics and no horizontal overflow. This is Chromium emulation only; physical iPhone Safari microphone/keyboard/selection remains unverified.
 - Playwright CLI wrapper remains discoverable with `npx`, but its default Chrome binary is absent; direct `/usr/bin/chromium` was used. No private localStorage or recordings were accessed.
 - Next: run final Skills/static/browser verification, bump only the software/cache marker to `5.0.0`, open PR, wait for CI, merge and verify Pages/SW/live assets.

@@ -195,3 +195,8 @@ test('V5 battle reports include optional transfer evidence without changing lega
  const report=buildBattleReport({session:{id:'s-v5',startedAt:'2026-10-31T00:00:00Z',endedAt:'2026-10-31T00:01:00Z',activeMs:60000,mode:'transfer'},attempts:[],weaknesses:[weakness],transferAttempts:[{id:'ta-v5',weaknessId:weakness.id,firstAnswer:'I address it.',rating:'K',evidenceType:'independent_recall'}]});
  assert.equal(report.report_id,'report:s-v5');assert.equal(report.transfer_attempts.length,1);assert.equal(report.transfer_evidence.counts.independent,1);
 });
+
+test('V5 transfer tasks preserve optional alternate contexts for delayed re-testing',()=>{
+ const out=recordsFromLearningPack({pack_id:'contexts',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'t-contexts',prompt:'Use address in work.',model_answer:'I address the issue at work.',contexts:[{id:'life',prompt:'Use address in daily life.',model_answer:'I address the problem at home.',hints:['Use a different setting.']}]}]});
+ assert.equal(out.pack.transferTasks[0].contexts.length,1);assert.equal(out.pack.transferTasks[0].contexts[0].id,'life');
+});
