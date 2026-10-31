@@ -14,6 +14,6 @@ The visual layer recognizes these local filenames:
 | 08 / `8-Photo-8.jpg` | `portrait-08.webp` | 修炼画卷 gallery |
 | 09 / `9-Photo-9.jpg` | `hero-09.webp` | 首页主视觉 |
 
-The nine files supplied in the design request are not committed by default. Their source, copyright ownership, and public redistribution licence were not included with the attachments. Add optimized copies only after the owner confirms that GitHub Pages publication is permitted. Until then, the app uses the same layout with an ink-wash CSS placeholder and keeps English practice fully usable.
+The website owner explicitly authorized public use of these nine supplied images on GitHub Pages on 2026-10-31. The committed WebP files are optimized copies of the attached JPEGs; original attribution/watermarks and important text are preserved.
 
-If publication is authorized, keep the original attribution/watermark, convert carefully to WebP, and preserve readability for the Chinese text screenshots (03, 05, 06). Do not put the images into JavaScript or base64 strings.
+The text-heavy images (03, 05, 06) use lighter compression to preserve Chinese readability. Do not put the images into JavaScript or base64 strings.
