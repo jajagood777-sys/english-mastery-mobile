@@ -2,11 +2,11 @@
 
 ## V4.5.0 — Quiet Mastery visual and navigation upgrade (complete)
 
-- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`.
+- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`; latest main checkpoint commit: `f955232ba0ccbbe7a32436db2c355fa2f80268c3`.
 - Added the Quiet Mastery design system, responsive premium home hierarchy, five consistent inline SVG navigation icons, safe-area-aware mobile navigation, day/night tokens, reading typography and shared page surfaces.
 - Home values remain driven by `homeSummary`, `dailyPack` and existing journey state; no demo numbers or new storage fields were added.
 - Software/cache markers are `4.5.0`; learning data `VERSION=4.3` remains unchanged.
-- Local verification: `npm run check` passes 75/75; learning-data-safety synthetic probe 4/4; mobile accessibility static baseline 11/11; PWA local bundle 17 assets with no warnings; daily pack validator accepts words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2.
+- Local verification: `npm run check` passes 76/76; learning-data-safety synthetic probe 4/4; mobile accessibility static baseline 11/11; PWA local bundle 17 assets with no warnings; daily pack validator accepts words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2.
 - Direct Chromium smoke passes visual assets, no horizontal overflow at 375/390/430, five nav destinations at 375/390/393/430/768/1280, day/night switching, reading selection CSS, transfer first-answer/reference flow, optional reading check and one combined report.
 - Playwright CLI wrapper is discoverable and `npx` is available, but the wrapper cannot launch because its default Chrome binary is absent (`/opt/google/chrome/chrome`); direct project runtime Chromium at `/usr/bin/chromium` was used instead. This is Chromium emulation only, not physical iPhone Safari.
 - Real iPhone Safari, virtual keyboard, native selection and private localStorage remain unverified; synthetic fixture data only was used.
