@@ -1,5 +1,14 @@
 # English Cultivation checkpoint
 
+## Project-scoped Skills acceptance (2026-10-31)
+
+- Baseline synchronized to `main` commit `125a130` (`125a1308...`); workspace was clean before this documentation-only checkpoint.
+- Seven project-scoped Skills are present under `.agents/skills/`: playwright, gh-fix-ci, frontend-design, english-daily-master-pack-qa, learning-data-safety, mobile-accessibility-review, and pwa-release-audit.
+- New skill scripts passed: learning-data-safety synthetic probe (4 checks), mobile-accessibility-review static baseline (11/11), and pwa-release-audit local bundle check (17 assets, version/cache alignment, no warnings).
+- `npm run check` passes 71/71, including skill manifest, daily-pack QA, safety, accessibility, and PWA regression tests.
+- Runtime distinctions: project files are discoverable and callable from this repository; they are not global/account-wide Skills. Playwright wrapper help, `npx`, Node/npm, Python and authenticated `gh` are available. Frontend design is instruction-only. Real iPhone Safari/PWA and private localStorage remain unverified.
+- No production learning code, localStorage, reports, K/V/N history or website version was changed by this acceptance.
+
 ## V4.3.3 — authorized visual assets (complete)
 
 - Owner authorization for public use of all nine supplied images was received on 2026-10-31.
