@@ -1,6 +1,6 @@
 # English Cultivation checkpoint
 
-## V4.4 — evidence-based learning upgrade (implementation complete; deployment pending)
+## V4.4 — evidence-based learning upgrade (complete)
 
 - Baseline: `main` at `125a130` with seven project-scoped Skills; prior Skills acceptance was recorded in `8e1293d` and `npm run check` passed 71/71.
 - Implemented optional backward-compatible `transfer_tasks` and `readings[].questions` parsing, a journey transfer stage, evidence-layer fields, optional reading comprehension checks, backup preservation for reading checks, and an extended daily-pack QA summary.
@@ -8,7 +8,10 @@
 - Current release target is `4.4.0`; learning data schema remains `VERSION=4.3` and is not reset or migrated for cosmetic changes.
 - Full local verification: `npm run check` passes 74/74; the daily-pack QA validator reports words 2, sentences 2, readings 1, listening 2, transfer 2 and reading questions 2 with no warnings.
 - Chromium 390×844 smoke confirms transfer first answer → reference reveal → K self-assessment, optional reading choice check, one report and no horizontal overflow. Physical iPhone Safari remains unverified.
-- Next: commit this branch, create/merge PR, deploy, verify live resources and update this checkpoint with the final merge SHA.
+- Pull Request: #9 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/9`) merged into `main`.
+- Release commit: `096a95a`; GitHub Actions checks and Pages deployment completed successfully. Live app version/cache and local asset bundle are verified after merge.
+- No real user localStorage or private backups were accessed. Physical iPhone Safari remains unverified.
+- Next: none for this V4.4 batch; stop unless a new request is supplied.
 
 ## Project-scoped Skills acceptance (2026-10-31)
 
