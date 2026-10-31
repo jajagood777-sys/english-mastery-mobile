@@ -62,8 +62,8 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - The home page now has an optional mountain-and-crane hero slot, training-page calligraphy detail, progress-page growth portrait/quote slots, and a collapsible visual scroll in 我的.
 - Visual assets are optional and fail back to an ink-wash CSS placeholder. Missing images never block English practice, reading, keyboard input, or offline startup.
 - The reading surface remains a clean high-contrast English page; no image is placed behind reading text or answer controls.
-- The supplied nine images are mapped in [`assets/visuals/README.md`](assets/visuals/README.md) but are not committed until public redistribution rights are confirmed.
-- Version `4.3.2` refreshes the PWA cache and includes `visuals.mjs` in the offline shell.
+- The nine owner-authorized images are mapped in [`assets/visuals/README.md`](assets/visuals/README.md) and are served as optimized WebP files from `assets/visuals/`.
+- Version `4.3.3` refreshes the PWA cache and includes `visuals.mjs` plus all nine visual assets in the offline shell.
 
 ## Run locally
 

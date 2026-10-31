@@ -1,5 +1,13 @@
 # English Cultivation checkpoint
 
+## V4.3.3 — authorized visual assets (in progress)
+
+- Owner authorization for public use of all nine supplied images was received on 2026-10-31.
+- Converted the nine attached JPEGs to WebP in `assets/visuals/`, preserving dimensions, watermarks, and text readability. Current total is approximately 525 KB versus approximately 1.22 MB of JPEG originals.
+- Updated `APP_VERSION`, package version, PWA cache, and cache asset list to `4.3.3`; no localStorage or learning-data changes.
+- Full checks currently pass 62/62. Local visual smoke at 375×844, 390×844, and 430×844 confirms real hero, training, progress, gallery, and enlargement images load with no horizontal overflow.
+- Next: commit, push, merge PR, deploy and verify all nine HTTPS assets.
+
 ## V4.3.2 — ink-wash visual integration (complete; user images pending authorization)
 
 - Baseline verified from `main` at `d59d749`; prior automated baseline was 60/60 and the working tree was clean.
