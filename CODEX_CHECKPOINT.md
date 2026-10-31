@@ -1,18 +1,16 @@
 # English Cultivation checkpoint
 
-## V4.5.0 — Quiet Mastery visual and navigation upgrade (complete)
+## V5.0.0 — transfer, speaking, source traceability and delayed mastery (implementation complete; release pending)
 
-- Baseline: `main` at `228c4fe`; PR #10 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/10`) merged into `main`. Release commit: `578bcf44ec8ca309f60806f82ad54c92354c45d8`; subsequent main commits only update the checkpoint documentation.
-- Added the Quiet Mastery design system, responsive premium home hierarchy, five consistent inline SVG navigation icons, safe-area-aware mobile navigation, day/night tokens, reading typography and shared page surfaces.
-- Home values remain driven by `homeSummary`, `dailyPack` and existing journey state; no demo numbers or new storage fields were added.
-- Software/cache markers are `4.5.0`; learning data `VERSION=4.3` remains unchanged.
-- Local verification: `npm run check` passes 76/76; learning-data-safety synthetic probe 4/4; mobile accessibility static baseline 11/11; PWA local bundle 17 assets with no warnings; daily pack validator accepts words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2.
-- Direct Chromium smoke passes visual assets, no horizontal overflow at 375/390/430, five nav destinations at 375/390/393/430/768/1280, day/night switching, reading selection CSS, transfer first-answer/reference flow, optional reading check and one combined report.
-- Playwright CLI wrapper is discoverable and `npx` is available, but the wrapper cannot launch because its default Chrome binary is absent (`/opt/google/chrome/chrome`); direct project runtime Chromium at `/usr/bin/chromium` was used instead. This is Chromium emulation only, not physical iPhone Safari.
-- Real iPhone Safari, virtual keyboard, native selection and private localStorage remain unverified; synthetic fixture data only was used.
-- GitHub Actions: checks run `41194450685` passed; Pages deployment run `41194450230` passed. Live `index.html`, `app.js`, `core.mjs`, `sw.js`, `manifest.webmanifest` and all 17 SW assets return HTTP 200; live app reports `APP_VERSION=4.5.0`, cache `english-cultivation-static-v4.5.0`, and hero WebP loads in Chromium.
-- Screenshots: local `/tmp/v45-live-home-390x844.png` and `/tmp/v45-live-home-1280x800.png` (Chromium emulation).
-- Next: user-side acceptance on a real iPhone Safari: open the live URL, switch day/night, focus a practice input with the keyboard, long-press/select a reading word, and verify existing private records remain visible. No private storage was accessed by Codex.
+- Baseline: latest synchronized `main` `5e7de7687528e678d5080ea5fa073fb0f7f9ee5f`; package/app/SW `4.5.0`, learning data `VERSION=4.3`, `npm run check` 76/76.
+- Added optional V5 fields and helpers in `core.mjs`: safe source metadata/URL validation, stable weaknesses, transfer attempts, conservative evidence status, analytics and backup merge. Existing K/V/N, attempts, sessions, reports, reading marks and daily packs remain intact.
+- Added `recordings.mjs`: runtime MediaRecorder MIME detection and IndexedDB-only blob storage with original/retry roles, replay/export and text fallback. Audio is not written into localStorage backups or reports.
+- Added a Training → “弱项迁移｜Transfer & Mastery” room with three groups, independent answer → staged hints → reference → self-correction → K/V/N, source trace links, delayed review dates and optional recording controls.
+- Progress now exposes transparent transfer denominators/categories and “尚未测量” states. No IELTS, pronunciation or semantic score is fabricated; no child classroom module was added.
+- Current local verification: `npm run check` passes 86/86; V5 source/weakness/backup/report tests pass; recording capability tests pass; PWA local audit reports 18 assets with 5.0.0 alignment and no warnings; public asset safety scan passes.
+- Direct Chromium smoke at 390×844 confirms the transfer hub, source link, independent answer, reference-hidden state, recording panel, persisted transfer attempt, progress analytics and no horizontal overflow. This is Chromium emulation only; physical iPhone Safari microphone/keyboard/selection remains unverified.
+- Playwright CLI wrapper remains discoverable with `npx`, but its default Chrome binary is absent; direct `/usr/bin/chromium` was used. No private localStorage or recordings were accessed.
+- Next: run final Skills/static/browser verification, bump only the software/cache marker to `5.0.0`, open PR, wait for CI, merge and verify Pages/SW/live assets.
 
 ## V4.4 — evidence-based learning upgrade (complete)
 

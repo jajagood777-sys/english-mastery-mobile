@@ -81,8 +81,8 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
   assert.match(app,/if\(page==='settings'\)return renderSettings/);
 });
 
-test('V4.2 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v4\.5\.0/);
+test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
+ assert.match(sw,/english-cultivation-static-v5\.0\.0/);
 });
 
 test('V4.3 one-file daily journey has all four stages and positive active time',()=>{
@@ -139,10 +139,10 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
  assert.match(css,/\.reading-article/);
 });
 
-test('V4.3.3 authorized visual bundle contains all nine WebP resources',()=>{
+test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v4\.5\.0/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v5\.0\.0/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V4.4 transfer and optional reading comprehension paths preserve evidence',()=>{
@@ -153,4 +153,12 @@ test('V4.4 transfer and optional reading comprehension paths preserve evidence',
  assert.match(app,/readingChecks/);
  assert.match(core,/transfer_tasks/);
  assert.match(core,/questions/);
+});
+
+test('V5 training exposes a single transfer room route and local recording fallback',()=>{
+ assert.match(app,/function renderTransferHub/);assert.match(app,/弱项迁移/);assert.match(app,/recordingCapability/);assert.match(app,/getUserMedia/);assert.match(app,/IndexedDB/);
+});
+
+test('V5 source links use safe external navigation and do not execute imported text',()=>{
+ assert.match(app,/safeSourceUrl/);assert.match(app,/rel='noopener noreferrer'/);assert.match(app,/source_url|sourceUrl/);assert.doesNotMatch(app,/innerHTML=.*source/);
 });
