@@ -12,7 +12,7 @@ This repository copy is available at `.agents/skills/playwright/`.
 Optional convenience alias:
 
 ```bash
-alias pwcli=bash "$PWCLI"
+alias pwcli='bash "$PWCLI"'
 ```
 
 ## Core
