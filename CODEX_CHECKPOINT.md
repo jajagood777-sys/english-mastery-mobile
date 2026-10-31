@@ -8,7 +8,7 @@
 - The nine supplied JPEGs were inspected locally (total about 1.2 MB; 1220px wide). Their public copyright/redistribution rights were not supplied, so optimized copies were used only in local preview and intentionally excluded from the public repository and deployment.
 - Local Chromium visual smoke passed at 375×844, 390×844, and 430×844: hero slot, progress card, gallery enlargement, no horizontal overflow, and navigation remain usable. `npm run check` currently passes 61/61.
 - Pull Request: #4 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/4`) merged into `main`.
-- Safe visual-layer commit: `d2a53eb`; GitHub Actions checks and Pages deployment completed successfully. Live HTTPS verification exposes `APP_VERSION='4.3.2'`, `visuals.mjs`, and `english-cultivation-static-v4.3.2`; the original URL is unchanged.
+- Safe visual-layer commit: `d2a53eb`; a follow-up exposes image 04 in the gallery (`048529e`). GitHub Actions checks and Pages deployment completed successfully. Live HTTPS verification exposes `APP_VERSION='4.3.2'`, `visuals.mjs`, and `english-cultivation-static-v4.3.2`; the original URL is unchanged.
 - Public image upload/deployment remains blocked until the user confirms redistribution authorization or supplies licensed replacements. No supplied JPEG was committed.
 - Next: none for the safe visual layer. If authorization is later confirmed, add only optimized WebP files listed in `assets/visuals/README.md`, update the PWA asset list, rerun the visual smoke, and deploy a small follow-up.
 
