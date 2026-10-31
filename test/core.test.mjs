@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.1');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.2');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
