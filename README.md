@@ -73,6 +73,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Training, reading, progress, reports and 我的 share the same tokens. Reading text remains selectable, long-form, high-contrast and free of image overlays.
 - Software/cache version is `4.5.0`; the backward-compatible learning data schema remains `VERSION=4.3`. No localStorage migration or deletion was introduced.
 
+## V5.1.0 — Daily pack modules and speaking integration
+
+- The daily overview now shows separate counts and progress for vocabulary, sentence/grammar, reading, reading comprehension, listening, speaking, writing and grammar transfer. Existing `transfer_tasks` are classified conservatively from `task_type` or tags; unknown tasks remain general transfer.
+- Daily journey speaking and reading-to-speaking tasks now expose the existing IndexedDB recording controls. A pure voice attempt can be saved without typing a transcript; it remains unassessed until reviewed.
+- Writing tasks have a dedicated multiline draft view with 80–100 word guidance and live word count. Grammar tasks remain text-only transformation prompts. Original drafts and retries stay separate.
+- Reading completion and reading comprehension remain separate states; the reading page keeps the optional question panel visible and the journey notifies when questions are still pending.
+- Software/cache version is `5.1.0`; learning data `VERSION=4.3` and the V5.0 recording store remain unchanged.
+
 ## V5.0.0 — English ability transfer system
 
 - Adds one “弱项迁移｜Transfer & Mastery” room under 训练. It separates real errors, untested knowledge and due transfers while retaining independent first answers, hints, reference viewing, self-correction, K/V/N and delayed evidence.
@@ -111,7 +119,7 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V5.0.0 uses `english-cultivation-static-v5.0.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V5.1.0 uses `english-cultivation-static-v5.1.0` so a deployment receives a fresh cache.
 
 ## V4.3 — one JSON file for all today's English study
 

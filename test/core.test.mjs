@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.0.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.1.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -204,4 +204,9 @@ test('V5 transfer tasks preserve optional alternate contexts for delayed re-test
 test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
  const analytics=buildTransferAnalytics({weaknesses:[makeWeakness({id:'weak-hint'})],transferAttempts:[{id:'hint-only',weaknessId:'weak-hint',hintUsed:true,referenceViewed:false,firstAnswer:'',retryAnswer:''}]});
  assert.equal(analytics.denominators.prompted,0);assert.equal(analytics.counts.prompted,0);
+});
+
+test('V5.1 transfer task types classify speaking writing grammar and reading-to-speaking conservatively',()=>{
+ const out=recordsFromLearningPack({pack_id:'types',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'s',prompt:'Speak for a minute.',task_type:'speaking'},{id:'w',prompt:'Write an argument.',tags:['writing']},{id:'g',prompt:'Transform the sentence.',tags:['grammar']},{id:'r',prompt:'Retell the story.',tags:['reading-to-speaking']},{id:'u',prompt:'Use it elsewhere.'}]});
+ assert.deepEqual(out.pack.transferTasks.map(x=>x.taskType),['speaking','writing','grammar','reading_to_speaking','general_transfer']);
 });
