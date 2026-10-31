@@ -104,7 +104,7 @@ function sourcePanel(raw,label='查看原始来源'){
   const box=div('source-trace');box.append(el('span','来源回链 · SOURCE TRACE','eyebrow'));
   const name=meta.sourceName||meta.sourceType||'本地材料';const details=[name,meta.sourceId,meta.sourceLocator,meta.sourceDate].filter(Boolean).join(' · ');box.append(p(details,'tiny'));
   if(meta.learningGoal)box.append(p(`学习目标：${meta.learningGoal}`,'tiny'));
-  const href=sourceHref(meta);if(href){const link=el('a',label,'source-link');link.href=href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}else if(meta.sourceUrl)box.append(p('链接未通过安全校验，仅显示来源文字。','tiny'));
+  const rawUrl=raw?.sourceUrl||raw?.source_url||'';const href=sourceHref(meta);if(href){const link=el('a',label,'source-link');link.href=href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}else if(rawUrl)box.append(p('链接未通过安全校验，仅显示来源文字。','tiny'));
   return box;
 }
 function inferredWeaknesses(){
