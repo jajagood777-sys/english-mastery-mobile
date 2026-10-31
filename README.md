@@ -65,6 +65,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Battle reports preserve evidence layers and explicit unmeasured states; no IELTS or semantic score is fabricated.
 - Version `4.4.0` refreshes the PWA cache without changing the learning data schema (`VERSION` remains backward-compatible).
 
+## V4.5.0 — Quiet Mastery visual and navigation system
+
+- The existing V4.4 learning flow now uses a calm modern-East-Asian visual system: warm ivory surfaces, deep jade actions, antique-gold focus accents, restrained shadows and responsive type.
+- The home page keeps real `homeSummary` values, but gives the daily learning action one clear visual focus with the authorized ink-wash hero image, honest three-stat summary and a compact route through the learning modes.
+- The five Chinese destinations remain 首页、训练、阅读、进度、我的. Their mixed text glyphs are replaced by consistent inline SVG line icons; mobile navigation respects the iPhone safe area and keeps reading tools above the bar.
+- Training, reading, progress, reports and 我的 share the same tokens. Reading text remains selectable, long-form, high-contrast and free of image overlays.
+- Software/cache version is `4.5.0`; the backward-compatible learning data schema remains `VERSION=4.3`. No localStorage migration or deletion was introduced.
+
 ## V4.3.2 — ink-wash visual layer
 
 - The home page now has an optional mountain-and-crane hero slot, training-page calligraphy detail, progress-page growth portrait/quote slots, and a collapsible visual scroll in 我的.
@@ -95,7 +103,7 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V4.3.3 uses `english-cultivation-static-v4.3.3` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V4.5.0 uses `english-cultivation-static-v4.5.0` so a deployment receives a fresh cache.
 
 ## V4.3 — one JSON file for all today's English study
 

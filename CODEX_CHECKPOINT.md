@@ -1,5 +1,17 @@
 # English Cultivation checkpoint
 
+## V4.5.0 — Quiet Mastery visual and navigation upgrade (implementation complete; release pending)
+
+- Baseline: `main` at `228c4fe`; branch `codex/v4-5-quiet-mastery` contains the V4.5 implementation.
+- Added the Quiet Mastery design system, responsive premium home hierarchy, five consistent inline SVG navigation icons, safe-area-aware mobile navigation, day/night tokens, reading typography and shared page surfaces.
+- Home values remain driven by `homeSummary`, `dailyPack` and existing journey state; no demo numbers or new storage fields were added.
+- Software/cache markers are `4.5.0`; learning data `VERSION=4.3` remains unchanged.
+- Local verification: `npm run check` passes 75/75; learning-data-safety synthetic probe 4/4; mobile accessibility static baseline 11/11; PWA local bundle 17 assets with no warnings; daily pack validator accepts words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2.
+- Direct Chromium smoke passes visual assets, no horizontal overflow at 375/390/430, five nav destinations at 375/390/393/430/768/1280, day/night switching, reading selection CSS, transfer first-answer/reference flow, optional reading check and one combined report.
+- Playwright CLI wrapper is discoverable and `npx` is available, but the wrapper cannot launch because its default Chrome binary is absent (`/opt/google/chrome/chrome`); direct project runtime Chromium at `/usr/bin/chromium` was used instead. This is Chromium emulation only, not physical iPhone Safari.
+- Real iPhone Safari, virtual keyboard, native selection and private localStorage remain unverified; synthetic fixture data only was used.
+- Next: commit documentation, open/merge the authorized PR, verify CI/Pages/SW live assets, then record the final merge SHA.
+
 ## V4.4 — evidence-based learning upgrade (complete)
 
 - Baseline: `main` at `125a130` with seven project-scoped Skills; prior Skills acceptance was recorded in `8e1293d` and `npm run check` passed 71/71.
