@@ -1,15 +1,16 @@
 # English Cultivation checkpoint
 
-## V5.0.0 — transfer, speaking, source traceability and delayed mastery (complete)
+## V5.1.0 — Daily Pack modules and speaking integration (implementation complete; release pending)
 
-- Baseline: synchronized `main` `5e7de7687528e678d5080ea5fa073fb0f7f9ee5f`; PR #14 (`https://github.com/jajagood777-sys/english-mastery-mobile/pull/14`) merged into `main` at `65ce91f01e12117e1e5f9a9ad63b9e4a69c61779`.
-- Added optional `weaknesses`, `transferAttempts` and source metadata with stable IDs, safe URL handling, alternate contexts, conservative delayed evidence and backup merge. `VERSION=4.3` remains unchanged.
-- Added the Training → 弱项迁移｜Transfer & Mastery room, source trace panels, independent answer/reference gate, staged hints, self-correction, K/V/N, delayed scheduling and transparent progress denominators.
-- Added `recordings.mjs`: runtime MediaRecorder MIME detection, IndexedDB-only original/retry blobs, replay/export and text fallback. Audio is excluded from localStorage backups and Battle Reports.
-- Local verification: `npm run check` passes 89/89; learning-data-safety 4/4; mobile static baseline 11/11; pwa-release-audit 18 assets, 5.0.0 aligned, no warnings; Daily Pack QA valid (words 2, sentences 2, readings 1, listening 2, transfer 2, reading questions 2); public asset scan clean.
-- Browser verification: direct Chromium smoke at 375/390/430 confirms no horizontal overflow and five-tab navigation; 390 confirms transfer hub, source link, reference-hidden state, recording panel, persisted attempt, progress analytics and recovery-safe report path. This is not physical iPhone Safari evidence.
-- CI run `41212032927` passed; Pages deployment run `41212032913` passed. Live `index.html`, `app.js`, `core.mjs`, `recordings.mjs`, `sw.js`, manifest and all 18 precache assets return HTTP 200. Live app reports `APP_VERSION=5.0.0` and `english-cultivation-static-v5.0.0`.
-- No private localStorage, backups or recordings were accessed. Remaining user-side checks: iPhone Safari keyboard focus, microphone permission/recording playback, native text selection, offline refresh and existing history visibility.
+- Baseline: main `aca6007` / V5.0.0; branch `codex/v5-1-daily-pack-integration`.
+- Fixed the V5 integration gap: Daily Journey transfer tasks now use the existing recording controls, including pure voice submission, original/retry recording metadata, replay/export and text fallback.
+- Added Daily Learning Overview cards for vocabulary, sentence/grammar, reading, reading comprehension, listening, speaking, writing and grammar transfer. Speaking groups speaking plus reading-to-speaking tasks; unknown task types remain general transfer.
+- Added task-specific Writing Practice (80–100 word guidance and live count), Grammar Transformation text UI, and clearer reading-comprehension state. Reading completion and comprehension completion remain separate.
+- Software/cache target is `5.1.0`; learning data `VERSION=4.3`, IndexedDB recording store and old backups remain compatible.
+- Local verification: `npm run check` passes 91/91; V5.1 task-type, directory, pure-recording and writing UI tests pass; PWA audit reports 18 assets aligned with 5.1.0 and no warnings; Daily Pack QA and public asset safety scan pass.
+- Synthetic 005-shaped Chromium smoke at 390×844 shows 8 module cards (8 words, 6 sentences, 1 reading, 5 comprehension questions, 4 listening, 2 speaking, 1 writing, 1 grammar), direct speaking recording button, voice-only submit, writing count, and comprehension panel. 375/390/430 transfer pages remain without horizontal overflow.
+- Real iPhone Safari microphone permission, playback/export, keyboard and offline refresh remain unverified. No private pack or device storage was accessed.
+- Next: commit docs, open PR, wait for CI, merge and verify Pages/SW/live 5.1.0 resources.
 
 ## V4.4 — evidence-based learning upgrade (complete)
 
