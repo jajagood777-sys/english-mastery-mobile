@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.3');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.4.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -142,4 +142,16 @@ test('backup round-trip keeps unsaved reading marks and saved card links',()=>{
  const markId=out.readingMarks[0].id;assert.equal(out.readingMarks.length,1);assert.equal(out.readingMarks[0].savedItemId,'w:1');
  const merged=mergeBackupState(out,{items:[],attempts:[],sessions:[],readingMarks:[{...mark,id:'different',savedStatus:'UNSAVED'}]});
  assert.equal(merged.readingMarks.length,1);assert.equal(merged.readingMarks.find(x=>x.id===markId).savedStatus,'SAVED');
+});
+
+test('V4.4 optional transfer tasks and reading questions remain backward-compatible',()=>{
+ const out=recordsFromLearningPack({schema_version:'2.0',pack_id:'v44',title:'V4.4 sample',source:'Test',language:'en',recommended_minutes:40,items:[{id:'w1',type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'t1',prompt:'How would you address a difficult issue?',model_answer:'I would address it calmly.',hints:['Use the target verb.']}],readings:[{id:'r1',title:'Short story',text:'This is a short English reading passage with enough length.',questions:[{id:'q1',type:'choice',prompt:'What is the main idea?',options:['Practice helps.','Nothing changes.'],answer:'Practice helps.'}]}]});
+ assert.equal(out.items.length,1);assert.equal(out.pack.transferTasks.length,1);assert.equal(out.readings[0].questions.length,1);assert.equal(out.readings[0].questions[0].type,'choice');
+ const old=recordsFromLearningPack({pack_id:'old-v43',items:[{type:'word',target:'address',example:'We address the issue.'}],readings:[]});assert.deepEqual(old.pack.transferTasks,[]);
+});
+
+test('reading comprehension check records merge without touching learning cards',()=>{
+ const current={items:[{id:'w',kind:'word',target:'address',status:'K'}],readingChecks:[{id:'reading-check:r1',readingId:'r1',status:'completed',answers:[]}]};
+ const restored={items:[],readingChecks:[{id:'reading-check:r1',readingId:'r1',status:'in_progress',answers:[]},{id:'reading-check:r2',readingId:'r2',status:'completed',answers:[]}]};
+ const merged=mergeBackupState(current,restored);assert.equal(merged.items[0].status,'K');assert.equal(merged.readingChecks.length,2);assert.equal(merged.readingChecks.find(x=>x.id==='reading-check:r1').status,'completed');
 });

@@ -36,7 +36,7 @@ export function inspectMasterPack(source) {
   try{parsed=recordsFromLearningPack(source);}catch(e){errors.push(`Website parser rejected file: ${e.message}`);}
   if(parsed&&parsed.errors.length)errors.push(...parsed.errors.map(x=>`Website parser: ${x}`));
   const items=parsed?.items||[];
-  const counts={words:items.filter(x=>x.kind==='word').length,sentences:items.filter(x=>x.kind==='sentence'&&x.module!=='listening').length,readings:parsed?.readings?.length||0,listening:items.filter(x=>x.module==='listening').length};
+  const counts={words:items.filter(x=>x.kind==='word').length,sentences:items.filter(x=>x.kind==='sentence'&&x.module!=='listening').length,readings:parsed?.readings?.length||0,listening:items.filter(x=>x.module==='listening').length,transfer:parsed?.transferTasks?.length||0,reading_questions:(parsed?.readings||[]).reduce((sum,reading)=>sum+(reading.questions?.length||0),0)};
   for(const [type,count] of Object.entries(counts))if(!count)warnings.push(`No ${type} module content; app must mark this stage missing, not completed.`);
   return {valid:errors.length===0,pack_id:source.pack_id||null,minutes:Number.isFinite(minutes)?minutes:null,counts,errors,warnings};
 }
