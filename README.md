@@ -73,6 +73,13 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Training, reading, progress, reports and 我的 share the same tokens. Reading text remains selectable, long-form, high-contrast and free of image overlays.
 - Software/cache version is `4.5.0`; the backward-compatible learning data schema remains `VERSION=4.3`. No localStorage migration or deletion was introduced.
 
+## V5.1.1 — Transfer skip navigation reliability
+
+- Fixed the Daily Journey blank-screen defect when skipping from the second speaking task into writing: transfer draft state is normalized before rendering, and all skip/rating advances now use one bounded transition path.
+- Speaking → reading-to-speaking → writing → grammar transitions are covered by a synthetic 006 regression fixture. Skipped tasks remain explicitly skipped/partial and never create a fake completed attempt.
+- Invalid transfer state now shows a recoverable error panel with return-to-overview and resume controls. Active recordings are stopped safely before a skip; IndexedDB audio is retained.
+- Software/cache version is `5.1.1`; learning data `VERSION=4.3` is unchanged.
+
 ## V5.1.0 — Daily pack modules and speaking integration
 
 - The daily overview now shows separate counts and progress for vocabulary, sentence/grammar, reading, reading comprehension, listening, speaking, writing and grammar transfer. Existing `transfer_tasks` are classified conservatively from `task_type` or tags; unknown tasks remain general transfer.
@@ -119,7 +126,7 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V5.1.0 uses `english-cultivation-static-v5.1.0` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V5.1.1 uses `english-cultivation-static-v5.1.1` so a deployment receives a fresh cache.
 
 ## V4.3 — one JSON file for all today's English study
 
