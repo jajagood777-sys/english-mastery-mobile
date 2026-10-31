@@ -7,6 +7,8 @@ const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const core = fs.readFileSync(new URL('../core.mjs', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const visuals = fs.readFileSync(new URL('../visuals.mjs', import.meta.url), 'utf8');
+const visualReadme = fs.readFileSync(new URL('../assets/visuals/README.md', import.meta.url), 'utf8');
 
 test('V4.1 shell exposes five clear Chinese mobile destinations', () => {
   for (const label of ['首页', '训练', '阅读', '进度', '我的']) assert.match(index, new RegExp(`>${label}<`));
@@ -68,7 +70,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V4.2 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v4\.3\.1/);
+ assert.match(sw,/english-cultivation-static-v4\.3\.2/);
 });
 
 test('V4.3 one-file daily journey has all four stages and positive active time',()=>{
@@ -112,4 +114,15 @@ test('reading vocabulary marks support double-click selection, persistence and b
  assert.match(app,/readingMarkId/);
  assert.match(app,/article\.addEventListener\('dblclick'/);
  assert.match(core,/mergeReadingMarks/);
+});
+
+test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surface',()=>{
+ assert.match(app,/visualAsset\('09'\)/);
+ assert.match(app,/function visualFrame/);
+ assert.match(app,/loading=asset\.id==='09'\?'eager':'lazy'/);
+ assert.match(app,/展开修炼画卷/);
+ assert.match(visualReadme,/public redistribution licence/);
+ assert.match(css,/\.home-hero-visual/);
+ assert.match(css,/\.visual-gallery/);
+ assert.match(css,/\.reading-article/);
 });

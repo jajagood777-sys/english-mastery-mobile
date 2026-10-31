@@ -57,6 +57,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Reading supports native iPhone selection plus a lightweight double-tap fallback to mark multiple unfamiliar words. Marks persist locally, can be cancelled, batch-save as context-rich word cards, and appear in journey report exports. Existing selection-to-card saving remains available.
 - Reading marks, articles, packs, attempts, sessions, reports, and old progress are included in backup validation and merge. Cache marker and app version are now `4.3.1`.
 
+## V4.3.2 — ink-wash visual layer
+
+- The home page now has an optional mountain-and-crane hero slot, training-page calligraphy detail, progress-page growth portrait/quote slots, and a collapsible visual scroll in 我的.
+- Visual assets are optional and fail back to an ink-wash CSS placeholder. Missing images never block English practice, reading, keyboard input, or offline startup.
+- The reading surface remains a clean high-contrast English page; no image is placed behind reading text or answer controls.
+- The supplied nine images are mapped in [`assets/visuals/README.md`](assets/visuals/README.md) but are not committed until public redistribution rights are confirmed.
+- Version `4.3.2` refreshes the PWA cache and includes `visuals.mjs` in the offline shell.
+
 ## Run locally
 
 ```sh
@@ -79,7 +87,7 @@ The Markdown battle report ends with a Chinese Central Immortal Aperture handoff
 
 ## GitHub Pages
 
-The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V4.3.1 uses `english-cultivation-static-v4.3.1` so a deployment receives a fresh cache.
+The live Pages URL is `https://jajagood777-sys.github.io/english-mastery-mobile/` (main branch, root folder). The service worker cache is versioned with each release; V4.3.2 uses `english-cultivation-static-v4.3.2` so a deployment receives a fresh cache.
 
 ## V4.3 — one JSON file for all today's English study
 
