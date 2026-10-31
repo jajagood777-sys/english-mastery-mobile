@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '4.3.0';
+export const APP_VERSION = '4.3.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -185,6 +185,22 @@ export function readingCardId(input, selectedText='', positionalKind='word') {
   const {readingId='', kind='word', target='', context='', source=''} = value;
   return `${kind === 'sentence' ? 's' : 'w'}:reading:${stableHash([readingId, source, kind, normalized(target), normalized(context)].join('|'))}`;
 }
+export function readingMarkId(mark={}) {
+  return `mark:reading:${stableHash([mark.readingId||'', mark.normalizedWord||normalized(mark.wordText||''), mark.paragraphIndex||0, mark.position||0].join('|'))}`;
+}
+export function mergeReadingMarks(existing=[], incoming=[]) {
+  const out=[]; const byId=new Map();
+  for(const mark of [...(Array.isArray(existing)?existing:[]), ...(Array.isArray(incoming)?incoming:[])]) {
+    if(!mark || typeof mark!=='object') continue;
+    const normalizedWord=normalized(mark.normalizedWord||mark.wordText||'');
+    if(!mark.readingId||!normalizedWord||!String(mark.originalSentence||'').trim()) continue;
+    const id=readingMarkId({...mark,normalizedWord});
+    const prior=byId.get(id);
+    const next={...mark,id,normalizedWord,savedStatus:mark.savedStatus==='SAVED'||prior?.savedStatus==='SAVED'?'SAVED':'UNSAVED',savedItemId:mark.savedItemId||prior?.savedItemId||null};
+    if(prior){Object.assign(prior,next);}else{byId.set(id,next);out.push(next);}
+  }
+  return out;
+}
 export function persistState(storage, key, state, previousRaw=null) {
   const serialized = typeof state === 'string' ? state : JSON.stringify(state);
   try { storage.setItem(key, serialized); return {ok:true, serialized}; }
@@ -195,8 +211,17 @@ export function persistState(storage, key, state, previousRaw=null) {
 }
 export function mergeBackupState(current={}, restored={}) {
   const mergedItems = mergeItems(Array.isArray(current.items) ? current.items : [], Array.isArray(restored.items) ? restored.items : []);
-  const uniqueBy = (rows, key) => [...new Map(rows.filter(Boolean).map(row => [row?.[key], row])).values()];
+  const uniqueBy = (rows, key) => {
+    const out=[]; const seen=new Set();
+    for(const row of rows.filter(Boolean)) {
+      const value=row?.[key];
+      if(value===undefined||value===null||value===''){out.push(row);continue;}
+      if(seen.has(value))continue; seen.add(value); out.push(row);
+    }
+    return out;
+  };
   const readings = uniqueBy([...(Array.isArray(current.readings) ? current.readings : []), ...(Array.isArray(restored.readings) ? restored.readings : [])], 'id');
+  const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const packHistory = uniqueBy([...(Array.isArray(current.packHistory) ? current.packHistory : []), ...(Array.isArray(restored.packHistory) ? restored.packHistory : []), current.dailyPack, restored.dailyPack], 'packId');
   return {
     ...current,
@@ -205,6 +230,7 @@ export function mergeBackupState(current={}, restored={}) {
     sessions:uniqueBy([...(current.sessions||[]), ...(restored.sessions||[])], 'id'),
     reports:uniqueBy([...(current.reports||[]), ...(restored.reports||[])], 'report_id'),
     readings,
+    readingMarks,
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -382,6 +408,8 @@ export function validateBackup(value){
   if(value.packHistory!==undefined&&!Array.isArray(value.packHistory)) throw Error('Backup has invalid learning-pack history.');
   const packHistory=(value.packHistory||[]).filter(Boolean).map(pack=>{if(typeof pack!=='object'||!clean(pack.packId))throw Error('Backup has invalid learning-pack history.');return {...pack,packId:clean(pack.packId)};});
   const dailyPack=value.dailyPack===null||value.dailyPack===undefined?null:(typeof value.dailyPack==='object'&&clean(value.dailyPack.packId)?value.dailyPack: (()=>{throw Error('Backup has invalid learning-pack metadata.');})());
+  if(value.readingMarks!==undefined&&!Array.isArray(value.readingMarks)) throw Error('Backup has invalid reading-mark data.');
+  const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const journey=value.dailyJourney;
   const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','sentences','reading','listening'].includes(x))?{
     ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
@@ -391,29 +419,42 @@ export function validateBackup(value){
     readingDoneIds:Array.isArray(journey.readingDoneIds)?journey.readingDoneIds.filter(x=>typeof x==='string'):[]
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date()}) {
-  const itemMap = new Map(items.map(item => [item.id, item]));
-  const sessionAttempts = attempts.filter(attempt => attempt.sessionId === session.id);
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[]}) {
+  const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
+  const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
+  const seen = new Set(); const fingerprints = new Set();
+  const sessionAttempts = (Array.isArray(attempts)?attempts:[]).filter(attempt => {
+    const key=attempt.id?`id:${attempt.id}`:'';
+    const fingerprint=`${attempt.sessionId||''}|${attempt.itemId||''}|${attempt.at||''}|${attempt.answer||''}|${attempt.status||''}|${attempt.promptType||''}`;
+    if(!allowed.has(attempt.sessionId)||seen.has(key)||fingerprints.has(fingerprint)) return false;
+    if(key)seen.add(key); fingerprints.add(fingerprint); return true;
+  });
   const detail = sessionAttempts.map(attempt => {
     const item = itemMap.get(attempt.itemId) || {};
+    const listening=attempt.promptType==='listening'||item.module==='listening';
     return {
       attempt_id: attempt.id,
+      session_id: attempt.sessionId || null,
       item_id: attempt.itemId,
       content_type: attempt.kind,
+      module: listening?'listening':attempt.kind==='word'?'words':'sentences',
+      target: item.target || item.text || '',
       source: item.source || 'Unknown source',
       prompt_type: attempt.promptType || (attempt.kind === 'word' ? 'cloze' : 'recall'),
       user_answer: attempt.answer || '',
       reference_answer: attempt.referenceAnswer || item.target || item.text || '',
-      rating: attempt.status,
+      rating: ['K','V','N'].includes(attempt.status)?attempt.status:'UNRATED',
       skipped: Boolean(attempt.skipped),
       initial_check: attempt.initial_check || null,
       retry_answer: attempt.retry_answer || '',
       retry_check: attempt.retry_check || null,
       retried_after_error: Boolean(attempt.retried_after_error),
       prompt_used: Boolean(attempt.prompt_used),
+      prompt_events: Array.isArray(attempt.prompt_events)?attempt.prompt_events:[],
+      viewed_chinese: Boolean(attempt.viewed_chinese),
       viewed_answer: Boolean(attempt.viewed_answer),
       learning_stage_before: attempt.learning_stage_before || null,
       learning_stage_after: attempt.learning_stage_after || null,
@@ -422,9 +463,11 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
       suggested_review_date: item.dueAt || null
     };
   });
-  const count = rating => sessionAttempts.filter(attempt => attempt.status === rating).length;
-  const words = sessionAttempts.filter(attempt => attempt.kind === 'word').length;
-  const sentences = sessionAttempts.filter(attempt => attempt.kind === 'sentence').length;
+  const ratedAttempts = sessionAttempts.filter(attempt => ['K','V','N'].includes(attempt.status));
+  const count = rating => ratedAttempts.filter(attempt => attempt.status === rating).length;
+  const words = detail.filter(attempt => attempt.module === 'words').length;
+  const sentences = detail.filter(attempt => attempt.module === 'sentences').length;
+  const listening = detail.filter(attempt => attempt.module === 'listening').length;
   const skipped = sessionAttempts.filter(attempt => attempt.skipped).length;
   const reviewItems = {due_tomorrow:[], review_soon:[], stronger_recall:[], needing_practice:[]};
   for (const attempt of detail) {
@@ -447,16 +490,22 @@ export function buildBattleReport({session, attempts, items, timezone='Asia/Shan
     active_seconds: Math.max(0, Math.round(Number(session.activeMs || 0) / 1000)),
     mode: session.mode,
     pack_id: session.packId || null,
-    mode_breakdown: {words, sentences},
+    mode_breakdown: {words, sentences, listening},
     learning_breakdown: {new_items:sessionAttempts.filter(a=>a.learning_stage_before==='new').length, learning_stage_items:sessionAttempts.filter(a=>a.learning_stage_before==='learning').length, review_items:sessionAttempts.filter(a=>['review','long_term'].includes(a.learning_stage_before)).length},
-    prompt_stats: {prompted:sessionAttempts.filter(a=>a.prompt_used).length, viewed_answer:sessionAttempts.filter(a=>a.viewed_answer).length, retried_after_error:sessionAttempts.filter(a=>a.retried_after_error).length, first_attempt_independent:sessionAttempts.filter(a=>!a.prompt_used&&!a.viewed_answer).length},
-    total_rated_attempts: sessionAttempts.length,
+    prompt_stats: {prompted:sessionAttempts.filter(a=>a.prompt_used).length, viewed_chinese:sessionAttempts.filter(a=>a.viewed_chinese).length, viewed_answer:sessionAttempts.filter(a=>a.viewed_answer).length, retried_after_error:sessionAttempts.filter(a=>a.retried_after_error).length, first_attempt_independent:sessionAttempts.filter(a=>!a.prompt_used&&!a.viewed_answer).length},
+    total_rated_attempts: ratedAttempts.length,
+    unrated_attempts: sessionAttempts.length-ratedAttempts.length,
     skipped_items: skipped,
     ratings_summary: {K:count('K'), V:count('V'), N:count('N')},
     attempts: detail,
     review_items: reviewItems,
     next_practice: {priority:['due_tomorrow','needing_practice','review_soon','untested'], source:'local review records'},
-    data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false},
+    session_ids: [...allowed],
+    reading_analysis: {
+      articles: (Array.isArray(readings)?readings:[]).map(reading=>({reading_id:reading.id,title:reading.title||'Untitled',source:reading.source||'Local material'})),
+      marks: Array.isArray(readingMarks)?readingMarks.filter(mark=>!session.packId||!mark.packId||mark.packId===session.packId):[]
+    },
+    data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true},
     sync_status: 'NOT_SUBMITTED'
   };
 }
@@ -465,8 +514,8 @@ export function battleReportMarkdown(report) {
   const lines = [
     `# English Cultivation Battle Report`, ``,
     `- Report ID: ${report.report_id}`, `- Session ID: ${report.session_id}`, `- Date: ${report.created_at}`, `- Time zone: ${report.timezone}`,
-    `- Active study time: ${report.active_seconds} seconds`, `- Mode: ${report.mode}`, `- Words: ${report.mode_breakdown.words}`, `- Sentences: ${report.mode_breakdown.sentences}`,
-    `- Rated attempts: ${report.total_rated_attempts}`, `- Skipped items: ${report.skipped_items}`, `- K / V / N: ${r.K} / ${r.V} / ${r.N}`, `- First independent answers: ${report.prompt_stats?.first_attempt_independent||0}`, `- Prompted answers: ${report.prompt_stats?.prompted||0}`, `- Viewed-answer flows: ${report.prompt_stats?.viewed_answer||0}`, `- Retry-after-error flows: ${report.prompt_stats?.retried_after_error||0}`, ``,
+    `- Active study time: ${report.active_seconds} seconds`, `- Mode: ${report.mode}`, `- Words: ${report.mode_breakdown?.words||0}`, `- Sentences: ${report.mode_breakdown?.sentences||0}`, `- Listening: ${report.mode_breakdown?.listening||0}`,
+    `- Rated attempts: ${report.total_rated_attempts}`, `- Unrated attempts: ${report.unrated_attempts||0}`, `- Skipped items: ${report.skipped_items}`, `- K / V / N: ${r.K} / ${r.V} / ${r.N}`, `- First independent answers: ${report.prompt_stats?.first_attempt_independent||0}`, `- Prompted answers: ${report.prompt_stats?.prompted||0}`, `- Chinese hints viewed: ${report.prompt_stats?.viewed_chinese||0}`, `- Viewed-answer flows: ${report.prompt_stats?.viewed_answer||0}`, `- Retry-after-error flows: ${report.prompt_stats?.retried_after_error||0}`, ``,
     ...(Array.isArray(report.module_coverage)?[
       '## 今日综合学习模块', '',
       `- Recommended time (not a completion condition): ${report.target_minutes||'not set'} minutes`,
@@ -476,7 +525,8 @@ export function battleReportMarkdown(report) {
       ''
     ]:[]),
     `## Practice details`, ``, `| 项目 | 类型 | 评价 | 初答 | 检查 | 重练 | 复习 |`, `|---|---|---|---|---|---|---|`,
-    ...(report.attempts || []).map(a => `| ${a.item_id} | ${a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
+    ...(report.attempts || []).map(a => `| ${(a.target||a.item_id||'').replaceAll('|','\\|')} | ${a.module||a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
+    ...(report.reading_analysis?.marks?.length?[``, `## Reading vocabulary marks`, ``, ...report.reading_analysis.marks.map(mark=>`- ${mark.wordText||mark.normalizedWord} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'尚未保存'} · ${mark.originalSentence||''}`)]:[]),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,

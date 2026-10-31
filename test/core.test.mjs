@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,readingMarkId} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -53,7 +53,7 @@ test('battle report is derived from actual session attempts and has stable ident
  const items=[{id:'w:1',kind:'word',target:'address',source:'CSV',dueAt:'2026-10-31T00:00:00.000Z'},{id:'s:1',kind:'sentence',text:'Practice matters.',source:'Story'}];
  const attempts=[{id:'a1',sessionId:'session-1',itemId:'w:1',kind:'word',status:'K',answer:'address',at:'2026-10-30T01:05:00.000Z'},{id:'a2',sessionId:'session-1',itemId:'s:1',kind:'sentence',status:'N',answer:'',skipped:true,at:'2026-10-30T01:10:00.000Z'}];
  const report=buildBattleReport({session,attempts,items,now:new Date('2026-10-30T01:20:00.000Z')});
- assert.equal(report.report_id,'report:session-1'); assert.equal(report.active_seconds,1200); assert.deepEqual(report.mode_breakdown,{words:1,sentences:1}); assert.deepEqual(report.ratings_summary,{K:1,V:0,N:1}); assert.equal(report.skipped_items,1); assert.equal(report.prompt_stats.first_attempt_independent,2); assert.match(battleReportMarkdown(report),/Central Immortal Aperture/);
+ assert.equal(report.report_id,'report:session-1'); assert.equal(report.active_seconds,1200); assert.deepEqual(report.mode_breakdown,{words:1,sentences:1,listening:0}); assert.deepEqual(report.ratings_summary,{K:1,V:0,N:1}); assert.equal(report.skipped_items,1); assert.equal(report.prompt_stats.first_attempt_independent,2); assert.match(battleReportMarkdown(report),/Central Immortal Aperture/);
 });
 test('v2 backup remains compatible with v3 report defaults',()=>{const out=migrateBackupPayload({items:[],attempts:[],sessions:[],settings:{duration:20}});assert.deepEqual(out.reports,[]);assert.equal(out.settings.theme,'system')});
 
@@ -71,13 +71,35 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.3.1');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
 test('V4.3 distinguishes a complete backup from a daily learning pack',()=>{
  assert.equal(isFullBackup({items:[],attempts:[],sessions:[]}),true);
  assert.equal(isFullBackup({items:[{type:'word'}],pack_id:'today'}),false);
+});
+
+test('journey battle reports aggregate only unique stage-session attempts and split listening',()=>{
+ const session={id:'journey:p1:1',startedAt:'2026-10-31T00:00:00Z',endedAt:'2026-10-31T01:00:00Z',activeMs:3600000,mode:'journey',packId:'p1'};
+ const items=[...Array.from({length:8},(_,i)=>({id:`w${i}`,kind:'word',target:`word${i}`,source:'pack'})),...Array.from({length:5},(_,i)=>({id:`s${i}`,kind:'sentence',text:`Sentence ${i}`,source:'pack'})),...Array.from({length:4},(_,i)=>({id:`l${i}`,kind:'sentence',module:'listening',text:`Listen ${i}`,source:'pack'}))];
+ const attempts=items.map((item,i)=>({id:`a${i}`,sessionId:i<8?'sw':i<13?'ss':'sl',itemId:item.id,kind:item.kind,status:i%3===0?'K':i%3===1?'V':'N',answer:item.kind==='word'?item.target:item.text,referenceAnswer:item.kind==='word'?item.target:item.text,promptType:item.module==='listening'?'listening':'recall',at:'2026-10-31T00:10:00Z',retry_answer:i===0?'word0 again':'',retried_after_error:i===0}));
+ attempts.push({...attempts[0],id:'outside',sessionId:'other'}); attempts.push({...attempts[1],id:'duplicate',sessionId:'sw'});
+ const report=buildBattleReport({session,attempts,items,allowedSessionIds:['sw','ss','sl','sl'],now:new Date('2026-10-31T01:00:00Z')});
+ assert.equal(report.attempts.length,17); assert.equal(report.total_rated_attempts,17); assert.deepEqual(report.mode_breakdown,{words:8,sentences:5,listening:4});
+ assert.equal(report.ratings_summary.K+report.ratings_summary.V+report.ratings_summary.N,17); assert.ok(report.attempts.every(row=>['sw','ss','sl'].includes(row.session_id))); assert.equal(report.attempts.find(row=>row.attempt_id==='a16').prompt_type,'listening');
+});
+
+test('unrated journey actions remain explicit and do not inflate K/V/N',()=>{
+ const report=buildBattleReport({session:{id:'j',startedAt:'2026-10-31T00:00:00Z',endedAt:'2026-10-31T00:01:00Z',activeMs:60000,mode:'journey'},attempts:[{id:'a',sessionId:'s',itemId:'w',kind:'word',status:null,answer:'',skipped:true,at:'2026-10-31T00:00:30Z'}],allowedSessionIds:['s'],items:[{id:'w',kind:'word',target:'address'}]});
+ assert.equal(report.total_rated_attempts,0); assert.equal(report.unrated_attempts,1); assert.deepEqual(report.ratings_summary,{K:0,V:0,N:0}); assert.equal(report.attempts[0].rating,'UNRATED');
+});
+
+test('reading marks deduplicate by occurrence without changing saved state',()=>{
+ const mark={readingId:'r1',sourceTitle:'Story',paragraphIndex:0,wordText:'Address',normalizedWord:'address',originalSentence:'We address the issue.',position:3,markedAt:'2026-10-31T00:00:00Z',savedStatus:'UNSAVED'};
+ const a={...mark,id:readingMarkId(mark)}; const b={...mark,wordText:' address ',normalizedWord:'address',id:readingMarkId({...mark,wordText:' address '})};
+ const saved={...a,savedStatus:'SAVED',savedItemId:'w:1'}; const out=mergeReadingMarks([saved],[b,{...mark,position:20,id:readingMarkId({...mark,position:20})}]);
+ assert.equal(out.length,2); assert.equal(out.find(x=>x.id===a.id).savedStatus,'SAVED'); assert.notEqual(readingMarkId(mark),readingMarkId({...mark,position:20}));
 });
 
 test('V4.2 reading selection uses the containing sentence and flags cross-sentence selections',()=>{
@@ -112,4 +134,12 @@ test('V4.2 backup validation keeps reading and pack defaults explicit',()=>{
  const out=validateBackup({items:[],attempts:[],sessions:[],readings:[{id:'reading:1',title:'Story',text:'A short story.',source:'Local'}],dailyPack:{packId:'p1',title:'Today'},packHistory:[{packId:'p1',title:'Today'}]});
  assert.equal(out.readings[0].text,'A short story.'); assert.equal(out.dailyPack.packId,'p1'); assert.equal(out.packHistory.length,1);
  assert.throws(()=>validateBackup({items:[],attempts:[],sessions:[],readings:[{id:'bad'}]}),/reading/i);
+});
+
+test('backup round-trip keeps unsaved reading marks and saved card links',()=>{
+ const mark={readingId:'r1',sourceTitle:'Story',paragraphIndex:0,wordText:'address',normalizedWord:'address',originalSentence:'We address the issue.',position:3,savedStatus:'SAVED',savedItemId:'w:1'};
+ const out=validateBackup({items:[{id:'w:1',kind:'word',target:'address'}],attempts:[],sessions:[],readings:[{id:'r1',title:'Story',text:'We address the issue.'}],readingMarks:[mark]});
+ const markId=out.readingMarks[0].id;assert.equal(out.readingMarks.length,1);assert.equal(out.readingMarks[0].savedItemId,'w:1');
+ const merged=mergeBackupState(out,{items:[],attempts:[],sessions:[],readingMarks:[{...mark,id:'different',savedStatus:'UNSAVED'}]});
+ assert.equal(merged.readingMarks.length,1);assert.equal(merged.readingMarks.find(x=>x.id===markId).savedStatus,'SAVED');
 });
