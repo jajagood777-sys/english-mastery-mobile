@@ -205,3 +205,8 @@ test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
  const analytics=buildTransferAnalytics({weaknesses:[makeWeakness({id:'weak-hint'})],transferAttempts:[{id:'hint-only',weaknessId:'weak-hint',hintUsed:true,referenceViewed:false,firstAnswer:'',retryAnswer:''}]});
  assert.equal(analytics.denominators.prompted,0);assert.equal(analytics.counts.prompted,0);
 });
+
+test('V5.1 transfer task types classify speaking writing grammar and reading-to-speaking conservatively',()=>{
+ const out=recordsFromLearningPack({pack_id:'types',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'s',prompt:'Speak for a minute.',task_type:'speaking'},{id:'w',prompt:'Write an argument.',tags:['writing']},{id:'g',prompt:'Transform the sentence.',tags:['grammar']},{id:'r',prompt:'Retell the story.',tags:['reading-to-speaking']},{id:'u',prompt:'Use it elsewhere.'}]});
+ assert.deepEqual(out.pack.transferTasks.map(x=>x.taskType),['speaking','writing','grammar','reading_to_speaking','general_transfer']);
+});

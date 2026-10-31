@@ -85,7 +85,7 @@ const allowedRetrievalStatuses=new Set(['UNTESTED','LEARNING','PROMPTED','INDEPE
 export function makeWeakness(raw={}) {
   const source=normalizeSourceMeta(raw); const contexts=Array.isArray(raw.contexts)?raw.contexts.map((context,index)=>({id:clean(context.id)||`context:${index+1}`,prompt:clean(context.prompt),referenceAnswer:clean(context.referenceAnswer||context.reference_answer||context.modelAnswer||context.model_answer),hints:listValue(context.hints||context.hint),source:normalizeSourceMeta(context.source||context)})).filter(context=>context.prompt):[];
   const retrieval=clean(raw.retrievalStatus||raw.retrieval_status)||'UNTESTED';
-  return {id:clean(raw.id)||weaknessId(raw),...source,targetExpression:clean(raw.targetExpression||raw.target_expression||raw.target),skillType:clean(raw.skillType||raw.skill_type)||'Unclassified',evidenceType:clean(raw.evidenceType||raw.evidence_type)||'unmeasured',retrievalStatus:allowedRetrievalStatuses.has(retrieval)?retrieval:'UNTESTED',nextReviewAt:clean(raw.nextReviewAt||raw.next_review_at)||null,lastTransferAt:clean(raw.lastTransferAt||raw.last_transfer_at)||null,contexts,createdAt:clean(raw.createdAt||raw.created_at)||new Date().toISOString()};
+  return {id:clean(raw.id)||weaknessId(raw),...source,targetExpression:clean(raw.targetExpression||raw.target_expression||raw.target),skillType:clean(raw.skillType||raw.skill_type)||'Unclassified',taskType:clean(raw.taskType||raw.task_type)||'general_transfer',evidenceType:clean(raw.evidenceType||raw.evidence_type)||'unmeasured',retrievalStatus:allowedRetrievalStatuses.has(retrieval)?retrieval:'UNTESTED',nextReviewAt:clean(raw.nextReviewAt||raw.next_review_at)||null,lastTransferAt:clean(raw.lastTransferAt||raw.last_transfer_at)||null,contexts,createdAt:clean(raw.createdAt||raw.created_at)||new Date().toISOString()};
 }
 export function mergeWeaknesses(existing=[],incoming=[]) {
   const out=[]; const byId=new Map();
@@ -101,7 +101,7 @@ export function mergeWeaknesses(existing=[],incoming=[]) {
 export function normalizeTransferAttempt(raw={}) {
   const at=clean(raw.at||raw.createdAt||raw.created_at)||new Date().toISOString();
   const id=clean(raw.id)||`transfer-attempt:${stableHash([raw.weaknessId||raw.weakness_id||'',raw.contextId||raw.context_id||'',at,raw.firstAnswer||raw.first_answer||''].join('|'))}`;
-  return {id,weaknessId:clean(raw.weaknessId||raw.weakness_id),contextId:clean(raw.contextId||raw.context_id)||null,firstAnswer:clean(raw.firstAnswer||raw.first_answer),hintUsed:Boolean(raw.hintUsed??raw.hint_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed),retryAnswer:clean(raw.retryAnswer||raw.retry_answer),rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,at,delayed:Boolean(raw.delayed),sourceSnapshot:raw.sourceSnapshot||raw.source_snapshot||null};
+  return {id,weaknessId:clean(raw.weaknessId||raw.weakness_id),contextId:clean(raw.contextId||raw.context_id)||null,firstAnswer:clean(raw.firstAnswer||raw.first_answer),hintUsed:Boolean(raw.hintUsed??raw.hint_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed),retryAnswer:clean(raw.retryAnswer||raw.retry_answer),rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,at,delayed:Boolean(raw.delayed),sourceSnapshot:raw.sourceSnapshot||raw.source_snapshot||null,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only)};
 }
 export function mergeTransferAttempts(existing=[],incoming=[]) {
   const out=[]; const byId=new Map();
@@ -336,6 +336,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const importedAt=new Date().toISOString();
   const errors=[],items=[],readings=[];
   const transferTasks=[];
+  const inferTaskType=(raw,tags)=>{const explicit=normalized(raw.task_type||raw.taskType||'').replaceAll('-','_').replaceAll(' ','_');if(['speaking','writing','grammar','reading_to_speaking','general_transfer'].includes(explicit))return explicit;const joined=tags.map(tag=>normalized(tag).replaceAll('-','_').replaceAll(' ','_'));if(joined.some(tag=>tag.includes('reading_to_speaking')||tag.includes('retell')))return 'reading_to_speaking';if(joined.some(tag=>tag.includes('speaking')||tag.includes('oral')))return 'speaking';if(joined.some(tag=>tag.includes('writing')||tag.includes('essay')))return 'writing';if(joined.some(tag=>tag.includes('grammar')||tag.includes('syntax')))return 'grammar';return 'general_transfer';};
   if(value.transfer_tasks!==undefined&&!Array.isArray(value.transfer_tasks)) errors.push('transfer_tasks 必须是数组；已跳过迁移挑战。');
   for(const [index,raw] of (Array.isArray(value.transfer_tasks)?value.transfer_tasks:[]).entries()){
     if(!raw||typeof raw!=='object'||!clean(raw.prompt||raw.question)){errors.push(`迁移挑战第 ${index+1} 项缺少 prompt。`);continue;}
@@ -344,8 +345,10 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     const taskId=clean(raw.id)||`transfer-${index+1}`;
     const taskSource=normalizeSourceMeta(raw,{sourceType:'daily_pack',sourceId:packId,sourceItemId:taskId,sourceName:clean(value.source)||source});
     const taskHints=Array.isArray(raw.hints)?raw.hints.map(clean).filter(Boolean).slice(0,3):listValue(raw.hint);
+    const taskTags=Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags);
+    const taskType=inferTaskType(raw,taskTags);
     const contexts=Array.isArray(raw.contexts)&&raw.contexts.length?raw.contexts.slice(0,6).map((context,cIndex)=>({id:clean(context?.id)||`${taskId}:context-${cIndex+1}`,prompt:clean(context?.prompt||context?.question),referenceAnswer:clean(context?.model_answer||context?.modelAnswer||context?.reference_answer||context?.referenceAnswer),hints:Array.isArray(context?.hints)?context.hints.map(clean).filter(Boolean).slice(0,3):listValue(context?.hint),source:normalizeSourceMeta(context,taskSource)})).filter(context=>context.prompt):[{id:`${taskId}:context-1`,prompt,referenceAnswer:reference,hints:taskHints,source:taskSource}];
-    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags),...taskSource,contexts});
+    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...taskSource,contexts});
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;

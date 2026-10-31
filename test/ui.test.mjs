@@ -168,3 +168,7 @@ test('V5 journey report recovery passes transfer evidence locally',()=>{
  assert.match(block,/const journeyTransferAttempts=mergeTransferAttempts/);
  assert.match(block,/transferAttempts:journeyTransferAttempts/);
 });
+
+test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
+ assert.match(app,/function renderDailyOverview/);assert.match(app,/口语训练/);assert.match(app,/写作训练/);assert.match(app,/语法迁移/);assert.match(app,/仅保存录音并提交初答/);assert.match(app,/建议 80–100 词/);assert.match(app,/阅读理解/);
+});
