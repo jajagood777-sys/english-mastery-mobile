@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,readingMarkId} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'4.5.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.0.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -154,4 +154,54 @@ test('reading comprehension check records merge without touching learning cards'
  const current={items:[{id:'w',kind:'word',target:'address',status:'K'}],readingChecks:[{id:'reading-check:r1',readingId:'r1',status:'completed',answers:[]}]};
  const restored={items:[],readingChecks:[{id:'reading-check:r1',readingId:'r1',status:'in_progress',answers:[]},{id:'reading-check:r2',readingId:'r2',status:'completed',answers:[]}]};
  const merged=mergeBackupState(current,restored);assert.equal(merged.items[0].status,'K');assert.equal(merged.readingChecks.length,2);assert.equal(merged.readingChecks.find(x=>x.id==='reading-check:r1').status,'completed');
+});
+
+
+test('V5 source links allow only safe HTTP(S) URLs and preserve YouTube timestamps',()=>{
+ const meta=normalizeSourceMeta({source_type:'YouTube',source_name:'Lesson',source_url:'https://www.youtube.com/watch?v=abc123',source_locator:'12:30',youtube_video_id:'abc123',youtube_start_seconds:750});
+ assert.equal(meta.sourceUrl,'https://www.youtube.com/watch?v=abc123');
+ assert.equal(meta.youtubeStartSeconds,750);
+ assert.equal(safeSourceUrl('javascript:alert(1)'),null);
+ assert.equal(safeSourceUrl('data:text/html,x'),null);
+});
+
+test('V5 weakness imports are stable and idempotent without overwriting evidence',()=>{
+ const first=makeWeakness({source_type:'reading',source_id:'r1',source_item_id:'w1',target_expression:'address',skill_type:'Collocation',retrieval_status:'UNTESTED',contexts:[{id:'c1',prompt:'Use address in a new context.'}]});
+ const second=makeWeakness({source_type:'reading',source_id:'r1',source_item_id:'w1',target_expression:'address',retrieval_status:'TRANSFER_VERIFIED',contexts:[{id:'c2',prompt:'Use address with a different subject.'}]});
+ assert.equal(first.id,second.id);
+ const merged=mergeWeaknesses([first],[second]);
+ assert.equal(merged.length,1);assert.equal(merged[0].retrievalStatus,'UNTESTED');assert.equal(merged[0].contexts.length,2);
+});
+
+test('V5 transfer evidence keeps independent and prompted denominators separate',()=>{
+ const weakness=makeWeakness({id:'weak-1',target_expression:'address',source_type:'writing'});
+ const attempts=mergeTransferAttempts([],[
+  {id:'ta-1',weaknessId:weakness.id,firstAnswer:'I address it.',hintUsed:false,referenceViewed:false,rating:'K',evidenceType:'independent_recall',at:'2026-10-30T00:00:00Z'},
+  {id:'ta-2',weaknessId:weakness.id,firstAnswer:'address',hintUsed:true,referenceViewed:true,retryAnswer:'I would address it.',rating:'K',evidenceType:'prompted',at:'2026-10-31T00:00:00Z'}
+ ]);
+ const analytics=buildTransferAnalytics({weaknesses:[weakness],transferAttempts:attempts,now:new Date('2026-10-31T12:00:00Z')});
+ assert.equal(analytics.denominators.independent,1);assert.equal(analytics.denominators.prompted,1);assert.equal(analytics.denominators.retry,1);assert.equal(analytics.counts.unmeasured,0);assert.equal(transferEvidenceStatus(attempts[0]),'INDEPENDENT_RECALL');
+});
+
+test('V5 daily pack source metadata and optional weaknesses survive backup validation',()=>{
+ const pack=recordsFromLearningPack({schema_version:'2.0',pack_id:'src-pack',source:'Story index',items:[{id:'w1',type:'word',target:'address',example:'We address the issue.',source_type:'Notion',source_id:'G0336',source_url:'https://notion.so/g0336',source_locator:'Part 2',skill_type:'Collocation'}],transfer_tasks:[{id:'t1',prompt:'Use address in a new context.',model_answer:'I would address it.',source_type:'YouTube',source_url:'https://youtube.com/watch?v=abc123',youtube_video_id:'abc123',youtube_start_seconds:42}]});
+ assert.equal(pack.items[0].sourceType,'Notion');assert.equal(pack.items[0].sourceUrl,'https://notion.so/g0336');assert.equal(pack.transferTasks[0].youtubeStartSeconds,42);
+ const restored=validateBackup({items:[],attempts:[],sessions:[],weaknesses:[{id:'weak-1',target_expression:'address',retrieval_status:'UNTESTED'}],transferAttempts:[{id:'ta-1',weakness_id:'weak-1',first_answer:'I would address it.'}]});
+ assert.equal(restored.weaknesses[0].id,'weak-1');assert.equal(restored.transferAttempts[0].firstAnswer,'I would address it.');
+});
+
+test('V5 battle reports include optional transfer evidence without changing legacy IDs',()=>{
+ const weakness=makeWeakness({id:'weak-report',target_expression:'address',source_type:'writing'});
+ const report=buildBattleReport({session:{id:'s-v5',startedAt:'2026-10-31T00:00:00Z',endedAt:'2026-10-31T00:01:00Z',activeMs:60000,mode:'transfer'},attempts:[],weaknesses:[weakness],transferAttempts:[{id:'ta-v5',weaknessId:weakness.id,firstAnswer:'I address it.',rating:'K',evidenceType:'independent_recall'}]});
+ assert.equal(report.report_id,'report:s-v5');assert.equal(report.transfer_attempts.length,1);assert.equal(report.transfer_evidence.counts.independent,1);
+});
+
+test('V5 transfer tasks preserve optional alternate contexts for delayed re-testing',()=>{
+ const out=recordsFromLearningPack({pack_id:'contexts',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'t-contexts',prompt:'Use address in work.',model_answer:'I address the issue at work.',contexts:[{id:'life',prompt:'Use address in daily life.',model_answer:'I address the problem at home.',hints:['Use a different setting.']}]}]});
+ assert.equal(out.pack.transferTasks[0].contexts.length,1);assert.equal(out.pack.transferTasks[0].contexts[0].id,'life');
+});
+
+test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
+ const analytics=buildTransferAnalytics({weaknesses:[makeWeakness({id:'weak-hint'})],transferAttempts:[{id:'hint-only',weaknessId:'weak-hint',hintUsed:true,referenceViewed:false,firstAnswer:'',retryAnswer:''}]});
+ assert.equal(analytics.denominators.prompted,0);assert.equal(analytics.counts.prompted,0);
 });

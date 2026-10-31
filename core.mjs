@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '4.5.0';
+export const APP_VERSION = '5.0.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -53,6 +53,77 @@ export function stableHash(s) {
   let h = 2166136261;
   for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); }
   return (h >>> 0).toString(36);
+}
+export function safeSourceUrl(value) {
+  const raw=clean(value); if(!raw) return null;
+  try { const url=new URL(raw); if(!['http:','https:'].includes(url.protocol)) return null; return url.toString(); }
+  catch { return null; }
+}
+const sourceValue=(raw,...keys)=>{for(const key of keys){if(raw?.[key]!==undefined&&raw?.[key]!==null&&clean(raw[key]))return raw[key];}return '';};
+export function normalizeSourceMeta(raw={},fallback={}) {
+  const sourcePick=(...keys)=>sourceValue(raw,...keys)||sourceValue(fallback,...keys);
+  const seconds=Number(sourcePick('youtubeStartSeconds','youtube_start_seconds'));
+  const videoId=clean(sourcePick('youtubeVideoId','youtube_video_id')).replace(/[^A-Za-z0-9_-]/g,'').slice(0,24)||null;
+  return {
+    sourceType:clean(sourcePick('sourceType','source_type'))||'unknown',
+    sourceId:clean(sourcePick('sourceId','source_id'))||null,
+    sourceItemId:clean(sourcePick('sourceItemId','source_item_id'))||null,
+    sourceName:clean(sourcePick('sourceName','source_name'))||null,
+    sourceUrl:safeSourceUrl(sourcePick('sourceUrl','source_url')),
+    sourceLocator:clean(sourcePick('sourceLocator','source_locator'))||null,
+    sourceDate:clean(sourcePick('sourceDate','source_date'))||null,
+    youtubeVideoId:videoId,
+    youtubeStartSeconds:Number.isFinite(seconds)&&seconds>=0?Math.floor(seconds):null,
+    learningGoal:clean(sourcePick('learningGoal','learning_goal'))||null
+  };
+}
+export function weaknessId(raw={}) {
+  const source=normalizeSourceMeta(raw); const target=normalized(sourceValue(raw,'targetExpression','target_expression','target'));
+  return `weakness:${stableHash([source.sourceType,source.sourceId,source.sourceItemId,target].join('|'))}`;
+}
+const allowedRetrievalStatuses=new Set(['UNTESTED','LEARNING','PROMPTED','INDEPENDENT_RECALL','TRANSFER_VERIFIED','REVIEW_DUE']);
+export function makeWeakness(raw={}) {
+  const source=normalizeSourceMeta(raw); const contexts=Array.isArray(raw.contexts)?raw.contexts.map((context,index)=>({id:clean(context.id)||`context:${index+1}`,prompt:clean(context.prompt),referenceAnswer:clean(context.referenceAnswer||context.reference_answer||context.modelAnswer||context.model_answer),hints:listValue(context.hints||context.hint),source:normalizeSourceMeta(context.source||context)})).filter(context=>context.prompt):[];
+  const retrieval=clean(raw.retrievalStatus||raw.retrieval_status)||'UNTESTED';
+  return {id:clean(raw.id)||weaknessId(raw),...source,targetExpression:clean(raw.targetExpression||raw.target_expression||raw.target),skillType:clean(raw.skillType||raw.skill_type)||'Unclassified',evidenceType:clean(raw.evidenceType||raw.evidence_type)||'unmeasured',retrievalStatus:allowedRetrievalStatuses.has(retrieval)?retrieval:'UNTESTED',nextReviewAt:clean(raw.nextReviewAt||raw.next_review_at)||null,lastTransferAt:clean(raw.lastTransferAt||raw.last_transfer_at)||null,contexts,createdAt:clean(raw.createdAt||raw.created_at)||new Date().toISOString()};
+}
+export function mergeWeaknesses(existing=[],incoming=[]) {
+  const out=[]; const byId=new Map();
+  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){
+    const item=makeWeakness(raw),prior=byId.get(item.id);
+    if(!prior){byId.set(item.id,item);out.push(item);continue;}
+    const contextMap=new Map(prior.contexts.map(context=>[context.id,context])); item.contexts.forEach(context=>{if(!contextMap.has(context.id))contextMap.set(context.id,context);});
+    prior.contexts=[...contextMap.values()];
+    for(const key of ['sourceType','sourceId','sourceItemId','sourceName','sourceUrl','sourceLocator','sourceDate','youtubeVideoId','youtubeStartSeconds','learningGoal','targetExpression','skillType']) if(!prior[key]&&item[key])prior[key]=item[key];
+  }
+  return out;
+}
+export function normalizeTransferAttempt(raw={}) {
+  const at=clean(raw.at||raw.createdAt||raw.created_at)||new Date().toISOString();
+  const id=clean(raw.id)||`transfer-attempt:${stableHash([raw.weaknessId||raw.weakness_id||'',raw.contextId||raw.context_id||'',at,raw.firstAnswer||raw.first_answer||''].join('|'))}`;
+  return {id,weaknessId:clean(raw.weaknessId||raw.weakness_id),contextId:clean(raw.contextId||raw.context_id)||null,firstAnswer:clean(raw.firstAnswer||raw.first_answer),hintUsed:Boolean(raw.hintUsed??raw.hint_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed),retryAnswer:clean(raw.retryAnswer||raw.retry_answer),rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,at,delayed:Boolean(raw.delayed),sourceSnapshot:raw.sourceSnapshot||raw.source_snapshot||null};
+}
+export function mergeTransferAttempts(existing=[],incoming=[]) {
+  const out=[]; const byId=new Map();
+  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){const item=normalizeTransferAttempt(raw),prior=byId.get(item.id);if(!prior){byId.set(item.id,item);out.push(item);continue;}for(const key of ['firstAnswer','retryAnswer','rating','evidenceType','sourceSnapshot'])if(!prior[key]&&item[key])prior[key]=item[key];prior.hintUsed=prior.hintUsed||item.hintUsed;prior.referenceViewed=prior.referenceViewed||item.referenceViewed;prior.delayed=prior.delayed||item.delayed;prior.hintEvents=[...prior.hintEvents,...item.hintEvents];}
+  return out;
+}
+export function transferEvidenceStatus(attempt={}) {
+  if(!attempt||!attempt.firstAnswer&&!attempt.retryAnswer)return 'UNTESTED';
+  if(attempt.delayed&&!attempt.hintUsed&&!attempt.referenceViewed&&attempt.rating==='K')return 'TRANSFER_VERIFIED';
+  if(attempt.rating==='K'&&!attempt.hintUsed&&!attempt.referenceViewed)return 'INDEPENDENT_RECALL';
+  if(attempt.hintUsed||attempt.referenceViewed)return 'PROMPTED';
+  return attempt.rating?'LEARNING':'UNTESTED';
+}
+export function buildTransferAnalytics({weaknesses=[],transferAttempts=[],now=Date.now()}={}) {
+  const rows=mergeTransferAttempts([],transferAttempts), due=mergeWeaknesses([],weaknesses).filter(item=>item.nextReviewAt&&new Date(item.nextReviewAt).getTime()<=new Date(now).getTime()).length;
+  const measured=rows.filter(row=>row.firstAnswer||row.retryAnswer); const categories={}; const sources={};
+  for(const row of rows){const weakness=(Array.isArray(weaknesses)?weaknesses:[]).find(item=>item.id===row.weaknessId)||{};const category=weakness.skillType||'Unclassified',source=weakness.sourceType||'unknown';categories[category]=(categories[category]||0)+1;sources[source]=(sources[source]||0)+1;}
+  const independentRows=rows.filter(row=>!row.hintUsed&&!row.referenceViewed&&(row.firstAnswer||row.retryAnswer));
+  const promptedRows=rows.filter(row=>(row.hintUsed||row.referenceViewed)&&(row.firstAnswer||row.retryAnswer));
+  const retryRows=rows.filter(row=>row.retryAnswer);
+  const delayedRows=rows.filter(row=>row.delayed);
+  return {counts:{total:rows.length,measured:measured.length,unmeasured:rows.length-measured.length,independent:independentRows.filter(row=>row.rating==='K').length,prompted:promptedRows.filter(row=>row.rating==='K').length,retry:retryRows.filter(row=>row.rating==='K').length,delayed:delayedRows.filter(row=>row.rating==='K').length},denominators:{independent:independentRows.length,prompted:promptedRows.length,retry:retryRows.length,delayed:delayedRows.length},due,byCategory:categories,bySource:sources};
 }
 function baseRecord(item) {
   const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, intervalDays:0, successStreak:0, errorCount:0, learningStage:'new', promptCount:0, viewedAnswerCount:0, createdAt:importedAt, importedAt, ...item };
@@ -223,6 +294,8 @@ export function mergeBackupState(current={}, restored={}) {
   const readings = uniqueBy([...(Array.isArray(current.readings) ? current.readings : []), ...(Array.isArray(restored.readings) ? restored.readings : [])], 'id');
   const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
+  const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
+  const transferAttempts = mergeTransferAttempts(current.transferAttempts, restored.transferAttempts);
   const packHistory = uniqueBy([...(Array.isArray(current.packHistory) ? current.packHistory : []), ...(Array.isArray(restored.packHistory) ? restored.packHistory : []), current.dailyPack, restored.dailyPack], 'packId');
   return {
     ...current,
@@ -233,6 +306,8 @@ export function mergeBackupState(current={}, restored={}) {
     readings,
     readingMarks,
     readingChecks,
+    weaknesses,
+    transferAttempts,
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -266,7 +341,11 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     if(!raw||typeof raw!=='object'||!clean(raw.prompt||raw.question)){errors.push(`迁移挑战第 ${index+1} 项缺少 prompt。`);continue;}
     const prompt=clean(raw.prompt||raw.question),reference=clean(raw.model_answer||raw.modelAnswer||raw.reference_answer||raw.referenceAnswer);
     if(prompt.length>1200||reference.length>1200){errors.push(`迁移挑战第 ${index+1} 项过长。`);continue;}
-    transferTasks.push({id:clean(raw.id)||`transfer-${index+1}`,prompt,referenceAnswer:reference,acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:Array.isArray(raw.hints)?raw.hints.map(clean).filter(Boolean).slice(0,3):listValue(raw.hint),sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags)});
+    const taskId=clean(raw.id)||`transfer-${index+1}`;
+    const taskSource=normalizeSourceMeta(raw,{sourceType:'daily_pack',sourceId:packId,sourceItemId:taskId,sourceName:clean(value.source)||source});
+    const taskHints=Array.isArray(raw.hints)?raw.hints.map(clean).filter(Boolean).slice(0,3):listValue(raw.hint);
+    const contexts=Array.isArray(raw.contexts)&&raw.contexts.length?raw.contexts.slice(0,6).map((context,cIndex)=>({id:clean(context?.id)||`${taskId}:context-${cIndex+1}`,prompt:clean(context?.prompt||context?.question),referenceAnswer:clean(context?.model_answer||context?.modelAnswer||context?.reference_answer||context?.referenceAnswer),hints:Array.isArray(context?.hints)?context.hints.map(clean).filter(Boolean).slice(0,3):listValue(context?.hint),source:normalizeSourceMeta(context,taskSource)})).filter(context=>context.prompt):[{id:`${taskId}:context-1`,prompt,referenceAnswer:reference,hints:taskHints,source:taskSource}];
+    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags),...taskSource,contexts});
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
@@ -274,18 +353,19 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     try{
       if(!raw||typeof raw!=='object')throw Error('学习项目必须是对象。');
       const type=clean(raw.type||raw.kind).toLowerCase();
-      const sourceName=clean(raw.source||value.source)||source;
+      const sourceName=clean(raw.source||raw.source_name||raw.sourceName||value.source)||source;
       const sourceId=clean(raw.id||raw.item_id)||`${packId}:${index+1}`;
       const tags=(Array.isArray(raw.tags)?raw.tags:clean(raw.tags).split(/[;|]/)).map(clean).filter(Boolean);
+      const itemSource=normalizeSourceMeta(raw,{sourceType:'daily_pack',sourceId:packId,sourceItemId:sourceId,sourceName});
       if(type==='word'){
         const target=clean(raw.target||raw.english_target||raw.text),example=clean(raw.example||raw.example_en||raw.sentence);
         if(!target||!example||target.length>150||example.length>800)throw Error('word 需要 target、example，且长度必须合理。');
-        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle:title,kind:'word',module:'words',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,evidence:clean(raw.evidence),tags,meaningZh:clean(raw.meaning_zh||raw.meaningZh||raw.hint_zh||raw.cue),definitionEn:clean(raw.definition_en||raw.definitionEn),partOfSpeech:clean(raw.part_of_speech||raw.partOfSpeech),collocations:listValue(raw.collocations),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+        items.push(baseRecord({id:`w:pack:${stableHash(packId+'|'+sourceId)}`,sourceItemId:sourceId,packId,packTitle:title,kind:'word',module:'words',contentType:'Words',target,example,cue:clean(raw.cue||raw.hint_zh),group:clean(raw.group)||'Daily pack',source:sourceName,...itemSource,evidence:clean(raw.evidence),tags,meaningZh:clean(raw.meaning_zh||raw.meaningZh||raw.hint_zh||raw.cue),definitionEn:clean(raw.definition_en||raw.definitionEn),partOfSpeech:clean(raw.part_of_speech||raw.partOfSpeech),collocations:listValue(raw.collocations),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }else if(type==='sentence'||type==='listening'){
         const text=clean(raw.text||raw.sentence||raw.english);
         if(text.length<10||text.length>800)throw Error('句子或听力材料需要长度 10–800 的英文文本。');
         const module=type==='listening'?'listening':'sentences';
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,source:sourceName,group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,source:sourceName,...itemSource,group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }else throw Error('type 仅支持 word、sentence 或 listening。');
     }catch(error){errors.push(`第 ${index+1} 项：${error.message}`);}
   });
@@ -296,7 +376,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
       if(!articleTitle||text.length<20||text.length>40000)throw Error('readings 需要 title 和长度 20–40000 的英文正文。');
       const sourceId=clean(raw.id)||`reading-${index+1}`;
       const questions=(Array.isArray(raw.questions)?raw.questions:[]).slice(0,6).map((question,qIndex)=>({id:clean(question?.id)||`${sourceId}:q${qIndex+1}`,type:clean(question?.type||'open').toLowerCase()==='choice'?'choice':'open',prompt:clean(question?.prompt||question?.question),options:Array.isArray(question?.options)?question.options.map(clean).filter(Boolean).slice(0,6):[],answer:clean(question?.answer||question?.correct_answer||question?.correctAnswer),acceptedAnswers:listValue(question?.accepted_answers||question?.acceptedAnswers),modelAnswer:clean(question?.model_answer||question?.modelAnswer),explanation:clean(question?.explanation)})).filter(question=>question.prompt);
-      readings.push({id:`reading:pack:${stableHash(packId+'|'+sourceId)}`,sourceId,title:articleTitle,text,source:clean(raw.source||value.source)||source,packId,questions,createdAt:importedAt});
+      const readingSource=normalizeSourceMeta(raw,{sourceType:'reading',sourceId:packId,sourceItemId:sourceId,sourceName:clean(raw.source||value.source)||source});
+      readings.push({id:`reading:pack:${stableHash(packId+'|'+sourceId)}`,sourceId,title:articleTitle,text,source:clean(raw.source||value.source)||source,packId,questions,createdAt:importedAt,...readingSource});
     }catch(error){errors.push(`阅读第 ${index+1} 篇：${error.message}`);}
   });
   const unique=[],seen=new Set();
@@ -420,7 +501,11 @@ export function validateBackup(value){
   const packHistory=(value.packHistory||[]).filter(Boolean).map(pack=>{if(typeof pack!=='object'||!clean(pack.packId))throw Error('Backup has invalid learning-pack history.');return {...pack,packId:clean(pack.packId)};});
   const dailyPack=value.dailyPack===null||value.dailyPack===undefined?null:(typeof value.dailyPack==='object'&&clean(value.dailyPack.packId)?value.dailyPack: (()=>{throw Error('Backup has invalid learning-pack metadata.');})());
   if(value.readingMarks!==undefined&&!Array.isArray(value.readingMarks)) throw Error('Backup has invalid reading-mark data.');
+  if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
+  if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
+  const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
+  const transferAttempts=mergeTransferAttempts(value.transferAttempts||[],[]);
   const journey=value.dailyJourney;
   const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','sentences','reading','listening','transfer'].includes(x))?{
     ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
@@ -430,10 +515,10 @@ export function validateBackup(value){
     readingDoneIds:Array.isArray(journey.readingDoneIds)?journey.readingDoneIds.filter(x=>typeof x==='string'):[]
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -518,6 +603,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       marks: Array.isArray(readingMarks)?readingMarks.filter(mark=>!session.packId||!mark.packId||mark.packId===session.packId):[],
       comprehension_checks: Array.isArray(readingChecks)?readingChecks:[]
     },
+    transfer_attempts: mergeTransferAttempts([],transferAttempts),
+    transfer_evidence: buildTransferAnalytics({weaknesses,transferAttempts,now}),
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true},
     sync_status: 'NOT_SUBMITTED'
   };
