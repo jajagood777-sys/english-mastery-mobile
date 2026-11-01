@@ -2,31 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-test('public speech manifest and local importer use one content-addressed format',()=>{
- const clips=read('speech-clips.mjs'),generator=read('scripts/generate-public-speech.mjs');
- assert.match(clips,/speech-assets\/speech-manifest\.json/);
- assert.match(clips,/speechTextHash\(text\)/);
- assert.match(clips,/fileSha256/);
- assert.match(clips,/unpackSpeechZip/);
- assert.match(generator,/speech-manifest\.json/);
- assert.match(generator,/af_heart/);assert.match(generator,/af_bella/);
- assert.match(generator,/libmp3lame/);assert.match(generator,/fileSha256/);
-});
-test('speech fallback is real and word cards expose word plus example controls',()=>{
+
+test('native speech covers words, examples, sentences and stories',()=>{
  const app=read('app.js');
- assert.match(app,/function speakDevice\(text\)/);
- assert.match(app,/speakDevice\(value\)/);
+ assert.match(app,/function speakEnglish\(/);
  assert.match(app,/speechButton\(item\.target\)/);
- assert.match(app,/clipSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
-});
-test('V5.6 pack generator is incremental and public workflow is privacy-gated',()=>{
- const script=read('scripts/generate-audio-pack.mjs'),workflow=read('.github/workflows/generate-audio-pack.yml'),app=read('app.js');
- assert.match(script,/--pack/);assert.match(script,/ffprobe/);assert.match(script,/failed/);assert.match(script,/audio-report\.json/);assert.match(script,/speech-manifest\.json/);
- assert.match(workflow,/examples\/\*\.json/);assert.match(workflow,/upload-artifact/);assert.match(app,/当前学习包自然配音覆盖率/);assert.match(app,/导入每日学习包 ZIP/);
+ assert.match(app,/speechButton\(item\.example\)/);
+ assert.match(app,/speechControls\(reading\.text/);
+ assert.match(app,/window\.speechSynthesis/);
+ assert.doesNotMatch(app,/Gemini|KOKORO|neuralSpeech|createPrivateTTSClient/);
 });
 
-test('on-demand Heart generation is wired without system fallback in Heart mode',()=>{const app=read('app.js'),clips=read('speech-clips.mjs'),neural=read('neural-tts.mjs');assert.match(clips,/pendingGeneration/);assert.match(clips,/on-demand-kokoro/);assert.match(neural,/generate,?speak/);assert.match(app,/当前文字没有可用的Heart音频/);assert.doesNotMatch(app,/已使用设备兼容朗读/);});
+test('native speech keeps asynchronous voices and device fallback',()=>{
+ const app=read('app.js');
+ assert.match(app,/voiceschanged/);
+ assert.match(app,/availableVoices\.find\(voice=>voice\.localService\)/);
+ assert.match(app,/voice\?\.lang\|\|'en-US'/);
+ assert.match(app,/浏览器默认语音/);
+});
 
-test('Gemini audio uses a distinct engine cache key and WAV client path',()=>{const clips=read('speech-clips.mjs'),client=read('private-tts-client.mjs'),worker=read('worker/src/index.mjs'),app=read('app.js');assert.match(clips,/speechClipKey/);assert.match(clips,/engine=KOKORO_SPEECH_ENGINE/);assert.match(clips,/on-demand-gemini/);assert.ok(client.includes('audio\\/'));assert.match(client,/wav/);assert.match(worker,/gemini-3\.8-flash-tts/);assert.match(worker,/x-goog-api-key/);assert.match(app,/Gemini云端/);assert.match(app,/GEMINI_TTS_ENGINE/);});
-
-test('Gemini settings uses a real session bootstrap and does not persist API credentials',()=>{const app=read('app.js'),client=read('private-tts-client.mjs'),worker=read('worker/src/index.mjs');assert.match(app,/geminiWorkerEndpoint/);assert.match(app,/建立本机Gemini会话/);assert.match(app,/sessionStorage/);assert.match(client,/credentials:authMode==='access'\?'include':'omit'/);assert.match(client,/startSession/);assert.match(worker,/cf-access-jwt-assertion/);assert.match(worker,/session\/exchange/);assert.match(worker,/TTS_PAIRING_CODE/);});
+test('learning package import remains local and independent of speech',()=>{
+ const app=read('app.js');
+ assert.match(app,/recordsFromLearningPack/);
+ assert.match(app,/function chooseImport/);
+ assert.match(app,/central-english-mastery\.v2/);
+ assert.doesNotMatch(app,/GEMINI_API_KEY|TTS_PAIRING_CODE/);
+});

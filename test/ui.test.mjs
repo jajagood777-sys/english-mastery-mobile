@@ -94,8 +94,9 @@ test('V5.2 native speech chooses real device voices and persists safe settings',
  assert.match(app,/utter\.voice=voice/);
  assert.match(app,/speechVoiceURI/);
  assert.match(app,/朗读引擎/);
- assert.match(app,/KOKORO_VOICES/);
- assert.match(app,/I wasn't expecting the plan to change so suddenly/);
+ assert.match(app,/设备原生语音/);
+ assert.doesNotMatch(app,/Gemini云端|KOKORO_VOICES|neuralSpeech/);
+ assert.match(app,/I was not expecting the plan to change so suddenly/);
 });
 
 test('V4.3 one-file daily journey has all four stages and positive active time',()=>{

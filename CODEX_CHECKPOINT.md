@@ -326,3 +326,11 @@ V3.5 batches
 - Owner supplied the controlled Pages staging origin: `https://english-mastery-v59-staging.pages.dev`.
 - `worker/wrangler.toml` now authorizes exactly that origin; the example template remains a placeholder for other staging projects. Formal `https://jajagood777-sys.github.io` remains excluded.
 - Worker secrets and deployment were not performed in this step.
+
+## Native Web Speech restoration (2026-11-01)
+
+- Formal app speech path now uses only `window.speechSynthesis` and `SpeechSynthesisUtterance`; Gemini, private Worker, and active Kokoro integration files from this PR were removed from the branch runtime.
+- Settings no longer exposes Gemini pairing, Worker URL, Heart/Bella model loading, model progress or neural cache controls. It shows the native `en-US` device voice list, refreshes after `voiceschanged`, and falls back to the browser's default voice when no matching device voice exists.
+- Existing word, example, sentence, listening, reading/story, pause, resume, stop, replay and speed controls remain wired to the native queue. Learner localStorage/IndexedDB/backup schemas were not changed.
+- Replaced the PR's neural browser smoke with a native Web Speech browser wiring smoke; CI workflow is named `Real app native Web Speech integration`. Physical iPhone Safari remains the final device check.
+- Fresh `npm run check`: **106/106** passed. No Gemini/Cloudflare credentials, accounts, deployments or formal Pages changes were made.
