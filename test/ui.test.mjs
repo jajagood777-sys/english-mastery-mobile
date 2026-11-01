@@ -83,7 +83,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v5\.7\.0/);
+ assert.match(sw,/english-cultivation-static-v5\.7\.1/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
