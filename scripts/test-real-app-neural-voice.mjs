@@ -1,0 +1,43 @@
+import { chromium } from 'playwright-core';
+import {accessSync,constants} from 'node:fs';
+import assert from 'node:assert/strict';
+const bin=['/usr/bin/chromium','/usr/bin/google-chrome','/opt/google/chrome/chrome'].find(p=>{try{accessSync(p,constants.X_OK);return true}catch{return false}});
+if(!bin)throw Error('No Chromium executable');
+const browser=await chromium.launch({headless:true,executablePath:bin,args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required']});
+const page=await browser.newPage({viewport:{width:390,height:844}});
+const errors=[];
+page.on('pageerror',e=>errors.push('PAGE '+e.message));
+page.on('response',r=>{if(r.status()>=400&&/kokoro|wasm|huggingface/i.test(r.url()))errors.push('HTTP '+r.status()+' '+r.url().slice(0,180))});
+try{
+  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});
+  await page.locator('nav button[data-page="more"]').click();
+  await page.getByRole('button',{name:'打开设置'}).click();
+  await page.getByRole('heading',{name:'学习设置'}).waitFor();
+  const selector=page.getByLabel('朗读引擎');
+  const options=await selector.locator('option').allTextContents();
+  assert.equal(options.length,3,'Expected 3 engine choices');
+  assert.ok(options.some(t=>t.includes('Heart')));
+  assert.ok(options.some(t=>t.includes('Bella')));
+  const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}'));
+  await selector.selectOption('heart');
+  await page.getByRole('button',{name:'试听Heart'}).click();
+  await page.waitForFunction(()=>{
+    const tray=document.querySelector('.neural-audio-tray');
+    return tray?.querySelector('audio')?.readyState>=2 && tray?.querySelector('audio')?.src.startsWith('blob:');
+  },null,{timeout:220000});
+  const output=await page.evaluate(async()=>{
+    const a=document.querySelector('.neural-audio-tray audio');
+    try{await a.play()}catch{}
+    return {duration:a.duration,readyState:a.readyState,src:a.currentSrc};
+  });
+  assert.ok(output.duration>2,'Expected actual decoded neural WAV audio');
+  assert.ok(output.src.startsWith('blob:'),'Expected generated audio, not Safari speech');
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}'));
+  assert.equal(saved.settings?.ttsMode,'heart');
+  for(const key of ['items','attempts','sessions','reports','readings','readingMarks','readingChecks','weaknesses','transferAttempts','dailyPack','dailyJourney']){
+    assert.deepEqual(saved[key],original[key],'Unexpected study data mutation '+key);
+  }
+  console.log('REAL APP KOKORO HEART PLAYBACK PASS '+JSON.stringify({duration:output.duration,readyState:output.readyState}));
+  console.log('APP PERSISTENCE SAFETY PASS');
+  assert.deepEqual(errors,[],'Unexpected network or script failure');
+}finally{console.log('BROWSER ERRORS '+JSON.stringify(errors.slice(0,12)));await browser.close()}
