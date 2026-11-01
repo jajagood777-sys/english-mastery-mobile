@@ -277,3 +277,8 @@ V3.5 batches
 - `test` passed in Actions run `41304013768`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013768
 - `real-app` passed in Actions run `41304013735`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013735
 - These are desktop/CI browser checks; they do not alter the physical-iPhone release gate.
+
+### Final documentation commit verification `2cbff0dccf3b7b7fc42d2973bbb6ee7f6eec4013`
+
+- `test` passed in Actions run `41304089112`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304089112
+- `real-app` passed in Actions run `41304089001`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304089001
