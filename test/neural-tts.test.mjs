@@ -7,7 +7,8 @@ test('Kokoro voices are real model IDs and cannot fall through to Safari',()=>{
  assert.deepEqual(KOKORO_VOICES,{heart:'af_heart',bella:'af_bella'});
  const app=load('app.js');
  assert.match(app,/voiceOverride\|\|data.settings\?\.ttsMode\|\|'device'/);
- assert.match(app,/neuralSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
+ assert.match(app,/clipSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
+ assert.match(app,/已使用设备兼容朗读/);
  assert.match(app,/朗读引擎/);
  assert.match(app,/试听Heart/);
  assert.match(app,/试听Bella/);
@@ -42,7 +43,7 @@ test('Speech model cache is excluded from destructive PWA cache cleanup',()=>{
 test('Learning database schema remains unchanged, neural mode is optional',()=>{
  const core=load('core.mjs'),app=load('app.js');
  assert.match(core,/VERSION = 4\.3/);
- assert.match(core,/APP_VERSION = '5\.4\.1'/);
+ assert.match(core,/APP_VERSION = '5\.5\.0'/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
  assert.match(app,/ttsMode\|\|'device'/);
 });

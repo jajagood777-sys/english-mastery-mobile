@@ -22,15 +22,18 @@ for(const text of SAMPLES){
   const stem=voice+'-'+hash.slice(0,24);
   const wav=OUT+'/'+stem+'.wav',mp3=OUT+'/'+stem+'.mp3';
   const audio=await tts.generate(text,{voice});await audio.save(wav);
-  const bytes=await readFile(wav);
-  if(bytes.length<2000||bytes.toString('ascii',0,4)!=='RIFF'||bytes.toString('ascii',8,12)!=='WAVE')throw Error('Invalid generated WAV '+wav);
+  const wavBytes=await readFile(wav);
+  if(wavBytes.length<2000||wavBytes.toString('ascii',0,4)!=='RIFF'||wavBytes.toString('ascii',8,12)!=='WAVE')throw Error('Invalid generated WAV '+wav);
   const ff=spawnSync('ffmpeg',['-nostdin','-hide_banner','-loglevel','error','-y','-i',wav,'-codec:a','libmp3lame','-b:a','96k','-ar','24000',mp3],{encoding:'utf8'});
   if(ff.status!==0)throw Error('MP3 conversion failed: '+(ff.stderr||ff.error));
-  const size=(await stat(mp3)).size;
-  if(size<1000)throw Error('MP3 too small: '+mp3);
-  clips.push({voice,text,file:stem+'.mp3',sha256:hash,bytes:size});
+  const bytes=(await stat(mp3)).size;
+  if(bytes<1000)throw Error('MP3 too small: '+mp3);
+  const fileSha256=createHash('sha256').update(await readFile(mp3)).digest('hex');
+  clips.push({voice,text:normalize(text),file:stem+'.mp3',sha256:hash,fileSha256,format:'audio/mpeg',engine:'kokoro-js@1.2.1 q8',bytes});
   console.log('GENERATED',voice,hash.slice(0,10),size,'bytes');
  }
 }
-await writeFile(OUT+'/manifest.json',JSON.stringify({version:1,source:'public built-in demo sentences only',clips},null,2)+'\n');
+const manifest={version:1,source:'public built-in demo sentences only',generatedAt:new Date().toISOString(),clips};
+await writeFile(OUT+'/speech-manifest.json',JSON.stringify(manifest,null,2)+'\n');
+await writeFile(OUT+'/manifest.json',JSON.stringify(manifest,null,2)+'\n');
 console.log('GENERATED ALL '+clips.length+' audio files');

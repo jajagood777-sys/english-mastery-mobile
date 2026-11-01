@@ -20,7 +20,10 @@ jobs:
       - name: Install pinned cloud-only neural inference dependency
         run: npm install --no-save --no-package-lock --ignore-scripts kokoro-js@1.2.1
       - name: Ensure MP3 codec available
-        run: command -v ffmpeg && ffmpeg -version | head -n 1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -n 1
       - name: Generate signed public-sample audio assets
         run: node scripts/generate-public-speech.mjs
       - name: Store generated WAV nowhere; commit compact MP3 only
