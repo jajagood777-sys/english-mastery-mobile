@@ -229,3 +229,4 @@ html[data-theme="night"] .question-label{color:var(--quiet-gold)!important}
 .neural-audio-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .neural-audio-actions button{font-size:.88rem;padding:8px 12px}
 @media(min-width:760px){.neural-audio-tray{bottom:20px}}
+.neural-model-progress{display:block;width:100%;height:8px;margin:8px 0 3px;accent-color:#3c7861}.neural-model-progress-text{min-height:1.2em;font-size:.78rem;color:var(--muted,#5f7468);font-variant-numeric:tabular-nums}.neural-audio-progress{display:block;width:100%;height:7px;margin:6px 0 2px;accent-color:#3c7861}.neural-audio-progress-text{display:block;color:var(--muted,#5f7468);font-size:.76rem}

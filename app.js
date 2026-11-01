@@ -16,7 +16,7 @@ const el=(tag,text='',cls='')=>{const node=document.createElement(tag);if(cls)no
 const app=document.getElementById('app');let page='home';let draft=null;let filter='all';let searchTerm='';let showHint=false;let lastSessionSummary=null;let toastTimer;let lastPersistedRaw=null;
 let migrationNotice='';let selectedReadingId=null;let selectedText='';let selectedParagraphText='';let selectedParagraphIndex=0;let availableVoices=[];let speechVoicesBound=false;let speechQueue=[];let speechQueueIndex=0;let speechPaused=false;
 let data=load();
-const neuralSpeech=createNeuralSpeech({onStatus(message){const label=document.getElementById('neural-voice-status');if(label)label.textContent=message;}});
+const neuralSpeech=createNeuralSpeech({onStatus(message){const label=document.getElementById('neural-voice-status');if(label)label.textContent=message;},onProgress(snapshot){const d=snapshot.details||{};const bar=document.getElementById('neural-voice-progress');const text=document.getElementById('neural-voice-progress-text');if(bar){bar.hidden=d.percent===null;bar.value=d.percent??0;}if(text){text.textContent=d.total?`${d.percent===null?'已下载 '+formatModelBytes(d.loaded):`${Math.round(d.percent)}%`} · ${formatModelBytes(d.loaded)} / ${formatModelBytes(d.total)}`:'';}}});
 applyTheme();
 // Curate real, neutral US female voices; never expose Apple's novelty character/effect voices.
 // This is a display filter, not a claim that the system voices are neural or premium.
@@ -545,30 +545,18 @@ if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有�
 function trendSummary(days){const endDay=dateKeyInTimeZone(new Date());const startDay=dateKeyInTimeZone(new Date(Date.now()-(Math.max(1,days)-1)*86400000));const sessions=data.sessions.filter(x=>{const day=dateKeyInTimeZone(x.endedAt);return day&&day>=startDay&&day<=endDay;});return {minutes:Math.round(sessions.reduce((sum,x)=>sum+Number(x.activeMs||0),0)/60000),sessions:sessions.length,attempts:sessions.reduce((sum,x)=>sum+Number(x.count||0),0)};}
 function buildSettingsPanel(){const dataBox=section('settings-card');dataBox.append(h('h2','设置与数据'),p('学习数据保存在本机。清除 Safari 网站数据可能删除记录，请定期导出备份。','subtle'),lines(btn('导出 JSON 备份',exportBackup,'btn primary'),btn('导出练习 CSV',exportHistory,'btn')));dataBox.append(field('恢复 JSON 备份（先预览，再合并）',inputFile('.json,application/json',importBackup)));const duration=el('input','','input');duration.type='number';duration.min='1';duration.max='180';duration.value=data.settings.duration||40;duration.addEventListener('change',()=>{data.settings.duration=Math.max(1,Math.min(180,Number(duration.value)||40));save();});dataBox.append(field('参考目标分钟（正向计时，不强制结束）',duration));
 const presets=lines(...[30,40,60].map(minutes=>btn(`${minutes} 分钟`,()=>{data.settings.duration=minutes;if(save()){duration.value=String(minutes);notify(`参考目标调整为 ${minutes} 分钟，计时仍可继续。`);}},'btn ghost')));dataBox.append(presets);const speed=el('select','','select');for(const [rate,label] of [[.75,'较慢（0.75×）'],[.9,'温和（0.9×）'],[1,'正常（1.0×）'],[1.1,'稍快（1.10×）'],[1.25,'较快（1.25×）']]){const opt=el('option',label);opt.value=String(rate);speed.append(opt);}speed.value=String(data.settings.speechRate||.9);speed.addEventListener('change',()=>{data.settings.speechRate=Number(speed.value);save();});dataBox.append(field('英语朗读速度',speed));const theme=el('select','','select');for(const [value,label] of [['system','跟随系统'],['day','日间修炼'],['night','夜间修炼']]){const opt=el('option',label);opt.value=value;theme.append(opt);}theme.value=data.settings.theme||'system';theme.addEventListener('change',()=>setTheme(theme.value));dataBox.append(field('外观主题',theme));const hints=el('input');hints.type='checkbox';hints.checked=data.settings.chineseHints!==false;hints.addEventListener('change',()=>{data.settings.chineseHints=hints.checked;if(save())render();});const hintLabel=el('label');hintLabel.className='setup-options';hintLabel.append(hints,el('span','允许查看中文提示（每张新卡默认隐藏）'));dataBox.append(hintLabel);const retry=el('input');retry.type='checkbox';retry.checked=data.settings.retryAfterError!==false;retry.addEventListener('change',()=>{data.settings.retryAfterError=retry.checked;if(save())render();});const retryLabel=el('label');retryLabel.className='setup-options';retryLabel.append(retry,el('span','答错后立即重练'));dataBox.append(retryLabel);const newLimit=el('input','','input');newLimit.type='number';newLimit.min='1';newLimit.max='100';newLimit.value=data.settings.newLimit||10;newLimit.addEventListener('change',()=>{data.settings.newLimit=Math.max(1,Math.min(100,Number(newLimit.value)||10));save();});dataBox.append(field('每日新卡上限',newLimit));const reviewLimit=el('input','','input');reviewLimit.type='number';reviewLimit.min='1';reviewLimit.max='200';reviewLimit.value=data.settings.reviewLimit||20;reviewLimit.addEventListener('change',()=>{data.settings.reviewLimit=Math.max(1,Math.min(200,Number(reviewLimit.value)||20));save();});dataBox.append(field('每日复习上限',reviewLimit));return dataBox;}
+function formatModelBytes(value){const n=Number(value)||0;return n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;}
 function voiceSettingsPanel(){
-  initSpeechVoices();
-  const box=section('voice-settings');
-  box.append(el('div','英语朗读声音 · ENGLISH VOICE','eyebrow'),p('Heart / Bella 是真正的Kokoro美式女声，需要主动下载模型。首次使用建议Wi-Fi；设备朗读保留为兼容备用。','subtle'));
-  const modeSelect=el('select','','select');
-  for(const [key,title] of [['device','设备语音｜兼容模式'],['heart','Heart｜自然美式女声（实验）'],['bella','Bella｜自然美式女声（实验）']]){
-    const option=el('option',title);option.value=key;modeSelect.append(option);
-  }
-  modeSelect.value=['heart','bella'].includes(data.settings.ttsMode)?data.settings.ttsMode:'device';
-  modeSelect.addEventListener('change',()=>{
-    stopSpeech();
-    data.settings.ttsMode=modeSelect.value;
-    if(save()){notify(modeSelect.value==='device'?'已选择设备兼容朗读。':'已选择Kokoro自然女声。首次朗读会下载模型；请确保网络充足。');render();}
-  });
-  const status=p(neuralSpeech.status(),'subtle');status.id='neural-voice-status';status.setAttribute('role','status');
-  box.append(field('朗读引擎',modeSelect),status);
-  box.append(lines(
-    btn('下载／加载自然语音模型',async()=>{try{await neuralSpeech.load();notify('Kokoro模型已加载，可以直接试听。');}catch{notify('模型加载失败，请查看状态，或使用设备兼容模式。');}},'btn secondary'),
-    btn('试听Heart',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'heart'),'btn secondary'),
-    btn('试听Bella',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'bella'),'btn secondary'),
-    btn('停止朗读',stopSpeech,'btn ghost')
-  ));
-  box.append(p('朗读时会显示独立播放器。iPhone可能限制异步生成后的自动播放：音频就绪后可手动按播放。模型尚未在你的真实Safari上验收，不会未经你选择就替换原语音。','tiny'));
-  return box;
+  initSpeechVoices(); const box=section('voice-settings');
+  box.append(el('div','英语朗读声音 · ENGLISH VOICE','eyebrow'),p('Heart / Bella 共用同一套Kokoro模型。首次加载前会显示实际资源进度；模型缓存与学习数据分开。','subtle'));
+  const modeSelect=el('select','','select'); for(const [key,title] of [['device','设备语音｜兼容模式'],['heart','Heart｜自然美式女声'],['bella','Bella｜自然美式女声']]){const option=el('option',title);option.value=key;modeSelect.append(option);} modeSelect.value=['heart','bella'].includes(data.settings.ttsMode)?data.settings.ttsMode:'device';
+  modeSelect.addEventListener('change',()=>{stopSpeech();data.settings.ttsMode=modeSelect.value;if(save()){notify(modeSelect.value==='device'?'已选择设备兼容朗读。':'已选择Kokoro自然女声。首次使用前会先显示下载大小和进度。');render();}});
+  const status=p(neuralSpeech.status(),'subtle'); status.id='neural-voice-status'; status.setAttribute('role','status');
+  const progress=el('progress','','neural-model-progress');progress.id='neural-voice-progress';progress.max=100;progress.hidden=true;const progressText=el('div','','neural-model-progress-text');progressText.id='neural-voice-progress-text';
+  const cacheStatus=p('缓存状态检查中……','tiny');cacheStatus.id='neural-cache-status';void neuralSpeech.cache().then(result=>{if(cacheStatus.isConnected)cacheStatus.textContent=`模型缓存：${result.state}${result.state==='已缓存'?'。下次通常无需重新下载。':''}`;}).catch(()=>{if(cacheStatus.isConnected)cacheStatus.textContent='模型缓存：检查失败；仍可尝试加载。';});
+  box.append(field('朗读引擎',modeSelect),status,progress,progressText,cacheStatus);
+  box.append(lines(btn('下载／加载自然语音模型',async()=>{try{await neuralSpeech.load();notify('自然语音已就绪，可以直接试听。');}catch{notify('模型加载失败，请查看状态并重试，或使用设备兼容模式。');}},'btn secondary'),btn('检测模型资源连接',async()=>{const before=neuralSpeech.details();try{await neuralSpeech.load();notify(`模型资源连接正常${before.total?`，已获取 ${formatModelBytes(neuralSpeech.details().loaded)}`:''}。`);}catch(error){notify('连接检测失败：请检查当前网络、CSP或浏览器存储空间。');}},'btn ghost'),btn('试听Heart',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'heart'),'btn secondary'),btn('试听Bella',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'bella'),'btn secondary'),btn('停止朗读',stopSpeech,'btn ghost')));
+  box.append(p('模型资源优先由正式网站同源运行时发起请求；当前版本不把约 92MB 大文件放入PWA默认预缓存。Safari可能清理网站缓存，因此不能保证永久保留。','tiny')); return box;
 }
 function renderSettings(){app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),p('这里集中管理计时、朗读、提示、复习上限和备份。修改不会删除历史记录。','lead'),voiceSettingsPanel(),buildSettingsPanel());}
 function renderProgress(){const s=stats();app.append(el('div','修炼进度 · PROGRESS','eyebrow'),h('h1','学习进度'),p('这里只显示真实训练记录，不估算 IELTS 或英语等级。','lead'));const growth=section('growth-visual-card');growth.append(visualFrame(visualAsset('07')),div('growth-visual-copy'));growth.querySelector('.growth-visual-copy').append(el('div','长期积累 · STEADY REFINEMENT','eyebrow'),h('h2','每一次真实练习都会留下痕迹。'),p('人物图像只作为氛围装饰；下面的分钟、作答和 K/V/N 才是你的真实记录。','subtle'));app.append(growth);

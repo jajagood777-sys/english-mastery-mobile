@@ -205,3 +205,12 @@ V3.5 batches
 - Independent end-to-end Chromium smoke: one JSON import → 2 words → 2 sentences → 1 reading confirmation → 2 listening dictations → combined summary produced exactly 1 report, 4 sessions, and four module coverage records. Normal answer/K/V/N and reading/listening data remained local.
 - Tests: `npm run check` passes 53/53. Physical iPhone Safari remains unverified. Codex Verified Edition commit `58cbc32` is pushed to `main`; GitHub Pages is `built`, live HTTP 200, `APP_VERSION` is `4.3.0`, and the cache is `english-cultivation-static-v4.3.0`.
 - Next task: none for V4.3. Stop unless a new product request is supplied.
+
+## V5.4.1 — Kokoro seamless delivery and observable cache (2026-11-01)
+
+- Baseline: `e70fa8c8b9260e8b02bc589c7b8dc654bdfb444` / V5.4.0.
+- `neural-tts.mjs` now passes kokoro-js/Transformers.js `progress_callback`, aggregates real `loaded`/`total` bytes across resources, and reports download, initialization, audio generation, ready, and error phases. Unknown totals remain an honest indeterminate state; no percentage is fabricated.
+- Heart (`af_heart`) and Bella (`af_bella`) continue to share the pinned q8 Kokoro model. The current verified runtime requests `onnx-community/Kokoro-82M-v1.0-ONNX` from its Hugging Face endpoint; no large model files were committed or added to PWA shell precache. The formal page therefore still needs access to that endpoint for a first uncached load; same-origin hosting is not claimed without a reproducible Pages artifact and license/size review.
+- Settings now exposes live progress, byte totals, cache status, a resource connection check, and retry guidance. Cache metadata is isolated under `english-cultivation-kokoro-model-v1`; learner localStorage, IndexedDB recordings, and JSON backup paths are untouched. `navigator.storage.estimate()` is used when available, without claiming Safari persistence.
+- Service worker advanced to `english-cultivation-static-v5.4.1`; activation only removes prior app-shell caches and never deletes model/runtime caches. The model is not in default install precache.
+- Validation: `npm run check` passes 102/102. Desktop Chromium real model/audio, iPhone Safari network/cache/offline behavior, storage eviction, and mobile memory remain user-device acceptance items; this environment cannot truthfully claim those physical-device tests.
