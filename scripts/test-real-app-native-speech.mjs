@@ -56,5 +56,23 @@ try{
  assert.equal(afterShare.items.find(item=>item.id==='w:reading-native').status,'UNTESTED');
  assert.equal(afterShare.items.find(item=>item.id==='w:native-regression').status,'K');
  console.log('READING VOCABULARY COPY HANDOFF PASS');
+ await page.locator('nav button[data-page="more"]').click();
+ await page.getByRole('heading',{name:'资料与设置'}).waitFor();
+ await page.getByRole('button',{name:'复制最新学习证据'}).click();
+ await page.waitForFunction(()=>Boolean(window.__readingVocabCopied?.includes('中央仙窍｜英语学习交接')));
+ const handoff=await page.evaluate(()=>window.__readingVocabCopied);
+ assert.match(handoff,/rhythm/);
+ assert.match(handoff,/本机暂无已生成的战报/);
+ assert.match(handoff,/未测试（UNTESTED）/);
+ await page.getByRole('button',{name:'打开设置与数据安全'}).click();
+ await page.getByRole('heading',{name:'本机数据安全检查'}).waitFor();
+ assert.match(await page.locator('#app').innerText(),/JSON备份只包含结构化学习数据，不包含 IndexedDB/);
+ assert.match(await page.locator('#app').innerText(),/最近一次主动发起JSON备份：暂无记录/);
+ await page.getByRole('button',{name:'检查Safari本地存储状态'}).click();
+ await page.waitForFunction(()=>{const t=document.querySelector('#app')?.innerText||'';return t.includes('网站估算占用')||t.includes('浏览器未开放StorageManager')||t.includes('存储检查失败');});
+ const afterAudit=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
+ assert.equal(afterAudit.items.find(item=>item.id==='w:reading-native').status,'UNTESTED');
+ assert.equal(afterAudit.items.find(item=>item.id==='w:native-regression').status,'K');
+ console.log('CENTRAL HANDOFF AND NON-DESTRUCTIVE DATA SAFETY PASS');
  assert.deepEqual(errors,[]);console.log('REAL APP NATIVE SPEECH WIRING PASS');console.log('LEARNER DATA PERSISTENCE PASS');
 }finally{await browser.close();}
