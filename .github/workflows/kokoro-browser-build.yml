@@ -35,6 +35,10 @@ jobs:
           MJS=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs' -print -quit)
           test -n "$WASM" && test -n "$MJS"
           cp "$WASM" "$MJS" kokoro-runtime/dist/
+          JSEP_WASM=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm' -print -quit)
+          JSEP_MJS=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs' -print -quit)
+          test -n "$JSEP_WASM" && test -n "$JSEP_MJS"
+          cp "$JSEP_WASM" "$JSEP_MJS" kokoro-runtime/dist/
           node --check kokoro-runtime/dist/kokoro-engine.mjs
           ls -lh kokoro-runtime/dist/
       - name: Upload verified browser-runtime candidates (not production)
@@ -51,7 +55,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f kokoro-runtime/dist/kokoro-engine.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.wasm
+          git add -f kokoro-runtime/dist/kokoro-engine.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.wasm kokoro-runtime/dist/ort-wasm-simd-threaded.jsep.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.jsep.wasm
           git diff --cached --quiet && exit 0
           git commit -m 'build(kokoro): pin isolated browser bundle and WASM resources'
           git push origin HEAD:work/v5-4-kokoro-isolated-prototype-20261101
