@@ -82,7 +82,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v5\.6\.2/);
+ assert.match(sw,/english-cultivation-static-v5\.7\.0/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -157,7 +157,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v5\.6\.2/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v5\.7\.0/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V4.4 transfer and optional reading comprehension paths preserve evidence',()=>{
@@ -180,8 +180,11 @@ test('V5 source links use safe external navigation and do not execute imported t
 
 test('V5 journey report recovery passes transfer evidence locally',()=>{
  const block=app.slice(app.indexOf('function rebuildJourneyReport'),app.indexOf('function renderSummary'));
- assert.match(block,/const journeyTransferAttempts=mergeTransferAttempts/);
+ assert.match(block,/const journeyTransferAttempts=journeyTransferAttemptsForReport/);
  assert.match(block,/transferAttempts:journeyTransferAttempts/);
+ assert.match(block,/recovered_without_overwriting_original/);
+ assert.match(app,/firstAnswer:j\.transferDraft/);
+ assert.match(app,/暂不修改，保留初稿/);
 });
 
 test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
