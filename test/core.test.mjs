@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -194,6 +194,22 @@ test('V5 battle reports include optional transfer evidence without changing lega
  const weakness=makeWeakness({id:'weak-report',target_expression:'address',source_type:'writing'});
  const report=buildBattleReport({session:{id:'s-v5',startedAt:'2026-10-31T00:00:00Z',endedAt:'2026-10-31T00:01:00Z',activeMs:60000,mode:'transfer'},attempts:[],weaknesses:[weakness],transferAttempts:[{id:'ta-v5',weaknessId:weakness.id,firstAnswer:'I address it.',rating:'K',evidenceType:'independent_recall'}]});
  assert.equal(report.report_id,'report:s-v5');assert.equal(report.transfer_attempts.length,1);assert.equal(report.transfer_evidence.counts.independent,1);
+});
+
+test('V5.7 migrates legacy journey answer fields without losing the original draft',()=>{
+ const draft=Array.from({length:80},(_,index)=>`word${index+1}`).join(' ');
+ const row=normalizeTransferAttempt({id:'legacy-writing',pack_id:'EN-DAILY-20261102-006',journey_id:'journey:EN-DAILY-20261102-006:1',taskId:'TASK-W',task_type:'writing',prompt:'Write about a useful habit.',answer:draft,selfCorrection:'',modelAnswerViewed:true,modelAnswer:'A reference answer.',rating:'V',at:'2026-11-02T01:02:03Z'});
+ assert.equal(row.taskId,'TASK-W');assert.equal(row.taskType,'writing');assert.equal(row.firstAnswer,draft);assert.equal(row.firstSubmittedAt,'2026-11-02T01:02:03Z');assert.equal(row.referenceViewed,true);assert.equal(row.referenceAnswer,'A reference answer.');assert.equal(row.retryAnswer,'');
+ const report=buildBattleReport({session:{id:'journey:EN-DAILY-20261102-006:1',startedAt:'2026-11-02T01:00:00Z',endedAt:'2026-11-02T01:10:00Z',activeMs:600000,mode:'journey',packId:'EN-DAILY-20261102-006'},attempts:[],transferAttempts:[row]});
+ const md=battleReportMarkdown(report);assert.equal(report.transfer_attempts[0].taskId,'TASK-W');assert.match(md,/TASK-W/);assert.match(md,/Write about a useful habit/);assert.match(md,/word1 word2/);assert.match(md,/修改稿：未提交/);assert.doesNotMatch(md,/undefined/);
+});
+
+test('V5.7 keeps non-empty first and retry answers across repeated merge and backup migration',()=>{
+ const first='The original draft remains intact.';const retry='The revised draft is clearer.';
+ const merged=mergeTransferAttempts([{id:'same',taskId:'T1',answer:first,selfCorrection:''}],[{id:'same',taskId:'T1',firstAnswer:first,retryAnswer:retry,retrySubmittedAt:'2026-11-02T02:00:00Z',rating:'K'}]);
+ assert.equal(merged.length,1);assert.equal(merged[0].firstAnswer,first);assert.equal(merged[0].retryAnswer,retry);assert.equal(merged[0].rating,'K');
+ const restored=migrateBackupPayload({version:4.3,items:[],attempts:[],sessions:[],reports:[],readings:[],transferAttempts:[],dailyJourney:{packId:'p',steps:['transfer'],index:1,transferAttempts:[{id:'journey-old',taskId:'T2',answer:first,selfCorrection:'',modelAnswerViewed:true}],completed:[],sessionIds:[],readingDoneIds:[]},settings:{}});
+ assert.equal(restored.dailyJourney.transferAttempts[0].taskId,'T2');assert.equal(restored.dailyJourney.transferAttempts[0].firstAnswer,first);assert.equal(restored.dailyJourney.transferAttempts[0].referenceViewed,true);
 });
 
 test('V5 transfer tasks preserve optional alternate contexts for delayed re-testing',()=>{

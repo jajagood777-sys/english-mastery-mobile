@@ -180,8 +180,11 @@ test('V5 source links use safe external navigation and do not execute imported t
 
 test('V5 journey report recovery passes transfer evidence locally',()=>{
  const block=app.slice(app.indexOf('function rebuildJourneyReport'),app.indexOf('function renderSummary'));
- assert.match(block,/const journeyTransferAttempts=mergeTransferAttempts/);
+ assert.match(block,/const journeyTransferAttempts=journeyTransferAttemptsForReport/);
  assert.match(block,/transferAttempts:journeyTransferAttempts/);
+ assert.match(block,/recovered_without_overwriting_original/);
+ assert.match(app,/firstAnswer:j\.transferDraft/);
+ assert.match(app,/暂不修改，保留初稿/);
 });
 
 test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
