@@ -8,6 +8,9 @@ on:
       - 'index.html'
       - 'styles.css'
       - 'sw.js'
+      - 'speech-clips.mjs'
+      - 'speech-assets/**'
+      - 'scripts/test-real-app-neural-voice.mjs'
       - 'scripts/test-real-app-neural-voice.mjs'
       - '.github/workflows/kokoro-app-e2e.yml'
   workflow_dispatch:

@@ -17,8 +17,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: {node-version: '20'}
-      - name: Install pinned cloud-only neural inference dependency
-        run: npm install --no-save --no-package-lock --ignore-scripts kokoro-js@1.2.1
       - name: Ensure MP3 codec available
         run: |
           sudo apt-get update
