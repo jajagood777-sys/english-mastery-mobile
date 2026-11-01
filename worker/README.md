@@ -29,3 +29,15 @@ Use two separate Cloudflare projects and the same PR branch. Do not use a raw Gi
 5. Select `Gemini云端`, open an authorized story, and play it. The first request should produce a WAV and cache it in IndexedDB; replay the same segment to verify the second play does not call the Worker. Use only non-sensitive practice text because Google's free-tier terms may allow product improvement use.
 
 Before trusting the staging site, check from the Pages origin in Safari that `/v1/session/exchange` preflight returns `204` with `access-control-allow-origin` exactly equal to the Pages origin and `access-control-allow-credentials: true`. A different origin, a trailing slash, an old Worker deployment, or a preview URL not present in `TTS_ALLOWED_ORIGIN` must fail closed.
+
+## When Workers Builds creation shows only three command fields
+
+Cloudflare documents Git branch and Root directory under the project's Build settings; they may not appear in the first creation form. Use this safe sequence:
+
+- Project name: `english-cultivation-gemini-v59-staging` (new name; do not select an existing Worker).
+- Build command: leave empty.
+- Deploy command: `test "$WORKERS_CI_BRANCH" = "codex/v5-7-on-demand-heart" || { echo "Refusing non-PR branch"; exit 1; }; cd worker && npx wrangler deploy`.
+- Preview command: leave empty for this credential-bearing staging Worker.
+- After the project is created, open **Settings → Builds → Build configuration**, set Git branch to `codex/v5-7-on-demand-heart`, and set Root directory to `worker` if the field is available. If Root directory is set, the deploy command can be shortened to `test "$WORKERS_CI_BRANCH" = "codex/v5-7-on-demand-heart" || exit 1; npx wrangler deploy`.
+
+The branch guard is intentional: if Cloudflare tries its default `main` before the branch setting is changed, the build exits before Wrangler can deploy anything. Confirm the Worker name shown by Wrangler is `english-cultivation-gemini-v59-staging`; stop if Cloudflare reports an existing resource with that name.

@@ -1,4 +1,4 @@
-name = "english-cultivation-gemini-tts"
+name = "english-cultivation-gemini-v59-staging"
 main = "src/index.mjs"
 compatibility_date = "2026-11-01"
 
