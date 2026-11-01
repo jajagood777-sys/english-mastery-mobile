@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '5.6.1';
+export const APP_VERSION = '5.6.2';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -326,6 +326,66 @@ export function mergeReadings(existing=[], incoming=[]) {
   }
   return out;
 }
+/** Build a read-only view of words saved from the Reading Chamber.
+ * Never infer N from an untested reading mark, and do not alter study cards.
+ */
+export function collectSavedReadingWords(items = [], marks = [], readings = []) {
+  const names = new Map((Array.isArray(readings) ? readings : []).map(row => [String(row?.id || ''), String(row?.title || '')]));
+  const marksByCard = new Map();
+  for (const mark of (Array.isArray(marks) ? marks : [])) {
+    if (!mark || mark.savedStatus !== 'SAVED' || !mark.savedItemId) continue;
+    const id = String(mark.savedItemId);
+    if (!marksByCard.has(id)) marksByCard.set(id, mark);
+  }
+  const found = [], seen = new Set();
+  for (const item of (Array.isArray(items) ? items : [])) {
+    if (!item || item.kind !== 'word' || !item.readingId) continue;
+    const id = String(item.id || '');
+    const target = String(item.target || item.originalText || '').trim();
+    if (!id || !target || seen.has(id)) continue;
+    seen.add(id);
+    const mark = marksByCard.get(id);
+    found.push({
+      id,
+      target,
+      sourceTitle: String(item.sourceTitle || names.get(String(item.readingId)) || item.source || '').trim(),
+      originalSentence: String(item.context || item.example || mark?.originalSentence || '').trim(),
+      readingId: String(item.readingId),
+      packId: String(item.packId || mark?.packId || ''),
+      status: ['K','V','N'].includes(item.status) ? item.status : 'UNTESTED',
+      savedAt: String(mark?.markedAt || item.createdAt || '').trim()
+    });
+  }
+  return found.reverse();
+}
+/** Text only leaves the user's device when they deliberately copy or share it. */
+export function readingVocabularyHandoff(rows = [], {exportedAt = ''} = {}) {
+  const entries = Array.isArray(rows) ? rows : [];
+  const lines = [
+    '# 言道修炼殿｜阅读生词回传',
+    '导出时间（设备）：' + (exportedAt || '未提供'),
+    '项目：阅读时保存的生词卡片（' + entries.length + ' 条）',
+    '重要说明：保存生词不代表做错或已经掌握；UNTESTED 表示尚未经过测试，不能推定为 N。',
+    '供中央仙窍使用：按卡片ID和来源去重，优先安排真实 V/N 或未测词的独立提取，并用新语境出题；本次复制不等于同步至 Sheets/Notion。',
+    ''
+  ];
+  entries.forEach((row, index) => {
+    const status = ['K','V','N'].includes(row.status) ? row.status : 'UNTESTED';
+    lines.push(
+      String(index + 1) + '. ' + String(row.target || '').trim(),
+      '   K/V/N：' + (status === 'UNTESTED' ? '未测试（UNTESTED）' : status),
+      '   阅读来源：' + (row.sourceTitle || '未记录'),
+      '   原文例句：' + (row.originalSentence || '未记录'),
+      '   阅读ID：' + (row.readingId || '未记录'),
+      '   卡片ID：' + (row.id || '未记录'),
+      '   学习包ID：' + (row.packId || '未记录'),
+      '   保存时间：' + (row.savedAt || '未记录'),
+      ''
+    );
+  });
+  return lines.join('\n').trim() + '\n';
+}
+
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
   if(!value||typeof value!=='object'||!Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
   if(value.items.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
