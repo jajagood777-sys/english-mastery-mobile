@@ -1,0 +1,33 @@
+name: Real app Kokoro Heart browser integration
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app.js'
+      - 'neural-tts.mjs'
+      - 'index.html'
+      - 'styles.css'
+      - 'sw.js'
+      - 'scripts/test-real-app-neural-voice.mjs'
+      - '.github/workflows/kokoro-app-e2e.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install isolated Chromium test client
+        run: npm install --no-save --no-package-lock playwright-core@1.56.1
+      - name: Run static server
+        run: |
+          python3 -m http.server 4175 --bind 127.0.0.1 >/tmp/english-neural.log 2>&1 &
+          sleep 2
+          curl --fail --silent http://127.0.0.1:4175/ >/dev/null
+      - name: Verify Heart in real Settings and actual app playback
+        run: node scripts/test-real-app-neural-voice.mjs

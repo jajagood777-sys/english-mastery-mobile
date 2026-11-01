@@ -220,3 +220,12 @@ html[data-theme="night"] .question-label{color:var(--quiet-gold)!important}
 .daily-overview{margin-top:var(--space-5);padding:var(--space-5);border:1px solid var(--theme-border);border-radius:var(--radius-lg);background:var(--surface-elevated);box-shadow:0 10px 28px rgba(22,55,44,.05)}
 .daily-module-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-4)}.daily-module-card{display:grid;gap:6px;align-content:start;padding:15px;border:1px solid var(--theme-border);border-radius:15px;background:var(--theme-card)}.daily-module-count{font-size:24px;font-weight:800;color:var(--quiet-jade)}.daily-module-card .btn{margin-top:5px;min-height:42px}.transfer-challenge .recording-panel{margin-top:var(--space-4)}
 @media(max-width:640px){.daily-overview{padding:16px;border-radius:18px}.daily-module-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.daily-module-card{padding:12px}.daily-module-count{font-size:21px}}
+
+/* Optional neural speech playback: stay above the existing bottom navigation. */
+.neural-audio-tray{position:fixed;z-index:80;left:12px;right:12px;bottom:calc(86px + env(safe-area-inset-bottom));margin:0 auto;max-width:700px;background:var(--surface, #f8f9f6);border:1px solid #cad6ca;border-radius:16px;padding:12px 14px;box-shadow:0 10px 36px #152e2533;color:var(--text, #1a342b)}
+.neural-audio-tray[hidden]{display:none!important}
+.neural-audio-tray audio{width:100%;max-width:100%;display:block}
+.neural-audio-status{margin:0 0 6px;font-size:.84rem;line-height:1.4;overflow-wrap:anywhere}
+.neural-audio-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.neural-audio-actions button{font-size:.88rem;padding:8px 12px}
+@media(min-width:760px){.neural-audio-tray{bottom:20px}}
