@@ -292,3 +292,9 @@ V3.5 batches
 - Added mocked Worker tests for unauthenticated requests, hash mismatch before upstream calls, exact-origin CORS, quota errors, REST request shape, WAV response, server-only API-key forwarding, and engine isolation. No Gemini request was sent because no API key or project credentials are available in this environment.
 - Account boundary: Google AI Pro browser/Studio access does not by itself prove Gemini API project quota. The current pricing page labels the TTS model's free tier as quota-limited and states free-tier data-use terms; it is not unlimited and may permit Google product improvement use. Cloudflare deployment still requires the owner's account and secret configuration. No key, token, billing account, or private learning text was requested or committed.
 - Remaining real acceptance: configure an authorized private Worker gateway, verify the owner's project can call the model and observe actual quota/429 behavior, then on physical iPhone Safari play a never-seen sentence and replay it from IndexedDB; test multi-segment story playback and error paths. Until those steps, this is provider-ready code, not a live Gemini service or a claim of iPhone success.
+
+### V5.9 implementation commits and remote checks
+
+- Gemini gateway implementation: `81204d7551b76fbdec540dfbd84df5e387baa58c`; engine-choice regression correction: `a9df3c708a6de7e246eaf8b785b1c3012a7bd07c`.
+- `npm run check` after the correction: **118/118 passed**.
+- Actions for `a9df3c7`: [test 41306451184](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451184) and [real-app 41306451196](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451196), both successful. The real-app failure on `81204d7` was an obsolete `3 choices` assertion; its browser errors were empty and the corrected run passed.
