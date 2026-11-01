@@ -249,3 +249,6 @@ V3.5 batches
 - Reading segment playback prefetches the next segment. Heart/Bella generation failures are explicit and do not silently use iOS system speech. Device speech remains available only when the user explicitly chooses device mode.
 - Validation: `npm run check` passes 109/109; real-app Chromium Heart/Bella playback passes in CI. Physical iPhone Safari model download, memory, generation latency, and offline replay remain unverified; PR is intentionally not merged or deployed until device acceptance.
 - No server, API key, private upload, learner-data migration, Pages trigger, or deployment change was added. A provider callback remains the seam for a future private server if Safari cannot sustain WASM.
+
+- V5.7 device-preview attempt: added `v57-device-smoke.html` on PR #33. It exercises a new sentence, second-play IndexedDB reuse, sequential story segments with next-segment prefetch, and refresh-state messaging without learner data.
+- Temporary HTTPS exposure was attempted with accountless localtunnel and Cloudflare Quick Tunnel; both relay connections were refused by this execution environment. No external account, payment, credential, or formal Pages deployment was used. Physical iPhone acceptance remains blocked on a reachable HTTPS preview/device path.
