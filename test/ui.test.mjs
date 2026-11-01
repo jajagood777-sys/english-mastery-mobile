@@ -18,6 +18,13 @@ test('VNext shell exposes four clear Chinese mobile destinations', () => {
   assert.match(app, /function renderMore/);
 });
 
+test('four-item iPhone bottom navigation occupies four equal columns, not a stale fifth slot',()=>{
+  assert.equal((index.match(/data-page="(?:home|reading|progress|more)"/g)||[]).length,4);
+  assert.doesNotMatch(index,/data-page="training"/);
+  assert.match(css,/\.mobile-nav\{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(css,/\.mobile-nav\{position:fixed;[^}]*grid-template-columns:repeat\(5,/);
+});
+
 test('V4.5 navigation uses a consistent inline SVG icon system',()=>{
   assert.equal((index.match(/class="nav-icon"/g)||[]).length,4);
   assert.equal((index.match(/<svg[^>]+viewBox="0 0 24 24"/g)||[]).length,4);
@@ -83,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v5\.7\.1/);
+ assert.match(sw,/english-cultivation-static-v5\.7\.2/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
