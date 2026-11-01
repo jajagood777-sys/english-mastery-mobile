@@ -7,6 +7,7 @@ const browser=await chromium.launch({headless:true,executablePath:binary,args:['
 const page=await browser.newPage();
 const errors=[];
 page.on('pageerror',e=>errors.push('PAGE '+e.message));
+page.on('response',r=>{if(r.status()>=400&&/\.mjs|\.wasm|huggingface/i.test(r.url()))errors.push('HTTP '+r.status()+' '+r.url().slice(0,180))});
 page.on('requestfailed',r=>{const u=r.url();if(/huggingface|\.wasm|kokoro-engine|voice/i.test(u))errors.push('REQUEST '+u.slice(0,160)+' '+r.failure()?.errorText)});
 page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE '+m.text().slice(0,180))});
 try{
