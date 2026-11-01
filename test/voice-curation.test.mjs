@@ -13,7 +13,7 @@ test('US female voice curation keeps only regular neutral voices',()=>{
   assert.match(app,/US_FEMALE_VOICE_NAMES\.test\(voice\.name/);
 });
 test('curation does not rewrite learner state and publishes fresh PWA cache',()=>{
- assert.match(core,/APP_VERSION = '5\.4\.0'/);
- assert.match(sw,/english-cultivation-static-v5\.4\.0/);
+ assert.match(core,/APP_VERSION = '5\.4\.1'/);
+ assert.match(sw,/english-cultivation-static-v5\.4\.1/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
 });

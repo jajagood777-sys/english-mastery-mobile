@@ -42,7 +42,7 @@ test('Speech model cache is excluded from destructive PWA cache cleanup',()=>{
 test('Learning database schema remains unchanged, neural mode is optional',()=>{
  const core=load('core.mjs'),app=load('app.js');
  assert.match(core,/VERSION = 4\.3/);
- assert.match(core,/APP_VERSION = '5\.4\.0'/);
+ assert.match(core,/APP_VERSION = '5\.4\.1'/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
  assert.match(app,/ttsMode\|\|'device'/);
 });
