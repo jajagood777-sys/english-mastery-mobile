@@ -1,0 +1,31 @@
+name: Kokoro isolated preview Chrome CSP validation
+on:
+  push:
+    branches: [feature/kokoro-browser-test-preview-20261101]
+    paths:
+      - kokoro-preview/live.html
+      - kokoro-preview/live.mjs
+      - kokoro-preview/runtime/kokoro-engine.mjs
+      - scripts/kokoro-preview-csp-smoke.mjs
+      - .github/workflows/kokoro-preview-csp-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288ca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: {node-version: '20'}
+      - run: npm install --no-save --no-package-lock playwright-core@1.56.1
+      - name: Serve preview under exact GitHub Pages project base
+        run: |
+          mkdir -p /tmp/kokoro-serve/english-mastery-mobile
+          cp -a . /tmp/kokoro-serve/english-mastery-mobile/
+          cd /tmp/kokoro-serve/english-mastery-mobile
+          python3 -m http.server 4175 --bind 127.0.0.1 >/tmp/kokoro-csp-server.log 2>&1 &
+          sleep 2
+      - name: Verify real Chromium synthesis under standalone CSP
+        run: node scripts/kokoro-preview-csp-smoke.mjs
