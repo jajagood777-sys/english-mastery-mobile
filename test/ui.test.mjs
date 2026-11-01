@@ -82,7 +82,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v5\.6\.1/);
+ assert.match(sw,/english-cultivation-static-v5\.6\.2/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -157,7 +157,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v5\.6\.1/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v5\.6\.2/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V4.4 transfer and optional reading comprehension paths preserve evidence',()=>{
@@ -186,4 +186,17 @@ test('V5 journey report recovery passes transfer evidence locally',()=>{
 
 test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
  assert.match(app,/function renderDailyOverview/);assert.match(app,/口语训练/);assert.match(app,/写作训练/);assert.match(app,/语法迁移/);assert.match(app,/仅保存录音并提交初答/);assert.match(app,/建议 80–100 词/);assert.match(app,/阅读理解/);
+});
+
+
+test('reading vocabulary offers a dedicated saved-card view and copy-to-chat export without automatic upload',()=>{
+ assert.match(app,/function renderReadingVocabulary/);
+ assert.match(app,/page==='readingVocabulary'/);
+ assert.match(app,/打开阅读生词本/);
+ assert.match(app,/复制筛选结果给中央仙窍/);
+ assert.match(app,/readingVocabularyHandoff/);
+ assert.match(app,/collectSavedReadingWords\(data\.items,data\.readingMarks,data\.readings\)/);
+ assert.match(app,/navigator\.clipboard\?\.writeText/);
+ assert.match(app,/可手动复制的原文/);
+ assert.doesNotMatch(app,/function renderReadingVocabulary[\s\S]*?function renderReading\(\)[\s\S]*?upload.*readingWords/i);
 });
