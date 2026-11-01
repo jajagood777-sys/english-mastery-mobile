@@ -12,7 +12,7 @@ await page.addInitScript(()=>{
  window.__nativeSpeechCalls=calls;
  class TestUtterance{constructor(text){this.text=text;this.lang='';this.voice=null;this.rate=1;this.onend=null;this.onerror=null;}}
  Object.defineProperty(window,'SpeechSynthesisUtterance',{configurable:true,value:TestUtterance});
- Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>[{name:'iPhone English',lang:'en-US',localService:true,voiceURI:'iphone-en-us'}],addEventListener:()=>{},speak:utter=>{calls.push({text:utter.text,lang:utter.lang,rate:utter.rate});queueMicrotask(()=>utter.onend?.());},cancel:()=>calls.push({action:'cancel'}),pause:()=>calls.push({action:'pause'}),resume:()=>calls.push({action:'resume'}),speaking:false,paused:false}});
+ Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>[{name:'iPhone English',lang:'en-US',localService:true,voiceURI:'iphone-en-us'},{name:'Alex',lang:'en-US',localService:true,voiceURI:'alex-en-us'}],addEventListener:()=>{},speak:utter=>{calls.push({text:utter.text,lang:utter.lang,rate:utter.rate,voiceURI:utter.voice?.voiceURI||null});queueMicrotask(()=>utter.onend?.());},cancel:()=>calls.push({action:'cancel'}),pause:()=>calls.push({action:'pause'}),resume:()=>calls.push({action:'resume'}),speaking:false,paused:false}});
  const key='central-english-mastery.v2';localStorage.setItem(key,JSON.stringify({version:4.3,items:[{id:'w:native-regression',kind:'word',target:'clarity',example:'Clarity helps people understand each other.',status:'K',attempts:1}],attempts:[{id:'attempt:native-regression',itemId:'w:native-regression',status:'K'}],sessions:[],reports:[],readings:[{id:'reading:native-regression',title:'A quiet morning',text:'A quiet morning can change the rhythm of an entire day.'}],readingMarks:[],readingChecks:[],weaknesses:[],transferAttempts:[],dailyPack:null,dailyJourney:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9}}));
 });
 try{
@@ -20,10 +20,10 @@ try{
  await page.locator('nav button[data-page="more"]').click();
  await page.getByRole('button',{name:'打开设置'}).click();
  await page.getByRole('heading',{name:'学习设置'}).waitFor();
- const selector=page.getByLabel('朗读引擎');assert.equal(await selector.locator('option').count(),1);assert.match(await selector.locator('option').first().textContent(),/设备原生语音/);
- await page.getByRole('button',{name:'试听设备语音'}).click();
+ const selector=page.locator('#native-voice-select');assert.equal(await selector.locator('option').count(),2);assert.match(await selector.locator('option').first().textContent(),/iPhone English \(en-US\)/);await selector.selectOption('alex-en-us');
+ await page.getByRole('button',{name:'试听声音'}).click();
  await page.waitForFunction(()=>window.__nativeSpeechCalls?.some(row=>row.text));
- const first=await page.evaluate(()=>window.__nativeSpeechCalls.find(row=>row.text));assert.equal(first.lang,'en-US');assert.ok(first.text.includes('plan to change'));
+ const first=await page.evaluate(()=>window.__nativeSpeechCalls.find(row=>row.text));assert.equal(first.lang,'en-US');assert.equal(first.voiceURI,'alex-en-us');assert.ok(first.text.includes('Hello!'));assert.ok(first.text.includes('practice English'));assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')).settings.speechVoiceURI),'alex-en-us');
  await page.getByRole('button',{name:'停止朗读'}).click();
  await page.locator('nav button[data-page="reading"]').click();await page.getByRole('heading',{name:'阅读英语材料'}).waitFor();await page.getByRole('button',{name:/朗读英文/}).click();
  await page.waitForFunction(()=>window.__nativeSpeechCalls.filter(row=>row.text).length>=2);

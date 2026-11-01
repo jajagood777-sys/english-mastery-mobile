@@ -9,7 +9,7 @@ test('native speech covers words, examples, sentences and stories',()=>{
  assert.match(app,/speechButton\(item\.target\)/);
  assert.match(app,/speechButton\(item\.example\)/);
  assert.match(app,/speechControls\(reading\.text/);
- assert.match(app,/window\.speechSynthesis/);
+ assert.match(app,/window\.speechSynthesis/);assert.match(app,/native-voice-select/);assert.match(app,/speechVoiceLabel/);assert.match(app,/voiceSelect\.addEventListener/);
  assert.doesNotMatch(app,/Gemini|KOKORO|neuralSpeech|createPrivateTTSClient/);
 });
 
