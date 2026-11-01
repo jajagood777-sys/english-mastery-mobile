@@ -24,8 +24,8 @@ $('load').addEventListener('click', async () => {
   const start = performance.now();
   try {
     setStatus('Loading pinned kokoro-js browser module. This may require network access.');
-    // Experimental CDN route only. Must be replaced by audited same-origin bundles before production integration.
-    const { KokoroTTS } = await import('https://esm.sh/kokoro-js@1.2.1?bundle');
+    // Same-origin, version-locked browser runtime built in PR CI; no external executable CDN.
+    const { KokoroTTS } = await import('./kokoro-runtime/dist/kokoro-engine.mjs');
     setStatus('Downloading/loading q8 model on CPU/WASM. First run can be large and slow.');
     engine = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' });
     setStatus('Model loaded in ' + Math.round(performance.now() - start) + ' ms. Ready to synthesize.');
