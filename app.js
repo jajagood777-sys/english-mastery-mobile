@@ -21,7 +21,9 @@ applyTheme();
 // Curate real, neutral US female voices; never expose Apple's novelty character/effect voices.
 // This is a display filter, not a claim that the system voices are neural or premium.
 function refreshSpeechVoices(){if(!('speechSynthesis'in window))return [];const voices=window.speechSynthesis.getVoices().filter(voice=>voice&&/^en[-_]\w+/i.test(voice.lang||''));availableVoices=voices.sort((a,b)=>{const aUS=/^en[-_]US(?:[-_]|$)/i.test(a.lang||''),bUS=/^en[-_]US(?:[-_]|$)/i.test(b.lang||'');return Number(bUS)-Number(aUS);});return availableVoices;}
-function initSpeechVoices(){if(!('speechSynthesis'in window))return;refreshSpeechVoices();if(!speechVoicesBound){speechVoicesBound=true;window.speechSynthesis.addEventListener?.('voiceschanged',()=>{refreshSpeechVoices();if(page==='settings')render();});}}
+function refreshSpeechVoiceUi(){refreshSpeechVoices();if(page==='settings')render();}
+function initSpeechVoices(){if(!('speechSynthesis'in window))return;refreshSpeechVoices();if(!speechVoicesBound){speechVoicesBound=true;window.speechSynthesis.addEventListener?.('voiceschanged',refreshSpeechVoiceUi);}}
+window.addEventListener('pageshow',()=>{initSpeechVoices();refreshSpeechVoiceUi();});
 function selectedSpeechVoice(){initSpeechVoices();const saved=data.settings?.speechVoiceURI;if(saved){const exact=availableVoices.find(voice=>speechVoiceKey(voice)===saved);if(exact)return exact;}return availableVoices.find(voice=>/^en[-_]US(?:[-_]|$)/i.test(voice.lang||'')&&voice.localService)||availableVoices.find(voice=>voice.localService)||availableVoices[0]||null;}
 function speechVoiceKey(voice){return String(voice.voiceURI||`${voice.name}|${voice.lang}`);}
 function speechVoiceLabel(voice){return `${voice.name} (${voice.lang})`;}
@@ -66,7 +68,7 @@ function btn(label,fn,cls='btn',disabled=false){const b=el('button',label,cls);b
 function div(cls=''){return node('div',cls)}
 function section(cls='panel'){const x=div(cls);return x;}
 function lines(...nodes){const x=div('actions');x.append(...nodes);return x;}
-function field(label,control){const wrap=div('field');const lab=el('label',label);control.id=`input-${Math.random().toString(36).slice(2)}`;lab.htmlFor=control.id;wrap.append(lab,control);return wrap;}
+function field(label,control){const wrap=div('field');const lab=el('label',label);if(!control.id)control.id=`input-${Math.random().toString(36).slice(2)}`;lab.htmlFor=control.id;wrap.append(lab,control);return wrap;}
 function optionalImage(asset,alt='',className=''){const image=el('img');image.src=asset.file;image.alt=alt||asset.title;image.className=className;image.loading=asset.id==='09'?'eager':'lazy';image.decoding='async';image.addEventListener('error',()=>{image.remove();});return image;}
 function visualPlaceholder(asset){const box=div('visual-placeholder');box.append(el('span','水墨画卷','visual-placeholder-title'),p(`${asset.title} · ${asset.caption}`,'tiny'));return box;}
 function visualFrame(asset,{button=false}={}){const frame=button?el('button','','visual-frame visual-frame-button'):div('visual-frame');if(button)frame.type='button';frame.dataset.visualId=asset.id;const image=optionalImage(asset,asset.title);const markLoaded=()=>frame.classList.add('has-image');image.addEventListener('load',markLoaded);frame.append(image,visualPlaceholder(asset));if(image.complete&&image.naturalWidth>0)markLoaded();return frame;}
@@ -652,7 +654,7 @@ let tickCount=0;setInterval(()=>{
     if(j&&!j.goalNotified&&journeyElapsedMs()>=j.targetMinutes*60000){j.goalNotified=true;save();notify(`正向累计已达到参考 ${j.targetMinutes} 分钟。可以继续完成剩余模块。`);}
   }else if(s.activeMs>=s.dueGoal*60000 && !s.goalNotified){s.goalNotified=true;save();notify(`已达到参考 ${s.dueGoal} 分钟，可根据任务完成情况继续学习。`);}},1000);
 document.addEventListener('selectionchange',()=>{const selection=window.getSelection();const text=selection?.toString().trim();const article=document.getElementById('reading-article');const anchor=selection?.anchorNode;const paragraph=anchor?.parentElement?.closest?.('.reading-paragraph');if(text&&article&&anchor&&article.contains(anchor)&&paragraph){selectedText=text;selectedParagraphText=paragraph.textContent||'';selectedParagraphIndex=Number(paragraph.dataset.paragraphIndex||0);}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&data.dailyJourney?.readingRunning)pauseJourneyReading();if(document.hidden&&data.dailyJourney?.transferRunning){accrueTransfer();data.dailyJourney.transferRunning=false;data.dailyJourney.transferLastTick=null;save();notify('页面离开时已暂停迁移挑战计时。');}if(document.hidden&&data.activeSession?.running){pauseSession();notify('页面离开时已自动暂停计时。');}else if(!document.hidden&&data.activeSession&&!data.activeSession.running&&page==='practice'){render();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){initSpeechVoices();refreshSpeechVoiceUi();}if(document.hidden&&data.dailyJourney?.readingRunning)pauseJourneyReading();if(document.hidden&&data.dailyJourney?.transferRunning){accrueTransfer();data.dailyJourney.transferRunning=false;data.dailyJourney.transferLastTick=null;save();notify('页面离开时已暂停迁移挑战计时。');}if(document.hidden&&data.activeSession?.running){pauseSession();notify('页面离开时已自动暂停计时。');}else if(!document.hidden&&data.activeSession&&!data.activeSession.running&&page==='practice'){render();}});
 window.addEventListener('pagehide',()=>{if(data.dailyJourney?.readingRunning)pauseJourneyReading();if(data.activeSession)pauseSession();});
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 const themeToggle=document.getElementById('theme-toggle');if(themeToggle)themeToggle.addEventListener('click',()=>setTheme(data.settings.theme==='night'?'day':'night'));
