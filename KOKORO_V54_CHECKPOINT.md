@@ -25,3 +25,18 @@
 3. Confirm actual q8 model size, CORS, redirects, Safari memory and cache.
 4. Host an isolated HTTPS preview and verify reachable before giving iPhone audition link.
 5. Await user iPhone confirmation before any integration/merge.
+
+## Verified actual neural synthesis — 2026-11-01
+
+- Added `scripts/kokoro-smoke.mjs` and `.github/workflows/kokoro-smoke.yml` to **the existing PR #22**.
+- GitHub Actions run https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41276834766 **completed successfully** (job 124760605838).
+- Node v20.20.2; `kokoro-js@1.2.1`; model `onnx-community/Kokoro-82M-v1.0-ONNX`; `dtype: q8`; `device: cpu`.
+- Model load reported 1,275 ms in CI environment (likely runner/network cache effects; not a cold mobile download benchmark).
+- **af_heart**: `kokoro-artifacts/af_heart-sample.wav`, 324,044 bytes, synthesis 2,089 ms.
+- **af_bella**: `kokoro-artifacts/af_bella-sample.wav`, 352,844 bytes, synthesis 1,550 ms.
+- Both files passed RIFF/WAVE header and nonempty-length checks; artifacts uploaded successfully.
+- Artifact: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41276834766/artifacts/13071606651 (expires ~2026-11-08).
+- npm install audit warned **3 high severity vulnerabilities** in experimental dependency tree; investigate before any production integration.
+- **Not yet verified:** actual listening/playback on browser, iPhone Safari WASM execution, CSP compatibility, isolated HTTPS preview, and story-length synthesis. Do not merge or change default TTS.
+- Local container npm/Hugging Face requests failed DNS resolution; GitHub Actions successfully worked around this limitation.
+- Current deliverable is a real downloadable WAV artifact, **not** a browser-based mobile synthesis preview.
