@@ -334,3 +334,12 @@ V3.5 batches
 - Existing word, example, sentence, listening, reading/story, pause, resume, stop, replay and speed controls remain wired to the native queue. Learner localStorage/IndexedDB/backup schemas were not changed.
 - Replaced the PR's neural browser smoke with a native Web Speech browser wiring smoke; CI workflow is named `Real app native Web Speech integration`. Physical iPhone Safari remains the final device check.
 - Fresh `npm run check`: **106/106** passed. No Gemini/Cloudflare credentials, accounts, deployments or formal Pages changes were made.
+
+## Native Safari voice chooser fix (2026-11-01)
+
+- Settings now renders every actual English voice returned by `speechSynthesis.getVoices()`, sorted with `en-US` first. Labels use the real `name (lang)` values; no voice names are invented.
+- The selected voice uses `voiceURI` when available, with a stable name/language key fallback, is saved as `settings.speechVoiceURI`, restored after reload, and assigned to `SpeechSynthesisUtterance.voice` for every word, example, sentence and story chunk.
+- `voiceschanged` refreshes the settings list after Safari finishes loading voices. Missing saved voices fall back to a local en-US voice, then another local English voice, then browser default behavior.
+- Added the requested `Hello! Let's practice English together.` audition button and a browser smoke that selects a second provided voice, verifies the utterance voice key, and checks learner data persistence.
+- Service Worker/app cache bumped to `5.6.1`; this only refreshes app shell files and does not clear learning storage or recordings.
+- Fresh local check remains **106/106**. Physical iPhone Safari is still required to verify which voices iOS exposes in the user's current configuration.
