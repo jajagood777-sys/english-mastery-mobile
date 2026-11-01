@@ -241,3 +241,11 @@ V3.5 batches
 - Generated MP3 payload total from the run log: 1,300,444 bytes (about 1.24 MiB); artifact finalized at 1,288,823 bytes for the ZIP/report upload. Individual durations are present in the machine manifest artifact; this session cannot download that artifact because the GitHub token lacks artifact read permission.
 - The bot publish commit merged the 29 Heart clips into public `speech-assets`, alongside the original Heart/Bella demo clips. Main manifest contains 31 clips total, 30 Heart and 1 Bella.
 - PR #28 merged as `3c95c29bcc8c66141027ff58c043d327b219ce75`; main CI passed and the real-app Chromium test passed. Pages build passed, but deployment attempts were rejected by a stale GitHub Pages deployment lock referring to prior SHA `7030a808febcda119fabe38dfe2b5453e8be915d`. The current token lacks `deployments:write`, so the lock could not be cancelled through the API; online Pages remains unverified as V5.6 until GitHub clears the lock.
+
+## V5.7 — browser-first on-demand Heart generation (implementation PR, 2026-11-01)
+
+- Baseline: main `98a93f67890df49cefff7063d2fe5b8dbfa63b6f`, V5.6.0.
+- PR #33 wires missing Heart/Bella text to the existing `neural-tts.mjs` Kokoro WASM engine. Public manifest and IndexedDB are checked first; missing clips are generated lazily, deduplicated by `voice:normalizedTextSHA256`, persisted to `english-cultivation-audio-v1`, and reused on later playback.
+- Reading segment playback prefetches the next segment. Heart/Bella generation failures are explicit and do not silently use iOS system speech. Device speech remains available only when the user explicitly chooses device mode.
+- Validation: `npm run check` passes 109/109; real-app Chromium Heart/Bella playback passes in CI. Physical iPhone Safari model download, memory, generation latency, and offline replay remain unverified; PR is intentionally not merged or deployed until device acceptance.
+- No server, API key, private upload, learner-data migration, Pages trigger, or deployment change was added. A provider callback remains the seam for a future private server if Safari cannot sustain WASM.
