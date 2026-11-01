@@ -4,7 +4,7 @@ compatibility_date = "2026-11-01"
 
 [vars]
 TTS_AUTH_MODE = "pairing"
-TTS_ALLOWED_ORIGIN = "https://REPLACE_WITH_STAGING.pages.dev"
+TTS_ALLOWED_ORIGIN = "https://english-mastery-v59-staging.pages.dev"
 TTS_REQUESTS_PER_MINUTE = "10"
 TTS_DAILY_LIMIT = "100"
 TTS_TIMEOUT_MS = "45000"

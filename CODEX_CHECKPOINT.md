@@ -320,3 +320,9 @@ V3.5 batches
 - Added an owner-controlled two-project runbook in `worker/README.md`: separate Cloudflare Pages staging project from PR branch, Worker Builds root `worker`, exact Pages origin replacement, secret UI, pairing flow, preflight check, Safari cache test and no third-party raw preview credential entry.
 - Worker bounds Gemini text to 2,000 normalized characters and decoded WAV to 8 MiB to respect free Worker CPU/memory realities. No claim is made that an isolate rate limit is a global quota; KV remains optional and explicitly labeled.
 - Fresh local verification after the staging correction: `npm run check` passes **125/125**. No Cloudflare or Gemini account was accessed, and no formal GitHub Pages deployment was made.
+
+### V5.9 staging Origin selected (2026-11-01)
+
+- Owner supplied the controlled Pages staging origin: `https://english-mastery-v59-staging.pages.dev`.
+- `worker/wrangler.toml` now authorizes exactly that origin; the example template remains a placeholder for other staging projects. Formal `https://jajagood777-sys.github.io` remains excluded.
+- Worker secrets and deployment were not performed in this step.

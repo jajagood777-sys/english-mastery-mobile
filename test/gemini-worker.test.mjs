@@ -42,5 +42,5 @@ test('Worker pairing mode exchanges a code for a short-lived session and enforce
 
 test('staging config cannot silently authorize the formal GitHub Pages origin',async()=>{
  const config=await import('node:fs/promises').then(fs=>fs.readFile(new URL('../worker/wrangler.toml',import.meta.url),'utf8'));
- assert.match(config,/REPLACE_WITH_STAGING\.pages\.dev/);assert.doesNotMatch(config,/jajagood777-sys\.github\.io/);assert.match(config,/TTS_DAILY_LIMIT = "100"/);
+ assert.match(config,/english-mastery-v59-staging\.pages\.dev/);assert.doesNotMatch(config,/REPLACE_WITH_STAGING/);assert.doesNotMatch(config,/jajagood777-sys\.github\.io/);assert.match(config,/TTS_DAILY_LIMIT = "100"/);
 });
