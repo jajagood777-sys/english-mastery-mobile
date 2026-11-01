@@ -4,7 +4,7 @@ compatibility_date = "2026-11-01"
 
 [vars]
 TTS_AUTH_MODE = "access" # use "pairing" only when Access cannot protect the hostname
-TTS_ALLOWED_ORIGIN = "https://jajagood777-sys.github.io"
+TTS_ALLOWED_ORIGIN = "https://REPLACE_WITH_STAGING.pages.dev"
 CF_ACCESS_TEAM_DOMAIN = "https://YOUR-TEAM.cloudflareaccess.com"
 CF_ACCESS_AUD = "YOUR-ACCESS-APPLICATION-AUDIENCE"
 TTS_REQUESTS_PER_MINUTE = "10"

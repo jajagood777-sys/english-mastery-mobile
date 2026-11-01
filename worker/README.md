@@ -17,3 +17,15 @@ The Worker does not log submitted text or audio. It does not use public Cloudfla
 Google AI Pro access does not itself prove Gemini API quota. API availability, model access, free-tier quota, regional restrictions, and Google's free-tier data-use terms must be checked with the owner's API project. The free tier is quota-limited, not unlimited, and may allow Google to use free-tier content to improve products according to current pricing terms.
 
 Cloudflare deployment and secret configuration require the owner's account authorization and are intentionally not performed here. Never place `GEMINI_API_KEY`, `TTS_PAIRING_CODE`, or a client session token in Pages JavaScript, localStorage, JSON/ZIP learning packs, GitHub Actions logs, or this repository.
+
+## Owner-controlled iPhone staging runbook
+
+Use two separate Cloudflare projects and the same PR branch. Do not use a raw GitHub proxy and do not point either project at `main`.
+
+1. **Pages staging:** create a new Cloudflare Pages project from this repository, set the production branch to `codex/v5-7-on-demand-heart`, leave the build command empty, and use `.` as the static output directory. Keep the real GitHub Pages project unchanged. Record the resulting stable URL, for example `https://your-v59-staging.pages.dev`.
+2. **Worker staging:** create/connect a Worker from the same repository and branch, set `Root directory` to `worker`, and deploy with `npx wrangler deploy`. Before deploying, replace the public placeholder `TTS_ALLOWED_ORIGIN` in `worker/wrangler.toml` with the exact Pages staging origin (scheme and host only, no trailing slash). Never replace it with `*` or the formal GitHub Pages URL.
+3. In Worker Variables, keep `TTS_AUTH_MODE=pairing`, `TTS_REQUESTS_PER_MINUTE=10`, `TTS_DAILY_LIMIT=100`, and `TTS_TIMEOUT_MS=45000`. Add encrypted Secrets `GEMINI_API_KEY` and a long random `TTS_PAIRING_CODE`. Do not paste either secret into GitHub, Pages, this repository, or chat. KV is optional; if it is not bound, the UI and response header state that the quota is isolate-best-effort.
+4. Open the Worker URL's `/health` in Safari, then enter `https://your-worker.workers.dev/v1/tts` in the staging site's Settings. Choose `iPhone一次性配对码`, enter the pairing code once, and press `建立本机Gemini会话` followed by `检测Gemini会话`. The code is exchanged for a short-lived session token and is not saved; closing Safari may require pairing again.
+5. Select `Gemini云端`, open an authorized story, and play it. The first request should produce a WAV and cache it in IndexedDB; replay the same segment to verify the second play does not call the Worker. Use only non-sensitive practice text because Google's free-tier terms may allow product improvement use.
+
+Before trusting the staging site, check from the Pages origin in Safari that `/v1/session/exchange` preflight returns `204` with `access-control-allow-origin` exactly equal to the Pages origin and `access-control-allow-credentials: true`. A different origin, a trailing slash, an old Worker deployment, or a preview URL not present in `TTS_ALLOWED_ORIGIN` must fail closed.

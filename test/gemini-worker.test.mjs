@@ -39,3 +39,8 @@ test('Worker pairing mode exchanges a code for a short-lived session and enforce
  const wrong=await worker.fetch(new Request('https://tts.example/v1/session/exchange',{method:'POST',headers:{origin:'https://study.example','content-type':'application/json'},body:JSON.stringify({pairingCode:'wrong'})}),pairingEnv);assert.equal(wrong.status,401);
  const check=await worker.fetch(new Request('https://tts.example/v1/session',{headers:{origin:'https://study.example',authorization:`Bearer ${session.token}`}}),pairingEnv);assert.equal(check.status,200);assert.equal((await check.json()).auth,'pairing');assert.equal(called,0);
 });
+
+test('staging config cannot silently authorize the formal GitHub Pages origin',async()=>{
+ const config=await import('node:fs/promises').then(fs=>fs.readFile(new URL('../worker/wrangler.toml',import.meta.url),'utf8'));
+ assert.match(config,/REPLACE_WITH_STAGING\.pages\.dev/);assert.doesNotMatch(config,/jajagood777-sys\.github\.io/);assert.match(config,/TTS_DAILY_LIMIT = "100"/);
+});

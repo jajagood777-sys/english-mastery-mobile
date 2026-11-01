@@ -313,3 +313,10 @@ V3.5 batches
 - Commit `777557b` contains the secure session wiring and review fixes.
 - Fresh local verification: `npm run check` passes **124/124**.
 - Remote verification for this commit: [test 41307928912](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41307928912) and [real-app 41307928914](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41307928914), both passed. These CI jobs do not prove a real Gemini account or physical iPhone playback.
+
+## V5.9 — owner-controlled Cloudflare staging correction (2026-11-01)
+
+- Review `#6558209173` required separating staging from the formal GitHub Pages origin. `worker/wrangler.toml` and `.example` now contain only `https://REPLACE_WITH_STAGING.pages.dev`; a regression test rejects `jajagood777-sys.github.io` in the staging config.
+- Added an owner-controlled two-project runbook in `worker/README.md`: separate Cloudflare Pages staging project from PR branch, Worker Builds root `worker`, exact Pages origin replacement, secret UI, pairing flow, preflight check, Safari cache test and no third-party raw preview credential entry.
+- Worker bounds Gemini text to 2,000 normalized characters and decoded WAV to 8 MiB to respect free Worker CPU/memory realities. No claim is made that an isolate rate limit is a global quota; KV remains optional and explicitly labeled.
+- Fresh local verification after the staging correction: `npm run check` passes **125/125**. No Cloudflare or Gemini account was accessed, and no formal GitHub Pages deployment was made.
