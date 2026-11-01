@@ -1,6 +1,6 @@
 # English Cultivation checkpoint
 
-## V5.2.0 — Native American English voice selection (implementation ready)
+## V5.2.0 — Native American English voice selection (complete)
 
 - Baseline: main `f3bdf15691971ed7022ebe800c2988a196520eec` / V5.1.1. Branch: `codex/v5-2-native-voice`.
 - Current implementation discovers actual browser voices with `getVoices()` and `voiceschanged`, selects available `en-US` voices, persists only voice URI/name/language in the existing settings object, provides sample audition and 0.75×–1.25× speed choices, and routes all existing speech buttons through the same safe utterance path.
@@ -8,7 +8,10 @@
 - Kokoro feasibility evidence: `kokoro-js` npm metadata reports version 1.2.1, Apache-2.0 and about 30 MB unpacked; the referenced quantized model is roughly 90 MB before runtime/voice memory. iPhone Safari/PWA stability and offline model delivery are not proven, so Kokoro is not bundled, pre-cached or exposed as a misleading button.
 - Learning data `VERSION=4.3` and the IndexedDB recording store are unchanged. No real localStorage, Safari data, private pack or recording was accessed.
 - Local verification so far: `npm test` 95/95; learning-data-safety 4/4; mobile static baseline 11/11; PWA audit 18 assets aligned with 5.2.0; Chromium 390×844 settings smoke shows the voice panel, real device voice selector and no horizontal overflow.
-- Release pending: final speed smoke, commit, PR, CI, Pages deployment and live 5.2.0 resource verification. Physical iPhone Safari voice availability remains unverified.
+- Pull Request [#18](https://github.com/jajagood777-sys/english-mastery-mobile/pull/18) merged as `ab3bb32f8fb76d047d75e05f8f5cc23aef44befb`.
+- CI run `41272515581` and Pages deployment `41272515401` completed successfully. Live HTTPS reports `APP_VERSION = '5.2.0'`, `english-cultivation-static-v5.2.0`, and all core resources return HTTP 200.
+- Physical iPhone Safari voice availability, actual playback quality, and PWA voice-list timing remain user-side checks. Chromium emulation cannot prove them.
+- Next minimal recovery command: `git checkout main && git pull --ff-only origin main && npm run check`.
 
 ## V5.1.1 — Transfer skip navigation bugfix (complete)
 
