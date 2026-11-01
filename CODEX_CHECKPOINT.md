@@ -1,5 +1,14 @@
 # English Cultivation checkpoint
 
+## V5.3.0 — Continuous long-text speech and Kokoro feasibility gate (implementation ready)
+
+- Baseline: main `9275f9f700965bb751224e027ca6c4c229c4f30c` / V5.2.0. Branch: `codex/v5-3-kokoro-continuous-speech`.
+- Native reading playback now splits long text at sentence boundaries and exposes pause, resume, stop and replay controls. Queue state is cancelled when a new utterance starts or the page changes.
+- Kokoro model files were verified from the public model index: `onnx/model_quantized.onnx` is about 92.4 MB, `onnx/model_q4.onnx` about 305 MB, and `voices/af_heart.bin` / `voices/af_bella.bin` about 0.5 MB each. `kokoro-js` npm metadata is Apache-2.0, version 1.2.1, about 30 MB unpacked.
+- Kokoro was not successfully integrated in this static release: iPhone Safari memory, WASM/WebGPU runtime, model loading time and continuous playback were not verifiable here. No model is bundled, auto-downloaded, or pre-cached; native speech remains the explicit fallback.
+- Learning data `VERSION=4.3`, localStorage, reports, daily journeys and IndexedDB recordings are unchanged.
+- Release pending: final checks, PR, CI, Pages deployment and live 5.3.0 verification. Physical iPhone Safari remains unverified.
+
 ## V5.2.0 — Native American English voice selection (complete)
 
 - Baseline: main `f3bdf15691971ed7022ebe800c2988a196520eec` / V5.1.1. Branch: `codex/v5-2-native-voice`.
