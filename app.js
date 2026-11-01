@@ -2,6 +2,7 @@ import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearning
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {KOKORO_VOICES,createNeuralSpeech} from './neural-tts.mjs';
+import {createClipPlayer,importSpeechClips} from './speech-clips.mjs';
 
 const STORE='central-english-mastery.v2';
 const LEGACY_STORE='english-mastery-v1';
@@ -27,9 +28,11 @@ function selectedSpeechVoice(){initSpeechVoices();const saved=data.settings?.spe
 function speechVoiceLabel(voice){return `${voice.name} · ${voice.lang}${voice.localService?' · 本机':''}`;}
 function speechChunks(text){const sentences=String(text||'').replace(/\s+/g,' ').trim().match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[];const chunks=[];let current='';for(const sentence of sentences){const next=current?`${current} ${sentence.trim()}`:sentence.trim();if(current&&next.length>280){chunks.push(current);current=sentence.trim();}else current=next;}if(current)chunks.push(current);return chunks.length?chunks:[String(text||'').trim()];}
 function playSpeechChunk(){if(!('speechSynthesis'in window)||speechPaused||speechQueueIndex>=speechQueue.length)return;const value=speechQueue[speechQueueIndex];const utter=new SpeechSynthesisUtterance(value);const voice=selectedSpeechVoice();utter.lang=voice?.lang||'en-US';if(voice)utter.voice=voice;utter.rate=Math.max(.5,Math.min(1.5,Number(data.settings.speechRate)||.9));utter.onend=()=>{speechQueueIndex++;playSpeechChunk();};utter.onerror=()=>{speechQueue=[];speechQueueIndex=0;notify('朗读失败，仍可继续文字学习。');};window.speechSynthesis.speak(utter);}
-function speakEnglish(text,voiceOverride=null){const value=String(text||'').trim();if(!value)return false;const mode=voiceOverride||data.settings?.ttsMode||'device';if(mode==='heart'||mode==='bella'){stopSpeech();void neuralSpeech.speak(value,KOKORO_VOICES[mode]);return true;}if(!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined'){notify('此浏览器不支持设备朗读，请使用文字训练。');return false;}stopSpeech();initSpeechVoices();speechQueue=speechChunks(value);speechQueueIndex=0;speechPaused=false;playSpeechChunk();return true;}
-function pauseSpeech(){if(data.settings?.ttsMode==='heart'||data.settings?.ttsMode==='bella'){neuralSpeech.pause();return;}if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}
-function resumeSpeech(){if(data.settings?.ttsMode==='heart'||data.settings?.ttsMode==='bella'){neuralSpeech.resume();return;}if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking)playSpeechChunk();}}
+const clipSpeech=createClipPlayer({onStatus:message=>notify(message)});
+let clipRequest=0;
+function speakEnglish(text,voiceOverride=null){const value=String(text||'').trim();if(!value)return false;const mode=voiceOverride||data.settings?.ttsMode||'device';if(mode==='heart'||mode==='bella'){stopSpeech();const ticket=++clipRequest;void clipSpeech.speak(value,KOKORO_VOICES[mode]).then(result=>{if(ticket!==clipRequest)return;if(result==='missing'){notify('当前文字还没有自然女声音频。可以导入每日配音文件，或选择设备语音；如需即时Kokoro，可在设置中主动加载模型。');}else if(result==='cancelled')return;}).catch(()=>{if(ticket===clipRequest)notify('本地配音读取失败；可以选择设备语音。');});return true;}if(!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined'){notify('此浏览器不支持设备朗读，请使用文字训练。');return false;}stopSpeech();initSpeechVoices();speechQueue=speechChunks(value);speechQueueIndex=0;speechPaused=false;playSpeechChunk();return true;}
+function pauseSpeech(){clipSpeech.pause();if(data.settings?.ttsMode==='heart'||data.settings?.ttsMode==='bella'){neuralSpeech.pause();return;}if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}
+function resumeSpeech(){clipSpeech.resume();if(data.settings?.ttsMode==='heart'||data.settings?.ttsMode==='bella'){neuralSpeech.resume();return;}if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking)playSpeechChunk();}}
 function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],readingMarks:[],readingChecks:[],weaknesses:[],transferAttempts:[],dailyPack:null,dailyJourney:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
@@ -375,7 +378,7 @@ function buildLearnCard(container,item,s){const card=section('learn-card');card.
 function firstLetterPrompt(prompt,target){const first=String(target||'').trim()[0]||'';return prompt.replace(/_{3,}/,`${first}${'_'.repeat(Math.max(3,String(target||'').trim().length-1))}`);}
 function speechButton(text){return btn('▶ 朗读英文',()=>speakEnglish(text),'btn secondary');}
 function speechControls(text){return lines(speechButton(text),btn('暂停朗读',pauseSpeech,'btn ghost'),btn('继续朗读',resumeSpeech,'btn ghost'),btn('停止朗读',stopSpeech,'btn ghost'));}
-function stopSpeech(){speechQueue=[];speechQueueIndex=0;speechPaused=false;neuralSpeech.stop();if('speechSynthesis'in window)window.speechSynthesis.cancel();}
+function stopSpeech(){clipRequest++;clipSpeech.stop();speechQueue=[];speechQueueIndex=0;speechPaused=false;neuralSpeech.stop();if('speechSynthesis'in window)window.speechSynthesis.cancel();}
 function textarea(initial='',placeholder='Type your answer in English…'){const x=el('textarea','','textarea');x.value=initial;x.placeholder=placeholder;x.autocapitalize='sentences';x.spellcheck=false;x.enterKeyHint='done';x.rows=3;return x;}
 function textInput(initial='',placeholder=''){const x=el('input','','input');x.type='text';x.value=initial;x.placeholder=placeholder;x.autocapitalize='none';x.autocomplete='off';x.spellcheck=false;x.enterKeyHint='done';return x;}
 function revealAnswer(s, answer, reference, skipped=false, accepted=[]){if(s.step==='revealed')return false;s.viewedAnswer=Boolean(skipped);s.referenceAnswer=reference;s.draft=answer.trim();s.skipped=skipped;s.answerCheck=compareAnswer(s.draft,reference,{accepted});s.retryDraft='';s.retryCheck=null;s.retryCompleted=false;s.step='revealed';if(!save())return false;render();return true;}
@@ -548,13 +551,17 @@ const presets=lines(...[30,40,60].map(minutes=>btn(`${minutes} 分钟`,()=>{data
 function formatModelBytes(value){const n=Number(value)||0;return n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;}
 function voiceSettingsPanel(){
   initSpeechVoices(); const box=section('voice-settings');
-  box.append(el('div','英语朗读声音 · ENGLISH VOICE','eyebrow'),p('Heart / Bella 共用同一套Kokoro模型。首次加载前会显示实际资源进度；模型缓存与学习数据分开。','subtle'));
+  box.append(el('div','英语朗读声音 · ENGLISH VOICE','eyebrow'),p('Heart / Bella 优先播放已导入的自然美式女声音频，无需手机下载大模型。未配音的文字可以改用设备语音，或手动尝试Kokoro模型。','subtle'));
   const modeSelect=el('select','','select'); for(const [key,title] of [['device','设备语音｜兼容模式'],['heart','Heart｜自然美式女声'],['bella','Bella｜自然美式女声']]){const option=el('option',title);option.value=key;modeSelect.append(option);} modeSelect.value=['heart','bella'].includes(data.settings.ttsMode)?data.settings.ttsMode:'device';
   modeSelect.addEventListener('change',()=>{stopSpeech();data.settings.ttsMode=modeSelect.value;if(save()){notify(modeSelect.value==='device'?'已选择设备兼容朗读。':'已选择Kokoro自然女声。首次使用前会先显示下载大小和进度。');render();}});
   const status=p(neuralSpeech.status(),'subtle'); status.id='neural-voice-status'; status.setAttribute('role','status');
   const progress=el('progress','','neural-model-progress');progress.id='neural-voice-progress';progress.max=100;progress.hidden=true;const progressText=el('div','','neural-model-progress-text');progressText.id='neural-voice-progress-text';
   const cacheStatus=p('缓存状态检查中……','tiny');cacheStatus.id='neural-cache-status';void neuralSpeech.cache().then(result=>{if(cacheStatus.isConnected)cacheStatus.textContent=`模型缓存：${result.state}${result.state==='已缓存'?'。下次通常无需重新下载。':''}`;}).catch(()=>{if(cacheStatus.isConnected)cacheStatus.textContent='模型缓存：检查失败；仍可尝试加载。';});
   box.append(field('朗读引擎',modeSelect),status,progress,progressText,cacheStatus);
+  const clipsInput=el('input','','');clipsInput.type='file';clipsInput.multiple=true;clipsInput.accept='.json,.mp3,.wav,.m4a,.aac,audio/*';clipsInput.setAttribute('aria-label','导入每日学习配音文件');
+  const clipStatus=p('配音包需包含 speech-manifest.json 和对应音频文件；本地导入不上传公开仓库。','tiny');
+  clipsInput.addEventListener('change',async()=>{try{const result=await importSpeechClips(clipsInput.files);clipStatus.textContent=`已导入 ${result.imported} 段音频；缺失文件 ${result.missing} 个。之后同样的英文内容可直接朗读。`;notify(clipStatus.textContent);}catch(error){clipStatus.textContent=`导入失败：${error.message}`;notify(clipStatus.textContent);}finally{clipsInput.value='';}});
+  box.append(field('导入自然女声配音包（一次选择JSON及音频）',clipsInput),clipStatus);
   box.append(lines(btn('下载／加载自然语音模型',async()=>{try{await neuralSpeech.load();notify('自然语音已就绪，可以直接试听。');}catch{notify('模型加载失败，请查看状态并重试，或使用设备兼容模式。');}},'btn secondary'),btn('检测模型资源连接',async()=>{const before=neuralSpeech.details();try{await neuralSpeech.load();notify(`模型资源连接正常${before.total?`，已获取 ${formatModelBytes(neuralSpeech.details().loaded)}`:''}。`);}catch(error){notify('连接检测失败：请检查当前网络、CSP或浏览器存储空间。');}},'btn ghost'),btn('试听Heart',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'heart'),'btn secondary'),btn('试听Bella',()=>speakEnglish("I wasn't expecting the plan to change so suddenly.",'bella'),'btn secondary'),btn('停止朗读',stopSpeech,'btn ghost')));
   box.append(p('模型资源优先由正式网站同源运行时发起请求；当前版本不把约 92MB 大文件放入PWA默认预缓存。Safari可能清理网站缓存，因此不能保证永久保留。','tiny')); return box;
 }
