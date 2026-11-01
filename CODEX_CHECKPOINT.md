@@ -370,3 +370,10 @@ V3.5 batches
 - The single Battle Report now carries IELTS reading question metadata/check answers and IELTS transfer metadata alongside ordinary practice, including original answers, reference visibility, retries, K/V/N, recording status and actual session time.
 - Release marker advanced to V5.7.0 and the Service Worker app-shell cache marker to `english-cultivation-static-v5.7.0`; localStorage keys, IndexedDB recordings and data schema `4.3` remain unchanged.
 - New mixed-pack regression covers ordinary English plus three IELTS reading questions, one speaking task and one writing task. `npm run check` passes **111/111** after the increment.
+
+### V5.7.0 formal release verification (2026-11-02)
+
+- PR #36 was merged by GitHub as commit `9c5d3e54b9f89d9c43b760a476dbca7168c833ec`. The old Workers Builds check remained a non-blocking external failure; GitHub accepted the merge because the repository's actual checks were mergeable.
+- Main test run `41352027523` passed. Formal Pages run `41352027278` passed build, deploy, and build-status reporting.
+- Public verification: `https://jajagood777-sys.github.io/english-mastery-mobile/core.mjs` reports `APP_VERSION = '5.7.0'`; public `sw.js` uses `english-cultivation-static-v5.7.0`; public `app.js` contains `native-voice-select`, `pageshow`, and `refreshSpeechVoiceUi`; public `core.mjs` contains `normalizeExamMeta` and IELTS metadata handling.
+- No localStorage key, IndexedDB recording store, backup schema (`4.3`), learning record, or private Cambridge source was uploaded or cleared. Physical iPhone voice enumeration and any actual private historical draft remain user-device-only checks.
