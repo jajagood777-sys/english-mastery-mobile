@@ -26,7 +26,7 @@ jobs:
           npm ls kokoro-js @huggingface/transformers onnxruntime-web esbuild || true
           npm install --package-lock-only --ignore-scripts kokoro-js@1.2.1 esbuild@0.25.12
           npm audit --json > kokoro-runtime-audit.json || true
-          node -e "const a=require('./kokoro-runtime-audit.json'); if(a.error){console.warn('Audit query failed',a.error);process.exitCode=1}else console.log('Experimental dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities||{}))"
+          node -e "const a=require('./kokoro-runtime-audit.json'); if(a.error){console.warn('Audit query failed',a.error);process.exitCode=1}else {console.log('Experimental dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities||{})); for(const [name,v] of Object.entries(a.vulnerabilities||{})) console.log('AUDIT DETAIL:',name,v.severity,JSON.stringify(v.via),v.fixAvailable)}"
       - name: Build self-hosted browser runtime
         run: |
           mkdir -p kokoro-runtime/dist
