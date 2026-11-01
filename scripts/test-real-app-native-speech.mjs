@@ -28,10 +28,10 @@ try{
  await page.locator('nav button[data-page="more"]').click();
  await page.getByRole('button',{name:/阅读生词本/}).click();
  await page.getByRole('heading',{name:'阅读时保存的生词'}).waitFor();
- assert.ok(await page.locator('#reading-vocabulary-handoff').count(),'Reading vocab page missing export: '+(await page.locator('#app').innerText()).slice(-1300)+'; errors='+errors.join(' | '));
- assert.match(await page.locator('#reading-vocabulary-handoff').inputValue(),/rhythm/);
- assert.match(await page.locator('#reading-vocabulary-handoff').inputValue(),/A quiet morning/);
- assert.match(await page.locator('#reading-vocabulary-handoff').inputValue(),/未测试（UNTESTED）/);
+ assert.ok(await page.getByRole('textbox',{name:'可手动复制的阅读生词回传文本'}).count(),'Reading vocab page missing export: '+(await page.locator('#app').innerText()).slice(-1300)+'; errors='+errors.join(' | '));
+ assert.match(await page.getByRole('textbox',{name:'可手动复制的阅读生词回传文本'}).inputValue(),/rhythm/);
+ assert.match(await page.getByRole('textbox',{name:'可手动复制的阅读生词回传文本'}).inputValue(),/A quiet morning/);
+ assert.match(await page.getByRole('textbox',{name:'可手动复制的阅读生词回传文本'}).inputValue(),/未测试（UNTESTED）/);
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__readingVocabCopied=text;}}}));
  await page.getByRole('button',{name:'复制全部生词'}).click();
  await page.waitForFunction(()=>Boolean(window.__readingVocabCopied));
