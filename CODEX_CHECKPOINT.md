@@ -298,3 +298,12 @@ V3.5 batches
 - Gemini gateway implementation: `81204d7551b76fbdec540dfbd84df5e387baa58c`; engine-choice regression correction: `a9df3c708a6de7e246eaf8b785b1c3012a7bd07c`.
 - `npm run check` after the correction: **118/118 passed**.
 - Actions for `a9df3c7`: [test 41306451184](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451184) and [real-app 41306451196](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451196), both successful. The real-app failure on `81204d7` was an obsolete `3 choices` assertion; its browser errors were empty and the corrected run passed.
+
+## V5.9 — secure session bootstrap and quota guardrails (2026-11-01)
+
+- Addressed review `#6557973087`: the static app no longer depends on undeclared global token functions. Settings now accepts only an HTTPS Worker endpoint, lets the user select Cloudflare Access or the Workers.dev pairing fallback, provides a session check, and starts a pairing session without persisting the pairing code or Gemini key.
+- Cloudflare Access mode sends `credentials: include`; the Worker verifies `CF-Access-Jwt-Assertion` signature, issuer, audience, expiry and JWKS key. `/v1/session` provides a user-facing login/session check. No bearer secret is published to Pages.
+- Pairing mode adds `/v1/session/exchange`: a Worker-only `TTS_PAIRING_CODE` exchanges once for a short-lived HMAC session token kept in `sessionStorage`. This is explicitly documented as weaker than Access and intended for a private Workers.dev staging endpoint; rotating the pairing code invalidates existing sessions.
+- Added optional `TTS_QUOTA` KV daily counter keyed by a hash of date + session subject. Responses report `x-quota-scope: kv` or `isolate-best-effort`; the code never claims global quota when KV is absent. Isolate rate limits, body/text/style limits and upstream timeout remain active.
+- Added tests for Access-default rejection/session preflight, pairing exchange and token enforcement, KV quota scope, credential-free Access client requests, pairing client exchange, and UI session bootstrap. No secrets, private learning text or audio were added.
+- iPhone-only setup boundary: the owner must create/configure the free Worker and enter the Worker URL in the app. For Access, the owner must protect a suitable hostname and first open the Worker session URL in Safari to complete login; for Workers.dev, use a long random pairing code in Worker Secrets and enter it once in the app. Gemini API key is entered only into Worker Secret configuration.

@@ -3,10 +3,20 @@ main = "src/index.mjs"
 compatibility_date = "2026-11-01"
 
 [vars]
+TTS_AUTH_MODE = "access" # use "pairing" only when Access cannot protect the hostname
 TTS_ALLOWED_ORIGIN = "https://jajagood777-sys.github.io"
-TTS_REQUESTS_PER_MINUTE = "20"
+CF_ACCESS_TEAM_DOMAIN = "https://YOUR-TEAM.cloudflareaccess.com"
+CF_ACCESS_AUD = "YOUR-ACCESS-APPLICATION-AUDIENCE"
+TTS_REQUESTS_PER_MINUTE = "10"
+TTS_DAILY_LIMIT = "100"
 TTS_TIMEOUT_MS = "45000"
+
+# Optional approximate cross-isolate quota. Create a private KV namespace and replace the ID.
+# [[kv_namespaces]]
+# binding = "TTS_QUOTA"
+# id = "YOUR_PRIVATE_KV_NAMESPACE_ID"
 
 # Set these with `wrangler secret put`, never commit them:
 # GEMINI_API_KEY
-# TTS_CLIENT_TOKEN
+# TTS_PAIRING_CODE # only for TTS_AUTH_MODE=pairing
+# TTS_CLIENT_TOKEN # only for the legacy token mode
