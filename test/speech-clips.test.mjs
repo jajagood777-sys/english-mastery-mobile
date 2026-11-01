@@ -2,25 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-test('public speech manifest and local importer use one content-addressed format',()=>{
- const clips=read('speech-clips.mjs'),generator=read('scripts/generate-public-speech.mjs');
- assert.match(clips,/speech-assets\/speech-manifest\.json/);
- assert.match(clips,/speechTextHash\(text\)/);
- assert.match(clips,/fileSha256/);
- assert.match(clips,/unpackSpeechZip/);
- assert.match(generator,/speech-manifest\.json/);
- assert.match(generator,/af_heart/);assert.match(generator,/af_bella/);
- assert.match(generator,/libmp3lame/);assert.match(generator,/fileSha256/);
-});
-test('speech fallback is real and word cards expose word plus example controls',()=>{
+
+test('native speech covers words, examples, sentences and stories',()=>{
  const app=read('app.js');
- assert.match(app,/function speakDevice\(text\)/);
- assert.match(app,/speakDevice\(value\)/);
+ assert.match(app,/function speakEnglish\(/);
  assert.match(app,/speechButton\(item\.target\)/);
- assert.match(app,/clipSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
+ assert.match(app,/speechButton\(item\.example\)/);
+ assert.match(app,/speechControls\(reading\.text/);
+ assert.match(app,/window\.speechSynthesis/);assert.match(app,/native-voice-select/);assert.match(app,/speechVoiceLabel/);assert.match(app,/voiceSelect\.addEventListener/);
+ assert.doesNotMatch(app,/Gemini|KOKORO|neuralSpeech|createPrivateTTSClient/);
 });
-test('V5.6 pack generator is incremental and public workflow is privacy-gated',()=>{
- const script=read('scripts/generate-audio-pack.mjs'),workflow=read('.github/workflows/generate-audio-pack.yml'),app=read('app.js');
- assert.match(script,/--pack/);assert.match(script,/ffprobe/);assert.match(script,/failed/);assert.match(script,/audio-report\.json/);assert.match(script,/speech-manifest\.json/);
- assert.match(workflow,/examples\/\*\.json/);assert.match(workflow,/upload-artifact/);assert.match(app,/当前学习包自然配音覆盖率/);assert.match(app,/导入每日学习包 ZIP/);
+
+test('native speech keeps asynchronous voices and device fallback',()=>{
+ const app=read('app.js');
+ assert.match(app,/voiceschanged/);
+ assert.match(app,/availableVoices\.find\(voice=>voice\.localService\)/);
+ assert.match(app,/voice\?\.lang\|\|'en-US'/);
+ assert.match(app,/浏览器默认语音/);
+});
+
+test('learning package import remains local and independent of speech',()=>{
+ const app=read('app.js');
+ assert.match(app,/recordsFromLearningPack/);
+ assert.match(app,/function chooseImport/);
+ assert.match(app,/central-english-mastery\.v2/);
+ assert.doesNotMatch(app,/GEMINI_API_KEY|TTS_PAIRING_CODE/);
 });

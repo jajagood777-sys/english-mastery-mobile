@@ -241,3 +241,105 @@ V3.5 batches
 - Generated MP3 payload total from the run log: 1,300,444 bytes (about 1.24 MiB); artifact finalized at 1,288,823 bytes for the ZIP/report upload. Individual durations are present in the machine manifest artifact; this session cannot download that artifact because the GitHub token lacks artifact read permission.
 - The bot publish commit merged the 29 Heart clips into public `speech-assets`, alongside the original Heart/Bella demo clips. Main manifest contains 31 clips total, 30 Heart and 1 Bella.
 - PR #28 merged as `3c95c29bcc8c66141027ff58c043d327b219ce75`; main CI passed and the real-app Chromium test passed. Pages build passed, but deployment attempts were rejected by a stale GitHub Pages deployment lock referring to prior SHA `7030a808febcda119fabe38dfe2b5453e8be915d`. The current token lacks `deployments:write`, so the lock could not be cancelled through the API; online Pages remains unverified as V5.6 until GitHub clears the lock.
+
+## V5.7 — browser-first on-demand Heart generation (implementation PR, 2026-11-01)
+
+- Baseline: main `98a93f67890df49cefff7063d2fe5b8dbfa63b6f`, V5.6.0.
+- PR #33 wires missing Heart/Bella text to the existing `neural-tts.mjs` Kokoro WASM engine. Public manifest and IndexedDB are checked first; missing clips are generated lazily, deduplicated by `voice:normalizedTextSHA256`, persisted to `english-cultivation-audio-v1`, and reused on later playback.
+- Reading segment playback prefetches the next segment. Heart/Bella generation failures are explicit and do not silently use iOS system speech. Device speech remains available only when the user explicitly chooses device mode.
+- Validation: `npm run check` passes 109/109; real-app Chromium Heart/Bella playback passes in CI. Physical iPhone Safari model download, memory, generation latency, and offline replay remain unverified; PR is intentionally not merged or deployed until device acceptance.
+- No server, API key, private upload, learner-data migration, Pages trigger, or deployment change was added. A provider callback remains the seam for a future private server if Safari cannot sustain WASM.
+
+- V5.7 device-preview attempt: added `v57-device-smoke.html` on PR #33. It exercises a new sentence, second-play IndexedDB reuse, sequential story segments with next-segment prefetch, and refresh-state messaging without learner data.
+- Temporary HTTPS exposure was attempted with accountless localtunnel and Cloudflare Quick Tunnel; both relay connections were refused by this execution environment. No external account, payment, credential, or formal Pages deployment was used. Physical iPhone acceptance remains blocked on a reachable HTTPS preview/device path.
+
+## V5.8 — server provider reference and bounded browser inference (PR #33 follow-up, 2026-11-01)
+
+- Feedback evidence: physical iPhone Safari downloaded 92,364,770 bytes but remained in Kokoro inference for 31 seconds without audio; browser WASM is therefore not yet daily-use reliable.
+- Added a private provider reference under `server/`: authenticated `POST /v1/tts`, normalized-text SHA-256 validation, `af_heart`/`af_bella` allowlist, private filesystem MP3 cache, concurrent request deduplication, q8 CPU Kokoro initialization once, ffmpeg conversion, and bounded request size. No server is deployed and no key/account is configured.
+- Browser generation now has a 90-second inference timeout and reports a concrete error instead of an indefinite spinner. Existing on-demand IndexedDB generation and Heart hard-error behavior remain intact.
+- Validation: `npm run check` passes 111/111. CI Chromium does not prove iPhone Safari inference; physical device playback/reuse remains the release gate.
+- Cost/privacy boundary: a private host or cloud account is the only remaining external authorization needed for server delivery. No free 24-hour GPU capacity is assumed, and no public proxy is used.
+
+## V5.8 — free-tier investigation and provider hardening (2026-11-01)
+
+- Re-read PR #33 head `e25a015bd73e5486123f18156ecacaededfe5663`, owner feedback, AGENTS.md and the existing V5.8 checkpoint. The physical iPhone evidence remains: 92,364,770 bytes downloaded, then `phase=inference` for 31 seconds without completed audio; this is not a missing-preview-URL problem and is not claimed as universal Safari failure.
+- Hardened the private provider reference without deploying it: container binding defaults to `0.0.0.0:$PORT`; one exact `TTS_ALLOWED_ORIGIN` controls CORS; Bearer secret remains server-only; request size, per-address rate limit, active-generation limit, 90-second inference timeout, allowed voice IDs, normalized text hash and private cache checks are enforced. Same-text concurrent callers share one promise and cache hits do not consume an active-generation slot.
+- Added `server/Dockerfile`, `.dockerignore`, and `private-tts-client.mjs`. The browser adapter is deliberately not enabled by default because a static Pages frontend cannot safely hold `TTS_SHARED_SECRET`; a private authenticated gateway/session token is required before binding it to production UI. No learner data, private text, API key, or audio was uploaded.
+- Added isolated HTTP/provider tests for health, missing authorization, hash mismatch, exact-origin CORS, normalized request/hash payload, non-audio/provider errors, cache-key bounds and no browser-storage credential persistence.
+- Fresh local verification: `npm test` passes **114/114**; `npm run check` remains the required final command. The provider HTTP test does not run Kokoro inference; it intentionally proves security and validation before model execution. No generated server MP3 count is claimed.
+- Official documentation checks performed 2026-11-01: Hugging Face Spaces says Static Spaces are free, while Gradio/Docker CPU Basic compute requires a subscription; ZeroGPU uses Gradio-only shared GPU quota and is not a private Node endpoint with durable cache. Cloud Run pricing documents a monthly free tier but billing documentation requires an active billing account and free-tier overages/storage/egress can charge. GitHub Actions is batch execution, not an always-available private TTS endpoint.
+- Deployment boundary: no provider host, account, card, long-lived token, PR merge, Pages deployment, or formal-site change. Browser Kokoro remains the live path with a bounded 90-second error; the exact remaining external action is approval and provisioning of a private authenticated host/account if server fallback is required. Physical iPhone playback and IndexedDB reuse remain unverified after the timeout change.
+
+### Remote verification for `366798842337338bc5e27bd6c76066e20ca14cfc`
+
+- PR #33 remains open and unmerged: https://github.com/jajagood777-sys/english-mastery-mobile/pull/33
+- `test` passed in Actions run `41304013768`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013768
+- `real-app` passed in Actions run `41304013735`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013735
+- These are desktop/CI browser checks; they do not alter the physical-iPhone release gate.
+
+### Final documentation commit verification `2cbff0dccf3b7b7fc42d2973bbb6ee7f6eec4013`
+
+- `test` passed in Actions run `41304089112`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304089112
+- `real-app` passed in Actions run `41304089001`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304089001
+
+## V5.9 — Gemini TTS + Cloudflare Worker private gateway (implementation, not deployed) (2026-11-01)
+
+- Latest PR #33 feedback requested a new route because iPhone Kokoro WASM reached inference without completing audio. The branch remains `codex/v5-7-on-demand-heart`; main remains unchanged. No Pages deployment or merge was triggered.
+- Official Gemini documentation was fetched and inspected on 2026-11-01: `gemini-3.8-flash-tts` uses `POST https://generativelanguage.googleapis.com/v1beta/interactions`, unary output is complete `audio/wav` (24 kHz, mono, 16-bit PCM), and the documented request selects a prebuilt voice such as `Kore` plus `speech_metadata.style`. Sources: https://ai.google.dev/gemini-api/docs/speech-generation and https://ai.google.dev/gemini-api/docs/pricing.
+- Added `worker/src/index.mjs` and `worker/wrangler.toml.example`. The Worker keeps `GEMINI_API_KEY` server-side, requires a separate bearer gateway token, restricts one exact CORS origin, validates normalized text SHA-256, bounds text/body/rate/time, sanitizes provider errors, and returns WAV directly. It intentionally does not use public Cloudflare Cache/R2 for private learning text; browser IndexedDB remains the durable user cache.
+- Added `private-tts-client.mjs` WAV support and `GEMINI_TTS_ENGINE='gemini-3.8-flash-tts@kore-v1'`. Gemini and Kokoro clips now use distinct IndexedDB keys, so an audio file generated by one engine cannot satisfy the other. The app exposes an explicit Gemini cloud mode only when a secure endpoint plus short-lived token callback is supplied; no silent device-voice fallback occurs in that mode. Existing Heart/Bella Kokoro mode and learning data are preserved.
+- Added mocked Worker tests for unauthenticated requests, hash mismatch before upstream calls, exact-origin CORS, quota errors, REST request shape, WAV response, server-only API-key forwarding, and engine isolation. No Gemini request was sent because no API key or project credentials are available in this environment.
+- Account boundary: Google AI Pro browser/Studio access does not by itself prove Gemini API project quota. The current pricing page labels the TTS model's free tier as quota-limited and states free-tier data-use terms; it is not unlimited and may permit Google product improvement use. Cloudflare deployment still requires the owner's account and secret configuration. No key, token, billing account, or private learning text was requested or committed.
+- Remaining real acceptance: configure an authorized private Worker gateway, verify the owner's project can call the model and observe actual quota/429 behavior, then on physical iPhone Safari play a never-seen sentence and replay it from IndexedDB; test multi-segment story playback and error paths. Until those steps, this is provider-ready code, not a live Gemini service or a claim of iPhone success.
+
+### V5.9 implementation commits and remote checks
+
+- Gemini gateway implementation: `81204d7551b76fbdec540dfbd84df5e387baa58c`; engine-choice regression correction: `a9df3c708a6de7e246eaf8b785b1c3012a7bd07c`.
+- `npm run check` after the correction: **118/118 passed**.
+- Actions for `a9df3c7`: [test 41306451184](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451184) and [real-app 41306451196](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41306451196), both successful. The real-app failure on `81204d7` was an obsolete `3 choices` assertion; its browser errors were empty and the corrected run passed.
+
+## V5.9 — secure session bootstrap and quota guardrails (2026-11-01)
+
+- Addressed review `#6557973087`: the static app no longer depends on undeclared global token functions. Settings now accepts only an HTTPS Worker endpoint, lets the user select Cloudflare Access or the Workers.dev pairing fallback, provides a session check, and starts a pairing session without persisting the pairing code or Gemini key.
+- Cloudflare Access mode sends `credentials: include`; the Worker verifies `CF-Access-Jwt-Assertion` signature, issuer, audience, expiry and JWKS key. `/v1/session` provides a user-facing login/session check. No bearer secret is published to Pages.
+- Pairing mode adds `/v1/session/exchange`: a Worker-only `TTS_PAIRING_CODE` exchanges once for a short-lived HMAC session token kept in `sessionStorage`. This is explicitly documented as weaker than Access and intended for a private Workers.dev staging endpoint; rotating the pairing code invalidates existing sessions.
+- Added optional `TTS_QUOTA` KV daily counter keyed by a hash of date + session subject. Responses report `x-quota-scope: kv` or `isolate-best-effort`; the code never claims global quota when KV is absent. Isolate rate limits, body/text/style limits and upstream timeout remain active.
+- Added tests for Access-default rejection/session preflight, pairing exchange and token enforcement, KV quota scope, credential-free Access client requests, pairing client exchange, and UI session bootstrap. No secrets, private learning text or audio were added.
+- iPhone-only setup boundary: the owner must create/configure the free Worker and enter the Worker URL in the app. For Access, the owner must protect a suitable hostname and first open the Worker session URL in Safari to complete login; for Workers.dev, use a long random pairing code in Worker Secrets and enter it once in the app. Gemini API key is entered only into Worker Secret configuration.
+
+### Final session integration commit
+
+- Commit `777557b` contains the secure session wiring and review fixes.
+- Fresh local verification: `npm run check` passes **124/124**.
+- Remote verification for this commit: [test 41307928912](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41307928912) and [real-app 41307928914](https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41307928914), both passed. These CI jobs do not prove a real Gemini account or physical iPhone playback.
+
+## V5.9 — owner-controlled Cloudflare staging correction (2026-11-01)
+
+- Review `#6558209173` required separating staging from the formal GitHub Pages origin. `worker/wrangler.toml` and `.example` now contain only `https://REPLACE_WITH_STAGING.pages.dev`; a regression test rejects `jajagood777-sys.github.io` in the staging config.
+- Added an owner-controlled two-project runbook in `worker/README.md`: separate Cloudflare Pages staging project from PR branch, Worker Builds root `worker`, exact Pages origin replacement, secret UI, pairing flow, preflight check, Safari cache test and no third-party raw preview credential entry.
+- Worker bounds Gemini text to 2,000 normalized characters and decoded WAV to 8 MiB to respect free Worker CPU/memory realities. No claim is made that an isolate rate limit is a global quota; KV remains optional and explicitly labeled.
+- Fresh local verification after the staging correction: `npm run check` passes **125/125**. No Cloudflare or Gemini account was accessed, and no formal GitHub Pages deployment was made.
+
+### V5.9 staging Origin selected (2026-11-01)
+
+- Owner supplied the controlled Pages staging origin: `https://english-mastery-v59-staging.pages.dev`.
+- `worker/wrangler.toml` now authorizes exactly that origin; the example template remains a placeholder for other staging projects. Formal `https://jajagood777-sys.github.io` remains excluded.
+- Worker secrets and deployment were not performed in this step.
+
+## Native Web Speech restoration (2026-11-01)
+
+- Formal app speech path now uses only `window.speechSynthesis` and `SpeechSynthesisUtterance`; Gemini, private Worker, and active Kokoro integration files from this PR were removed from the branch runtime.
+- Settings no longer exposes Gemini pairing, Worker URL, Heart/Bella model loading, model progress or neural cache controls. It shows the native `en-US` device voice list, refreshes after `voiceschanged`, and falls back to the browser's default voice when no matching device voice exists.
+- Existing word, example, sentence, listening, reading/story, pause, resume, stop, replay and speed controls remain wired to the native queue. Learner localStorage/IndexedDB/backup schemas were not changed.
+- Replaced the PR's neural browser smoke with a native Web Speech browser wiring smoke; CI workflow is named `Real app native Web Speech integration`. Physical iPhone Safari remains the final device check.
+- Fresh `npm run check`: **106/106** passed. No Gemini/Cloudflare credentials, accounts, deployments or formal Pages changes were made.
+
+## Native Safari voice chooser fix (2026-11-01)
+
+- Settings now renders every actual English voice returned by `speechSynthesis.getVoices()`, sorted with `en-US` first. Labels use the real `name (lang)` values; no voice names are invented.
+- The selected voice uses `voiceURI` when available, with a stable name/language key fallback, is saved as `settings.speechVoiceURI`, restored after reload, and assigned to `SpeechSynthesisUtterance.voice` for every word, example, sentence and story chunk.
+- `voiceschanged` refreshes the settings list after Safari finishes loading voices. Missing saved voices fall back to a local en-US voice, then another local English voice, then browser default behavior.
+- Added the requested `Hello! Let's practice English together.` audition button and a browser smoke that selects a second provided voice, verifies the utterance voice key, and checks learner data persistence.
+- Service Worker/app cache bumped to `5.6.1`; this only refreshes app shell files and does not clear learning storage or recordings.
+- Fresh local check remains **106/106**. Physical iPhone Safari is still required to verify which voices iOS exposes in the user's current configuration.

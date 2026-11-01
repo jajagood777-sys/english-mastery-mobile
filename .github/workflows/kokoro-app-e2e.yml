@@ -1,17 +1,13 @@
-name: Real app Kokoro Heart browser integration
+name: Real app native Web Speech integration
 on:
   pull_request:
     branches: [main]
     paths:
       - 'app.js'
-      - 'neural-tts.mjs'
       - 'index.html'
       - 'styles.css'
       - 'sw.js'
-      - 'speech-clips.mjs'
-      - 'speech-assets/**'
-      - 'scripts/test-real-app-neural-voice.mjs'
-      - 'scripts/test-real-app-neural-voice.mjs'
+      - 'scripts/test-real-app-native-speech.mjs'
       - '.github/workflows/kokoro-app-e2e.yml'
   workflow_dispatch:
 permissions:
@@ -29,8 +25,8 @@ jobs:
         run: npm install --no-save --no-package-lock playwright-core@1.56.1
       - name: Run static server
         run: |
-          python3 -m http.server 4175 --bind 127.0.0.1 >/tmp/english-neural.log 2>&1 &
+          python3 -m http.server 4175 --bind 127.0.0.1 >/tmp/english-native.log 2>&1 &
           sleep 2
           curl --fail --silent http://127.0.0.1:4175/ >/dev/null
-      - name: Verify Heart in real Settings and actual app playback
-        run: node scripts/test-real-app-neural-voice.mjs
+      - name: Verify native Web Speech in the real app and preserve learner data
+        run: node scripts/test-real-app-native-speech.mjs
