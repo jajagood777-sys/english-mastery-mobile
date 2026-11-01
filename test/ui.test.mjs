@@ -93,7 +93,8 @@ test('V5.2 native speech chooses real device voices and persists safe settings',
  assert.match(app,/speakEnglish/);
  assert.match(app,/utter\.voice=voice/);
  assert.match(app,/speechVoiceURI/);
- assert.match(app,/English Voice｜英语朗读声音/);
+ assert.match(app,/朗读引擎/);
+ assert.match(app,/KOKORO_VOICES/);
  assert.match(app,/I wasn't expecting the plan to change so suddenly/);
 });
 
