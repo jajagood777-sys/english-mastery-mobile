@@ -24,3 +24,5 @@ test('V5.6 pack generator is incremental and public workflow is privacy-gated',(
  assert.match(script,/--pack/);assert.match(script,/ffprobe/);assert.match(script,/failed/);assert.match(script,/audio-report\.json/);assert.match(script,/speech-manifest\.json/);
  assert.match(workflow,/examples\/\*\.json/);assert.match(workflow,/upload-artifact/);assert.match(app,/当前学习包自然配音覆盖率/);assert.match(app,/导入每日学习包 ZIP/);
 });
+
+test('on-demand Heart generation is wired without system fallback in Heart mode',()=>{const app=read('app.js'),clips=read('speech-clips.mjs'),neural=read('neural-tts.mjs');assert.match(clips,/pendingGeneration/);assert.match(clips,/source:'on-demand-kokoro'/);assert.match(neural,/generate,?speak/);assert.match(app,/当前文字没有可用的Heart音频/);assert.doesNotMatch(app,/已使用设备兼容朗读/);});

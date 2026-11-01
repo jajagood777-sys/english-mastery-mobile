@@ -8,7 +8,8 @@ test('Kokoro voices are real model IDs and cannot fall through to Safari',()=>{
  const app=load('app.js');
  assert.match(app,/voiceOverride\|\|data.settings\?\.ttsMode\|\|'device'/);
  assert.match(app,/clipSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
- assert.match(app,/已使用设备兼容朗读/);
+ assert.match(app,/按需生成失败/);
+ assert.match(app,/generate:\(text,voice\)=>neuralSpeech\.generate/);
  assert.match(app,/朗读引擎/);
  assert.match(app,/试听Heart/);
  assert.match(app,/试听Bella/);
