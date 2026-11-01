@@ -16,6 +16,9 @@ test('native speech covers words, examples, sentences and stories',()=>{
 test('native speech keeps asynchronous voices and device fallback',()=>{
  const app=read('app.js');
  assert.match(app,/voiceschanged/);
+ assert.match(app,/pageshow/);
+ assert.match(app,/visibilitychange/);
+ assert.match(app,/if\(!control\.id\)control\.id=/);
  assert.match(app,/availableVoices\.find\(voice=>voice\.localService\)/);
  assert.match(app,/voice\?\.lang\|\|'en-US'/);
  assert.match(app,/浏览器默认语音/);
