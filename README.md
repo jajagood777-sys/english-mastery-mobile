@@ -73,6 +73,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Training, reading, progress, reports and 我的 share the same tokens. Reading text remains selectable, long-form, high-contrast and free of image overlays.
 - Software/cache version is `4.5.0`; the backward-compatible learning data schema remains `VERSION=4.3`. No localStorage migration or deletion was introduced.
 
+## V5.2.0 — Native American English voice selection
+
+- Native browser speech now discovers the actual `speechSynthesis.getVoices()` list, waits for `voiceschanged`, prefers available `en-US` voices and safely falls back when the device has no American English voice.
+- The existing Settings page now offers an English Voice selector, a sample audition, automatic voice reset and bounded 0.75×–1.25× speed choices. The selected voice URI, language and name are stored in the existing settings object; learning schema remains `VERSION=4.3`.
+- Vocabulary, sentence, listening and reading buttons share the same selected voice and stop an earlier utterance before starting another one. Speech playback is not counted as a learning attempt.
+- Kokoro feasibility was reviewed but is not enabled in the default PWA: `kokoro-js` is Apache-2.0 but its npm package is about 30 MB unpacked and still requires a separate model download (the referenced quantized model is roughly 90 MB) plus device-dependent ONNX/WASM memory. No model is bundled or pre-cached, and native speech remains the stable iPhone path.
+- Software/cache version is `5.2.0`; no localStorage, K/V/N, reports, daily journeys or IndexedDB recordings were cleared or migrated.
+
 ## V5.1.1 — Transfer skip navigation reliability
 
 - Fixed the Daily Journey blank-screen defect when skipping from the second speaking task into writing: transfer draft state is normalized before rendering, and all skip/rating advances now use one bounded transition path.
