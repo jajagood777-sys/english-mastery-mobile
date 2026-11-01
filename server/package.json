@@ -1,0 +1,7 @@
+{
+  "name": "english-cultivation-private-kokoro-provider",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=20"},
+  "dependencies": {"kokoro-js": "1.2.1"}
+}

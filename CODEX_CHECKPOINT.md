@@ -252,3 +252,11 @@ V3.5 batches
 
 - V5.7 device-preview attempt: added `v57-device-smoke.html` on PR #33. It exercises a new sentence, second-play IndexedDB reuse, sequential story segments with next-segment prefetch, and refresh-state messaging without learner data.
 - Temporary HTTPS exposure was attempted with accountless localtunnel and Cloudflare Quick Tunnel; both relay connections were refused by this execution environment. No external account, payment, credential, or formal Pages deployment was used. Physical iPhone acceptance remains blocked on a reachable HTTPS preview/device path.
+
+## V5.8 — server provider reference and bounded browser inference (PR #33 follow-up, 2026-11-01)
+
+- Feedback evidence: physical iPhone Safari downloaded 92,364,770 bytes but remained in Kokoro inference for 31 seconds without audio; browser WASM is therefore not yet daily-use reliable.
+- Added a private provider reference under `server/`: authenticated `POST /v1/tts`, normalized-text SHA-256 validation, `af_heart`/`af_bella` allowlist, private filesystem MP3 cache, concurrent request deduplication, q8 CPU Kokoro initialization once, ffmpeg conversion, and bounded request size. No server is deployed and no key/account is configured.
+- Browser generation now has a 90-second inference timeout and reports a concrete error instead of an indefinite spinner. Existing on-demand IndexedDB generation and Heart hard-error behavior remain intact.
+- Validation: `npm run check` passes 111/111. CI Chromium does not prove iPhone Safari inference; physical device playback/reuse remains the release gate.
+- Cost/privacy boundary: a private host or cloud account is the only remaining external authorization needed for server delivery. No free 24-hour GPU capacity is assumed, and no public proxy is used.
