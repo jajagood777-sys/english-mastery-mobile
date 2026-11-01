@@ -1,17 +1,6 @@
 name: Build authorized public audio pack
 on:
   workflow_dispatch:
-    inputs:
-      pack_path:
-        description: Public, repository-authorized learning pack under examples/
-        required: true
-        default: examples/v56-audio-sample-pack.json
-      voice:
-        description: Voice to generate (Heart is the default)
-        required: true
-        default: af_heart
-        type: choice
-        options: [af_heart, af_bella]
 permissions:
   contents: read
 jobs:
@@ -22,22 +11,25 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with: {node-version: '20'}
+        with:
+          node-version: '20'
       - name: Guard public-only input
-        env: {PACK_PATH: ${{ inputs.pack_path }}}
-        run: case "$PACK_PATH" in examples/*.json) ;; *) echo 'Only repository-authorized examples/ packs may run in the public repository.'; exit 1;; esac
+        run: |
+          case "examples/v56-audio-sample-pack.json" in
+            examples/*.json) ;;
+            *) echo 'Only repository-authorized examples/ packs may run in the public repository.'; exit 1 ;;
+          esac
       - name: Install pinned Kokoro generator
         run: |
           npm install --no-save --no-package-lock --ignore-scripts kokoro-js@1.2.1
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ffmpeg zip
-      - name: Extract tasks and generate incremental Heart/Bella MP3s
-        env: {PACK_PATH: ${{ inputs.pack_path }}, VOICE: ${{ inputs.voice }}}
-        run: node scripts/generate-audio-pack.mjs --pack "$PACK_PATH" --out audio-pack-output --voice "$VOICE" --zip
+      - name: Extract tasks and generate Heart MP3s
+        run: node scripts/generate-audio-pack.mjs --pack examples/v56-audio-sample-pack.json --out audio-pack-output --voice af_heart --zip
       - name: Upload ZIP and machine-readable report
         uses: actions/upload-artifact@v4
         with:
-          name: authorized-audio-pack-${{ inputs.voice }}
+          name: authorized-audio-pack-heart
           path: |
             audio-pack-output/*.zip
             audio-pack-output/audio-tasks.json
