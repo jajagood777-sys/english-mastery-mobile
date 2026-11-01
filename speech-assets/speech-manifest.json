@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "source": "public built-in demo sentence only",
+  "generatedAt": "2026-11-01T07:26:55.523Z",
+  "clips": [
+    {
+      "voice": "af_heart",
+      "text": "I wasn't expecting the plan to change so suddenly.",
+      "file": "af_heart-845bec3bf54ede9df68ccea5.mp3",
+      "sha256": "845bec3bf54ede9df68ccea5b25b75f4bf1936a794a0afe1cb54e8a1a5610bf0",
+      "fileSha256": "ee298a9eb5fd36fff6a30cfb44bc07f0633fee18aef350338972378700c5bfc9",
+      "format": "audio/mpeg",
+      "engine": "kokoro-js@1.2.1 q8 (verified WAV fixture)",
+      "bytes": 41516
+    },
+    {
+      "voice": "af_bella",
+      "text": "I wasn't expecting the plan to change so suddenly.",
+      "file": "af_bella-845bec3bf54ede9df68ccea5.mp3",
+      "sha256": "845bec3bf54ede9df68ccea5b25b75f4bf1936a794a0afe1cb54e8a1a5610bf0",
+      "fileSha256": "917c4f388e85e31c7604837ccd755f837466b1d7f77f67e82310d5952d8b21df",
+      "format": "audio/mpeg",
+      "engine": "kokoro-js@1.2.1 q8 (verified WAV fixture)",
+      "bytes": 45260
+    }
+  ]
+}
