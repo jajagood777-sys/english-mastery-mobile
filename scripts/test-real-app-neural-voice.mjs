@@ -19,7 +19,7 @@ try{
         items:[{id:'w:voice-regression-test',kind:'word',target:'clarity',example:'Clarity helps people understand each other.',status:'K',attempts:1}],
         attempts:[{id:'attempt:voice-regression-001',itemId:'w:voice-regression-test',status:'K'}],
         sessions:[{session_id:'voice-regression-session',activeMs:60000}],
-        reports:[],readings:[],readingMarks:[],readingChecks:[],weaknesses:[],transferAttempts:[],
+        reports:[],readings:[{id:'reading:neural-regression-001',title:'A quiet morning',text:'The morning was calm and clear. A small bird was singing beside the window. The traveler smiled and opened a book.'}],readingMarks:[],readingChecks:[],weaknesses:[],transferAttempts:[],
         dailyPack:null,dailyJourney:null,packHistory:[],activeSession:null,
         settings:{duration:40,speechRate:0.9}
       }));
@@ -48,8 +48,26 @@ try{
   });
   assert.ok(output.duration>2,'Expected actual decoded neural WAV audio');
   assert.ok(output.src.startsWith('blob:'),'Expected generated audio, not Safari speech');
+  const firstAudio=output.src;
+  await page.locator('nav button[data-page="reading"]').click();
+  await page.getByRole('heading',{name:'阅读英语材料'}).waitFor();
+  await page.getByRole('button',{name:/朗读英文/}).click();
+  await page.waitForFunction(previous=>{
+    const a=document.querySelector('.neural-audio-tray audio');
+    return a?.src.startsWith('blob:') && a.src!==previous && a.readyState>=2;
+  },firstAudio,{timeout:140000});
+  console.log('REAL READING BUTTON USES NEURAL AUDIO');
+  await page.locator('nav button[data-page="more"]').click();
+  await page.getByRole('button',{name:'打开设置'}).click();
+  await page.getByLabel('朗读引擎').selectOption('bella');
+  await page.getByRole('button',{name:'试听Bella'}).click();
+  await page.waitForFunction(previous=>{
+    const a=document.querySelector('.neural-audio-tray audio');
+    return a?.src.startsWith('blob:') && a.src!==previous && a.readyState>=2;
+  },firstAudio,{timeout:150000});
+  console.log('REAL APP BELLA MODE PLAYBACK PASS');
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}'));
-  assert.equal(saved.settings?.ttsMode,'heart');
+  assert.equal(saved.settings?.ttsMode,'bella');
   for(const key of ['items','attempts','sessions','reports','readings','readingMarks','readingChecks','weaknesses','transferAttempts','dailyPack','dailyJourney']){
     assert.deepEqual(saved[key],original[key],'Unexpected study data mutation '+key);
   }
