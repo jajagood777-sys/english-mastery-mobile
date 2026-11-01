@@ -17,6 +17,20 @@ await page.addInitScript(()=>{
 });
 try{
  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});
+ for(const width of [320,375,390,430]){
+  await page.setViewportSize({width,height:844});
+  const layout=await page.locator('nav.mobile-nav').evaluate(nav=>{
+   const navBox=nav.getBoundingClientRect(),styles=getComputedStyle(nav),children=[...nav.querySelectorAll('button')].map(button=>button.getBoundingClientRect());
+   return {display:styles.display,columns:styles.gridTemplateColumns.split(/\\s+/).filter(Boolean).length,navRight:navBox.right,paddingRight:parseFloat(styles.paddingRight),children:children.map(box=>({width:box.width,right:box.right,left:box.left}))};
+  });
+  assert.equal(layout.display,'grid','Mobile bottom navigation should use grid layout at '+width+'px');
+  assert.equal(layout.columns,4,'Bottom tabs should occupy exactly four columns at '+width+'px');
+  assert.equal(layout.children.length,4,'Expected exactly four navigation buttons');
+  assert.ok(layout.children.every(box=>Math.abs(box.width-layout.children[0].width)<1.5),'Tabs not equally wide at '+width+'px');
+  assert.ok(Math.abs(layout.children.at(-1).right-(layout.navRight-layout.paddingRight))<2,'Unexpected empty slot on right at '+width+'px');
+ }
+ await page.setViewportSize({width:390,height:844});
+ console.log('FOUR EQUAL MOBILE NAV COLUMNS PASS');
  await page.locator('nav button[data-page="more"]').click();
  await page.getByRole('button',{name:'打开设置'}).click();
  await page.getByRole('heading',{name:'学习设置'}).waitFor();
