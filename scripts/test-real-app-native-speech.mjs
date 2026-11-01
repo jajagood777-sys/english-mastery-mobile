@@ -21,7 +21,7 @@ try{
   await page.setViewportSize({width,height:844});
   const layout=await page.locator('nav.mobile-nav').evaluate(nav=>{
    const navBox=nav.getBoundingClientRect(),styles=getComputedStyle(nav),children=[...nav.querySelectorAll('button')].map(button=>button.getBoundingClientRect());
-   return {display:styles.display,columns:styles.gridTemplateColumns.split(/\\s+/).filter(Boolean).length,navRight:navBox.right,paddingRight:parseFloat(styles.paddingRight),children:children.map(box=>({width:box.width,right:box.right,left:box.left}))};
+   return {display:styles.display,columns:styles.gridTemplateColumns.trim().split(' ').filter(Boolean).length,navRight:navBox.right,paddingRight:parseFloat(styles.paddingRight),children:children.map(box=>({width:box.width,right:box.right,left:box.left}))};
   });
   assert.equal(layout.display,'grid','Mobile bottom navigation should use grid layout at '+width+'px');
   assert.equal(layout.columns,4,'Bottom tabs should occupy exactly four columns at '+width+'px');
