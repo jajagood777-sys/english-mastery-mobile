@@ -31,7 +31,8 @@ try{
   await page.getByRole('heading',{name:'学习设置'}).waitFor();
   const selector=page.getByLabel('朗读引擎');
   const options=await selector.locator('option').allTextContents();
-  assert.equal(options.length,3,'Expected 3 engine choices');
+  assert.equal(options.length,4,'Expected 4 engine choices');
+  assert.ok(options.some(t=>t.includes('Gemini')));
   assert.ok(options.some(t=>t.includes('Heart')));
   assert.ok(options.some(t=>t.includes('Bella')));
   const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}'));
