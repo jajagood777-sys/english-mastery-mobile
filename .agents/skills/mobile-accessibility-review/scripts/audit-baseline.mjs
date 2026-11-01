@@ -11,7 +11,7 @@ export function auditMobileShell({html,css}){
     {id:'main_landmark',ok:/<main\b[^>]*\bid=["']app["']/i.test(html)},
     {id:'skip_link_to_main',ok:/class=["'](?:[^"']*\s)?skip-link(?:\s[^"']*)?["']/.test(html)&&/href=["']#app["']/.test(html)},
     {id:'named_primary_navigation',ok:/<nav\b[^>]*aria-label=["']主导航["']/i.test(html)},
-    {id:'five_chinese_navigation_destinations',ok:['首页','训练','阅读','进度','我的'].every(x=>html.includes('>'+x+'</span>'))},
+    {id:'four_chinese_navigation_destinations',ok:['首页','阅读','进度','我的'].every(x=>html.includes('>'+x+'</span>'))},
     {id:'polite_status_message',ok:/role=["']status["']/.test(html)&&/aria-live=["']polite["']/.test(html)},
     {id:'keyboard_focus_visible_styles',ok:/:focus-visible\s*\{/.test(css)},
     {id:'bottom_safe_area_rule',ok:/safe-area-inset-bottom/.test(css)},

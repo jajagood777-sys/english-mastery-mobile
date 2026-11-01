@@ -10,16 +10,17 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const visuals = fs.readFileSync(new URL('../visuals.mjs', import.meta.url), 'utf8');
 const visualReadme = fs.readFileSync(new URL('../assets/visuals/README.md', import.meta.url), 'utf8');
 
-test('V4.1 shell exposes five clear Chinese mobile destinations', () => {
-  for (const label of ['首页', '训练', '阅读', '进度', '我的']) assert.match(index, new RegExp(`>${label}<`));
+test('VNext shell exposes four clear Chinese mobile destinations', () => {
+  for (const label of ['首页', '阅读', '进度', '我的']) assert.match(index, new RegExp(`>${label}<`));
+  assert.doesNotMatch(index, /data-page="training"/);
   assert.match(index, /class="mobile-nav"/);
   assert.match(app, /function renderTrainingHub/);
   assert.match(app, /function renderMore/);
 });
 
 test('V4.5 navigation uses a consistent inline SVG icon system',()=>{
-  assert.equal((index.match(/class="nav-icon"/g)||[]).length,5);
-  assert.equal((index.match(/<svg[^>]+viewBox="0 0 24 24"/g)||[]).length,5);
+  assert.equal((index.match(/class="nav-icon"/g)||[]).length,4);
+  assert.equal((index.match(/<svg[^>]+viewBox="0 0 24 24"/g)||[]).length,4);
   assert.match(index,/aria-label="主导航"/);
 });
 
@@ -185,6 +186,13 @@ test('V5 journey report recovery passes transfer evidence locally',()=>{
  assert.match(block,/recovered_without_overwriting_original/);
  assert.match(app,/firstAnswer:j\.transferDraft/);
  assert.match(app,/暂不修改，保留初稿/);
+});
+
+test('VNext hides manual weak-room navigation while retaining the daily journey route',()=>{
+ assert.doesNotMatch(app,/打开弱项迁移训练舱/);
+ assert.match(app,/function renderTransferHub/);
+ assert.match(app,/function renderPractice/);
+ assert.match(app,/if\(page==='training'\)page='home'/);
 });
 
 test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
