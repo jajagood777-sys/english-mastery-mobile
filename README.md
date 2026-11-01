@@ -73,6 +73,13 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Training, reading, progress, reports and 我的 share the same tokens. Reading text remains selectable, long-form, high-contrast and free of image overlays.
 - Software/cache version is `4.5.0`; the backward-compatible learning data schema remains `VERSION=4.3`. No localStorage migration or deletion was introduced.
 
+## V5.3.0 — Continuous long-text speech and Kokoro feasibility gate
+
+- Native speech now splits long English text at sentence boundaries and provides pause, resume, stop and replay controls in the reading toolbar. Switching text cancels the previous queue.
+- Kokoro-82M was checked against the current browser delivery constraints: the quantized ONNX file is about 92.4 MB, q4 is about 305 MB, and `af_heart.bin`/`af_bella.bin` are about 0.5 MB each. With runtime memory and iPhone Safari uncertainty, Kokoro was not falsely exposed as a working engine or placed in the default cache.
+- V5.3 therefore keeps the verified native voice path and records Kokoro as not successfully integrated pending real iPhone performance evidence. No model download starts automatically and no learning data or recordings are touched.
+- Software/cache version is `5.3.0`; learning data `VERSION=4.3` remains unchanged.
+
 ## V5.2.0 — Native American English voice selection
 
 - Native browser speech now discovers the actual `speechSynthesis.getVoices()` list, waits for `voiceschanged`, prefers available `en-US` voices and safely falls back when the device has no American English voice.
