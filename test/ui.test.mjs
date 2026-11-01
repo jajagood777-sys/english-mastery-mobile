@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v5\.7\.2/);
+ assert.match(sw,/english-cultivation-static-v5\.8\.0/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -165,7 +165,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v5\.7\.2/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v5\.8\.0/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V4.4 transfer and optional reading comprehension paths preserve evidence',()=>{
@@ -217,4 +217,19 @@ test('reading vocabulary offers a dedicated saved-card view and copy-to-chat exp
  assert.match(app,/navigator\.clipboard\?\.writeText/);
  assert.match(app,/可手动复制的原文/);
  assert.doesNotMatch(app,/function renderReadingVocabulary[\s\S]*?function renderReading\(\)[\s\S]*?upload.*readingWords/i);
+});
+
+
+test('V5.8 offers explicit local-only handoff and separates JSON from IndexedDB recordings',()=>{
+ assert.match(app,/function copyCentralLearningHandoff/);
+ assert.match(app,/function exportCentralLearningHandoff/);
+ assert.match(app,/centralLearningHandoff\(\{report,readingWords:words/);
+ assert.match(app,/function dataSafetyPanel/);
+ assert.match(app,/listRecordings\(\)\.then\(rows/);
+ assert.match(app,/btn\('导出录音',\(\)=>exportLocalRecording\(row\.id\)/);
+ assert.match(app,/JSON备份只包含结构化学习数据，不包含 IndexedDB/);
+ assert.match(app,/lastBackupExportAttemptAt/);
+ assert.match(app,/navigator\.storage\.estimate\(\)/);
+ assert.match(app,/复制不等于外部同步|不会上传资料/);
+ assert.match(app,/voiceSettingsPanel\(\),buildSettingsPanel\(\),dataSafetyPanel\(\)/);
 });

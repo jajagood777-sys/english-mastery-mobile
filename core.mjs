@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '5.7.2';
+export const APP_VERSION = '5.8.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -508,9 +508,47 @@ export function compareAnswer(user, reference, {accepted=[]} = {}) {
   const acceptedNorm=accepted.map(normalizeAnswer); if(acceptedNorm.includes(userNorm)) return {status:'correct',user:rawUser,reference:rawReference,message:'答案符合允许表达。'};
   if(answerKey(rawUser)===answerKey(rawReference)) return {status:'case_or_punctuation',user:rawUser,reference:rawReference,message:'内容一致，只有大小写或标点不同。'};
   const distance=editDistance(answerKey(rawUser),answerKey(rawReference));
-  if(distance===1&&answerKey(rawReference).length>=4) return {status:'minor_spelling',user:rawUser,reference:rawReference,message:'可能有一个拼写差异，请比较参考表达。'};
-  return {status:'incorrect',user:rawUser,reference:rawReference,message:'答案与参考表达不同，请自行比较。'};
+  if(distance===1&&answerKey(rawReference).length>=4) return {status:'minor_spelling',user:rawUser,reference:rawReference,message:describeReferenceDifference(rawUser,rawReference)||'可能有一个拼写差异，请比较参考表达。'};
+  return {status:'incorrect',user:rawUser,reference:rawReference,message:describeReferenceDifference(rawUser,rawReference)||'答案与参考表达不同，请自行比较。'};
 }
+/** Explain only a visible token difference; this is NOT a grammar or meaning judgement. */
+export function describeReferenceDifference(user, reference) {
+  const userWords=normalizeAnswer(user).split(/\s+/).filter(Boolean);
+  const referenceWords=normalizeAnswer(reference).split(/\s+/).filter(Boolean);
+  if(!userWords.length||!referenceWords.length||userWords.length>120||referenceWords.length>120)return '';
+  let start=0;
+  while(start<Math.min(userWords.length,referenceWords.length)&&userWords[start]===referenceWords[start])start++;
+  if(start===userWords.length&&start===referenceWords.length)return '';
+  let endUser=userWords.length,endReference=referenceWords.length;
+  while(endUser>start&&endReference>start&&userWords[endUser-1]===referenceWords[endReference-1]){endUser--;endReference--;}
+  const changedUser=userWords.slice(start,endUser),changedReference=referenceWords.slice(start,endReference);
+  if(changedUser.length===1&&changedReference.length===1){
+    return '参考表达第'+(start+1)+'个词：你写的是「'+changedUser[0]+'」，参考为「'+changedReference[0]+'」。请检查拼写、时态或用词；这只是文本差异，不代表已判定语法错误。';
+  }
+  if(changedUser.length===0&&changedReference.length<=3)return '参考表达第'+(start+1)+'处包含「'+changedReference.join(' ')+'」，你的答案没有这一段。请按语境核对。';
+  if(changedReference.length===0&&changedUser.length<=3)return '你在第'+(start+1)+'处写了「'+changedUser.join(' ')+'」，参考表达没有这一段。请按语境核对。';
+  return '存在多处用词或词序差异；请对照参考表达核查。开放表达未经过人工语法或语义评分。';
+}
+
+/** User-triggered, privacy-local copy/export: last real report and saved reading vocabulary. */
+export function centralLearningHandoff({report=null,readingWords=[],generatedAt='' }={}) {
+  const words=Array.isArray(readingWords)?readingWords:[];
+  const lines=[
+    '# 中央仙窍｜英语学习交接',
+    '生成时间（设备）：'+(generatedAt||'未提供'),
+    '范围：当前设备最近一份战报＋已保存的阅读生词；不是全部历史，复制不等于外部同步。',
+    '批改要求：保留真实原答和初稿，区分网站自动检查、用户K/V/N与AI严判；口语未附音频不得判断真实发音。',
+    '后续选题：对核实错误进行新语境回炉；V/N仅是自评，未测不能算不会；依稳定report_id和card_id查重。',
+    '',
+    '## 最近一份Battle Report',
+    report?battleReportMarkdown(report):'本机暂无已生成的战报。',
+    '',
+    '## 阅读生词（设备原始记录）',
+    readingVocabularyHandoff(words,{exportedAt:generatedAt})
+  ];
+  return lines.join('\n').trim()+'\n';
+}
+
 export function nextDue(status, now = new Date()) {
   if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
   const start = new Date(now);return new Date(start.getTime()+REVIEW_DAYS[status]*86400000).toISOString();

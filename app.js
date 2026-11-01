@@ -1,4 +1,4 @@
-import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,mergeDailyPackItems,isFullBackup,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from './core.mjs';
+import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,mergeDailyPackItems,isFullBackup,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from './core.mjs';
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip} from './speech-clips.mjs';
@@ -197,10 +197,44 @@ function submitWeaknessRecordingOnly(active){const {state,weakness,context}=acti
 function submitWeaknessTransfer(active,answer){const {state,weakness,context}=active;const row=normalizeTransferAttempt({id:`transfer-attempt:${Date.now()}`,weaknessId:weakness.id,contextId:context.id,firstAnswer:String(answer||''),hintUsed:state.hintLevel>0,hintEvents:state.hintEvents,referenceViewed:false,evidenceType:state.hintLevel>0?'prompted':'independent_recall',at:new Date().toISOString(),sourceSnapshot:normalizeSourceMeta(weakness)});data.transferAttempts=mergeTransferAttempts(data.transferAttempts||[],[row]);state.attemptId=row.id;state.state='revealed';if(save())render();}
 function rateWeaknessTransfer(active,rating){const {state,weakness}=active;const row=(data.transferAttempts||[]).find(item=>item.id===state.attemptId);if(!row)return;row.rating=rating;row.delayed=Boolean(weakness.lastTransferAt&&Date.now()-new Date(weakness.lastTransferAt).getTime()>86400000);row.evidenceType=transferEvidenceStatus(row);const schedule=scheduleReview(rating,{intervalDays:weakness.intervalDays||0,learningStage:'review'},new Date());weakness.nextReviewAt=schedule.dueAt;weakness.lastTransferAt=new Date().toISOString();weakness.retrievalStatus=row.evidenceType;weakness.intervalDays=schedule.intervalDays;if(save())render();}
 
+/** Explicit clipboard action only; nothing here transmits private learning material. */
+function latestCentralHandoff(){
+  const report=data.reports?.at(-1)||null;
+  const words=collectSavedReadingWords(data.items,data.readingMarks,data.readings);
+  if(!report&&!words.length)return '';
+  return centralLearningHandoff({report,readingWords:words,generatedAt:new Date().toISOString()});
+}
+function showHandoffCopyFallback(value){
+  document.getElementById('handoff-copy-dialog')?.remove();
+  const overlay=div('switch-backdrop');overlay.id='handoff-copy-dialog';
+  const card=section('switch-dialog');
+  const input=textarea(value,'手动复制学习交接文本');input.readOnly=true;input.rows=9;
+  card.append(h('h2','手动复制英语交接文本'),p('Safari 没有开放自动复制。请长按文本选择“拷贝”，再粘贴给中央仙窍。','subtle'),field('包含最新战报与阅读生词',input),lines(btn('全选文本',()=>{input.focus();input.select();},'btn secondary'),btn('关闭',()=>overlay.remove(),'btn ghost')));
+  overlay.append(card);document.body.append(overlay);input.focus();input.select();
+}
+async function copyCentralLearningHandoff(){
+  const value=latestCentralHandoff();
+  if(!value){notify('还没有战报或阅读生词。先完成学习再进行交接。');return;}
+  try{
+    if(!navigator.clipboard?.writeText)throw Error('Clipboard unsupported');
+    await navigator.clipboard.writeText(value);
+    notify('已复制：最近一份战报＋阅读生词。返回 ChatGPT 粘贴即可。');
+  }catch{showHandoffCopyFallback(value);}
+}
+function exportCentralLearningHandoff(){
+  const value=latestCentralHandoff();
+  if(!value){notify('还没有可导出的学习交接材料。');return;}
+  download('central-english-handoff-'+new Date().toISOString().slice(0,10)+'.md',value,'text/markdown;charset=utf-8');
+  notify('已发起下载。请在 iPhone“文件”中确认文件实际保存。');
+}
+
 function renderMore(){
   app.append(el('div','我的 · MORE','eyebrow'),h('h1','资料与设置'),p('学习记录只保存在这台设备。你可以在这里管理资料、战报、主题和备份。','lead'));
   const grid=div('feature-grid more-grid');for(const [title,desc,pageName,icon] of [['资料库','导入学习包、CSV、TXT 和 Markdown。','library','▤'],['阅读生词本','查看并复制从文章保存的单词与原句。','readingVocabulary','Aa'],['修炼战报','查看、复制和下载真实训练记录。','reports','▥'],['学习进度','查看真实分钟、趋势和 K/V/N。','progress','↗']]){const b=el('button','','mode-card feature-card');b.append(el('div',icon,'mode-icon'),h('strong',title),el('span',desc));b.addEventListener('click',()=>setPage(pageName));grid.append(b);}app.append(grid);
-  const settings=section('settings-card');settings.append(h('h2','外观与帮助'),p('主题、朗读速度、提示和备份仍然使用原有设置。','subtle'),lines(btn('打开设置',()=>setPage('settings'),'btn primary'),btn('重新打开使用帮助',showGuide,'btn secondary')));app.append(settings);
+  const handoff=section('settings-card');
+  handoff.append(h('h2','一键交接给中央仙窍'),p('仅整理本机最近一份 Battle Report 和阅读生词；不会上传资料，也不会把未测词视为答错。口语录音需另行导出。','subtle'),lines(btn('复制最新学习证据',copyCentralLearningHandoff,'btn primary'),btn('下载交接 Markdown',exportCentralLearningHandoff,'btn secondary')));
+  app.append(handoff);
+  const settings=section('settings-card');settings.append(h('h2','数据安全与学习设置'),p('主题、朗读、提示、备份和本机录音检查。','subtle'),lines(btn('打开设置与数据安全',()=>setPage('settings'),'btn primary'),btn('重新打开使用帮助',showGuide,'btn secondary')));app.append(settings);
   const scroll=section('visual-scroll-panel');const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='展开修炼画卷';details.append(summary,p(VISUAL_ASSET_NOTICE,'tiny'));const gallery=div('visual-gallery');VISUAL_ASSETS.filter(asset=>asset.placement==='gallery').forEach(asset=>{const tile=visualFrame(asset,{button:true});tile.append(el('span',asset.title,'visual-tile-title'));tile.addEventListener('click',()=>showVisualDialog(asset));gallery.append(tile);});details.append(gallery);scroll.append(details);app.append(scroll);
 }
 
@@ -458,7 +492,14 @@ const my=section();const header=div('row wrap');header.append(h('h2',`我的资�
 const listContainer=div();const showList=()=>{listContainer.replaceChildren();const q=normalized(searchTerm);const matches=data.items.filter(x=>(filter==='all'||x.kind===filter||(filter.startsWith('content:')&&x.contentType===filter.slice(8))||(filter.startsWith('status:')&&x.status===filter.slice(7))||(filter.startsWith('tag:')&&(x.tags||[]).includes(filter.slice(4)))||(filter.startsWith('source:')&&x.source===filter.slice(7))||(filter==='due'&&isDue(x))||(filter==='untested'&&x.status==='UNTESTED')||(filter==='paused'&&x.paused)||(filter==='archived'&&x.archived))&&(!q||normalized([x.target,x.example,x.text,x.source,x.group].join(' ')).includes(q)));const count=p(`${matches.length} 张匹配卡片`,'tiny');listContainer.append(count);if(!matches.length){listContainer.append(div('empty'));listContainer.lastChild.textContent='没有匹配的资料。';return;}const list=el('ul','','list');for(const x of matches.slice(0,50)){const li=el('li');const info=div();info.append(el('div',x.kind==='word'?x.target:x.text,'item-title'),el('div',`${x.contentType||x.group||x.kind} · ${x.source||'未知来源'}${x.tags?.length?` · ${x.tags.join('、')}`:''}`,'item-sub'));const side=div('head-actions');side.append(el('span',x.archived?'已归档':x.paused?'已暂停':x.status==='UNTESTED'?'未测试':x.status,'chip'));side.append(btn('详情',()=>showCardDialog(x),'btn ghost'),btn('编辑',()=>showEditDialog(x),'btn ghost'),btn(x.archived?'恢复':'归档',()=>{x.archived=!x.archived;if(save())render();},'btn ghost'),btn(x.paused?'恢复复习':'暂停复习',()=>{x.paused=!x.paused;if(save())render();},'btn ghost'),btn('重新学习',()=>{x.learningStage='new';x.status='UNTESTED';x.dueAt=null;x.successStreak=0;if(save())render();},'btn ghost'));li.append(info,side);list.append(li);}listContainer.append(list);if(matches.length>50)listContainer.append(p(`显示前 50 条，共 ${matches.length} 条。可以继续搜索缩小范围。`,'tiny'));};
 my.append(listContainer);showList();app.append(my);}
 function download(name,text,mime='text/plain;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type:mime}));const a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
-function exportBackup(){download(`english-mastery-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({...data,activeSession:null,version:VERSION},null,2),'application/json');notify('备份已导出，请妥善保存。');}
+function exportBackup(){
+  const time=new Date().toISOString();
+  data.settings.lastBackupExportAttemptAt=time;
+  if(!save())return;
+  const snapshot=JSON.stringify({...data,activeSession:null,version:VERSION},null,2);
+  download('english-mastery-backup-'+time.slice(0,10)+'.json',snapshot,'application/json');
+  notify('已发起JSON下载，请在“文件”中确认保存；本备份不含录音，录音须单独导出。');
+}
 function exportHistory(){if(!data.attempts.length){notify('还没有可导出的练习历史。');return;}download(`english-mastery-history-${new Date().toISOString().slice(0,10)}.csv`,makeCSV(data.attempts,['at','kind','itemId','status','answer','sessionId']),'text/csv;charset=utf-8');}
 function importBackup(raw){let restored;try{restored=migrateBackupPayload(JSON.parse(raw));}catch(e){notify(`备份未导入：${e.message}`);return;}if(!confirm(`这份备份包含 ${restored.items.length} 张卡片、${restored.attempts.length} 次作答、${restored.readings.length} 篇文章和 ${restored.reports.length} 份战报。要合并吗？已有卡片、进度和资料会保留。`))return;const merged=mergeItems(data.items,restored.items);data=mergeBackupState(data,restored);if(!save())return;notify(`备份已合并：新增 ${merged.added} 张卡片，重复 ${merged.skipped} 张；文章和历史记录已验证保留。`);render();}
 function readingParagraphs(text){return String(text||'').split(/\n\s*\n|\n/).map(x=>x.trim()).filter(Boolean);}
@@ -624,6 +665,44 @@ const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('阅读正文、必要时标记生词。读完后主动点击确认；计时正向累计，达到建议分钟数不会自动结束。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning)));app.append(box);}
 if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const article=div('reading-article');article.id='reading-article';article.append(h('h2',reading.title),p(`来源：${reading.source||'本机导入'} · 导入时间：${reading.createdAt||'未知'}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);article.append(node);});article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');toolbar.append(speechControls(reading.text,splitSpeechSegments(reading.text)),btn('标记选中生词',()=>toggleReadingMark(reading,paragraphs),'btn secondary'),btn(`保存已标记生词（${pending}）`,()=>saveMarkedReadingWords(reading),'btn primary',pending===0),btn('保存选中文本为卡片',()=>saveSelectedReadingText(reading,paragraphs),'btn ghost'));list.append(article,toolbar);const check=renderReadingCheck(reading);if(check)list.append(check);app.append(list);}
 function trendSummary(days){const endDay=dateKeyInTimeZone(new Date());const startDay=dateKeyInTimeZone(new Date(Date.now()-(Math.max(1,days)-1)*86400000));const sessions=data.sessions.filter(x=>{const day=dateKeyInTimeZone(x.endedAt);return day&&day>=startDay&&day<=endDay;});return {minutes:Math.round(sessions.reduce((sum,x)=>sum+Number(x.activeMs||0),0)/60000),sessions:sessions.length,attempts:sessions.reduce((sum,x)=>sum+Number(x.count||0),0)};}
+/** Non-destructive local audit: IndexedDB recording metadata and StorageManager are read only. */
+function dataSafetyPanel(){
+  const box=section('settings-card');
+  const last=data.settings?.lastBackupExportAttemptAt;
+  const backupAttempt=last&&!Number.isNaN(new Date(last).getTime())?new Date(last).toLocaleString('zh-CN'):'暂无记录';
+  const count=p('录音检查中……','subtle');
+  const list=div('recording-list');
+  const disk=p('设备存储状态尚未检查。','tiny');
+  box.append(h('h2','本机数据安全检查'),p('这是检查与导出入口，不是云端备份。当前学习记录只在这个浏览器里；换机或清理 Safari 数据可能导致丢失。','subtle'),p('本机记录：'+data.items.length+'张学习卡 · '+(data.reports?.length||0)+'份战报 · '+(data.attempts?.length||0)+'次普通作答。','tiny'),p('最近一次主动发起JSON备份：'+backupAttempt+'（不代表文件已经保存到 iPhone“文件”或 Drive）。','tiny'),p('重要：JSON备份只包含结构化学习数据，不包含 IndexedDB 中的录音文件。请下方逐条另存重要录音。','subtle'),count,list);
+  listRecordings().then(rows=>{
+    const sorted=rows.slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    count.textContent='本机找到 '+sorted.length+' 条录音。请将需要长期保留的录音单独导出到“文件”或私有Drive。';
+    if(!sorted.length){list.append(p('暂无可导出的本地录音。','tiny'));return;}
+    const entries=div();
+    const renderEntries=(all=false)=>{
+      entries.replaceChildren();
+      for(const row of (all?sorted:sorted.slice(0,8))){
+        const line=div('recording-row');
+        const date=Number.isNaN(new Date(row.createdAt).getTime())?'时间未记录':new Date(row.createdAt).toLocaleString('zh-CN');
+        line.append(el('span',(row.role==='retry'?'重答':'初答')+' · '+date+' · '+(row.taskId||'未记录题目ID'),'tiny'),btn('导出录音',()=>exportLocalRecording(row.id),'btn secondary'));
+        entries.append(line);
+      }
+    };
+    renderEntries();list.append(entries);
+    if(sorted.length>8)list.append(btn('查看全部 '+sorted.length+' 条录音',()=>renderEntries(true),'btn ghost'));
+  }).catch(error=>{count.textContent='录音数据库暂不可读取：'+String(error?.message||'未知原因')+'。并不代表录音数量是零。';});
+  const check=btn('检查Safari本地存储状态',async()=>{
+    if(!navigator.storage?.estimate){disk.textContent='当前浏览器未开放StorageManager信息；不能确认持久存储状态。';return;}
+    try{
+      const estimate=await navigator.storage.estimate();
+      const persisted=typeof navigator.storage.persisted==='function'?await navigator.storage.persisted():null;
+      const used=Number.isFinite(estimate.usage)?(estimate.usage/1024/1024).toFixed(1)+' MB':'未知';
+      disk.textContent='网站估算占用：'+used+'；持久存储：'+(persisted===true?'已获浏览器确认':persisted===false?'未确认（可能被清理）':'浏览器不提供结果')+'。无论结果如何，都要自行保存备份。';
+    }catch(error){disk.textContent='存储检查失败：'+String(error?.message||'浏览器拒绝访问')+'。学习记录不会因此删除。';}
+  },'btn secondary');
+  box.append(lines(check,btn('导出本机JSON备份',exportBackup,'btn primary')),disk);
+  return box;
+}
 function buildSettingsPanel(){const dataBox=section('settings-card');dataBox.append(h('h2','设置与数据'),p('学习数据保存在本机。清除 Safari 网站数据可能删除记录，请定期导出备份。','subtle'),lines(btn('导出 JSON 备份',exportBackup,'btn primary'),btn('导出练习 CSV',exportHistory,'btn')));dataBox.append(field('恢复 JSON 备份（先预览，再合并）',inputFile('.json,application/json',importBackup)));const duration=el('input','','input');duration.type='number';duration.min='1';duration.max='180';duration.value=data.settings.duration||40;duration.addEventListener('change',()=>{data.settings.duration=Math.max(1,Math.min(180,Number(duration.value)||40));save();});dataBox.append(field('参考目标分钟（正向计时，不强制结束）',duration));
 const presets=lines(...[30,40,60].map(minutes=>btn(`${minutes} 分钟`,()=>{data.settings.duration=minutes;if(save()){duration.value=String(minutes);notify(`参考目标调整为 ${minutes} 分钟，计时仍可继续。`);}},'btn ghost')));dataBox.append(presets);const speed=el('select','','select');for(const [rate,label] of [[.75,'较慢（0.75×）'],[.9,'温和（0.9×）'],[1,'正常（1.0×）'],[1.1,'稍快（1.10×）'],[1.25,'较快（1.25×）']]){const opt=el('option',label);opt.value=String(rate);speed.append(opt);}speed.value=String(data.settings.speechRate||.9);speed.addEventListener('change',()=>{data.settings.speechRate=Number(speed.value);save();});dataBox.append(field('英语朗读速度',speed));const theme=el('select','','select');for(const [value,label] of [['system','跟随系统'],['day','日间修炼'],['night','夜间修炼']]){const opt=el('option',label);opt.value=value;theme.append(opt);}theme.value=data.settings.theme||'system';theme.addEventListener('change',()=>setTheme(theme.value));dataBox.append(field('外观主题',theme));const hints=el('input');hints.type='checkbox';hints.checked=data.settings.chineseHints!==false;hints.addEventListener('change',()=>{data.settings.chineseHints=hints.checked;if(save())render();});const hintLabel=el('label');hintLabel.className='setup-options';hintLabel.append(hints,el('span','允许查看中文提示（每张新卡默认隐藏）'));dataBox.append(hintLabel);const retry=el('input');retry.type='checkbox';retry.checked=data.settings.retryAfterError!==false;retry.addEventListener('change',()=>{data.settings.retryAfterError=retry.checked;if(save())render();});const retryLabel=el('label');retryLabel.className='setup-options';retryLabel.append(retry,el('span','答错后立即重练'));dataBox.append(retryLabel);const newLimit=el('input','','input');newLimit.type='number';newLimit.min='1';newLimit.max='100';newLimit.value=data.settings.newLimit||10;newLimit.addEventListener('change',()=>{data.settings.newLimit=Math.max(1,Math.min(100,Number(newLimit.value)||10));save();});dataBox.append(field('每日新卡上限',newLimit));const reviewLimit=el('input','','input');reviewLimit.type='number';reviewLimit.min='1';reviewLimit.max='200';reviewLimit.value=data.settings.reviewLimit||20;reviewLimit.addEventListener('change',()=>{data.settings.reviewLimit=Math.max(1,Math.min(200,Number(reviewLimit.value)||20));save();});dataBox.append(field('每日复习上限',reviewLimit));return dataBox;}
 function voiceSettingsPanel(){
@@ -638,7 +717,7 @@ function voiceSettingsPanel(){
   box.append(field('设备英语语音',voiceSelect),voiceStatus,lines(refresh,btn('试听声音',()=>speakEnglish("Hello! Let's practice English together."),'btn secondary'),btn('停止朗读',stopSpeech,'btn ghost')));
   box.append(p('语音列表由 iPhone Safari 异步提供，en-US 美式英语会排在前面。若系统设置中的声音没有出现在列表里，Safari 不允许网站强制调用它；请选择列表中的实际语音或使用浏览器默认语音。','tiny')); return box;
 }
-function renderSettings(){app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),p('这里集中管理计时、朗读、提示、复习上限和备份。修改不会删除历史记录。','lead'),voiceSettingsPanel(),buildSettingsPanel());}
+function renderSettings(){app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),p('这里集中管理计时、朗读、提示、复习上限和备份。修改不会删除历史记录。','lead'),voiceSettingsPanel(),buildSettingsPanel(),dataSafetyPanel());}
 function renderProgress(){const s=stats();app.append(el('div','修炼进度 · PROGRESS','eyebrow'),h('h1','学习进度'),p('这里只显示真实训练记录，不估算 IELTS 或英语等级。','lead'));const growth=section('growth-visual-card');growth.append(visualFrame(visualAsset('07')),div('growth-visual-copy'));growth.querySelector('.growth-visual-copy').append(el('div','长期积累 · STEADY REFINEMENT','eyebrow'),h('h2','每一次真实练习都会留下痕迹。'),p('人物图像只作为氛围装饰；下面的分钟、作答和 K/V/N 才是你的真实记录。','subtle'));app.append(growth);
 const row=div('grid-3');const activeMinutes=Math.round((data.sessions||[]).reduce((sum,x)=>sum+Number(x.activeMs||0),0)/60000);row.append(statistic('已训练卡片',s.reviewed),statistic('实际分钟',activeMinutes),statistic('训练次数',data.sessions.length));app.append(row);const t7=trendSummary(7),t30=trendSummary(30);const trends=section('panel soft');trends.append(h('h2','真实训练趋势'),p(`近 7 天：${t7.minutes} 分钟 · ${t7.sessions} 次训练 · ${t7.attempts} 次作答`,'subtle'),p(`近 30 天：${t30.minutes} 分钟 · ${t30.sessions} 次训练 · ${t30.attempts} 次作答`,'subtle'));app.append(trends);
 for(const [kind,label] of [['word','炼词'],['sentence','炼句']]){const group=data.items.filter(x=>x.kind===kind);const k=group.filter(x=>x.status==='K').length,v=group.filter(x=>x.status==='V').length,n=group.filter(x=>x.status==='N').length,untested=group.filter(x=>x.status==='UNTESTED').length;const panel=section();panel.append(h('h2',label));const stat=div('grid-3');stat.append(statistic('K · 会用',k),statistic('V · 模糊',v),statistic('N · 不会',n));panel.append(stat,p(`${untested} 张未测试 · 共 ${group.length} 张卡片`,'tiny'));app.append(panel);}

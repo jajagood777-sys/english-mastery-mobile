@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.7.2');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.8.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -264,4 +264,24 @@ test('reading vocabulary share uses saved cards, true KVN and original reading p
  assert.doesNotMatch(exported,/regular:1/);
  assert.equal(items[0].status,'UNTESTED');
  assert.deepEqual(collectSavedReadingWords([],[],[]),[]);
+});
+
+
+test('answer text difference points to one changed word but never claims a semantic verdict',()=>{
+ const diff=describeReferenceDifference('In older to reduce confusion, Mira stayed.', 'In order to reduce confusion, Mira stayed.');
+ assert.match(diff,/older/);assert.match(diff,/order/);assert.match(diff,/第2个词/);
+ assert.match(compareAnswer('In older to reduce confusion, Mira stayed.','In order to reduce confusion, Mira stayed.').message,/older/);
+ assert.match(compareAnswer('adress','address').message,/adress/);
+ assert.equal(compareAnswer('Hello.','hello').status,'case_or_punctuation');
+ assert.match(describeReferenceDifference('I write it yesterday.', 'I wrote it yesterday.'),/write/);
+ assert.match(describeReferenceDifference('The cat likes the rain.','We saw a movie yesterday.'),/多处/);
+});
+test('central handoff retains original report, reading words and honest evidence limits',()=>{
+ const report={report_id:'report:fiction',session_id:'session:fiction',created_at:'2026-11-02T04:00:00Z',timezone:'Asia/Shanghai',active_seconds:240,mode:'journey',ratings_summary:{K:1,V:0,N:0},attempts:[],transfer_attempts:[{taskType:'writing',taskId:'task:1',firstAnswer:'I write what I really think.\nIt is my original answer.',referenceViewed:true,retryAnswer:''}]};
+ const words=[{id:'card:1',target:'strive',sourceTitle:'A real story',originalSentence:'They strive to improve.',readingId:'read:1',status:'UNTESTED'}];
+ const before=JSON.stringify({report,words});
+ const value=centralLearningHandoff({report,readingWords:words,generatedAt:'2026-11-02T05:00:00Z'});
+ for(const phrase of ['report:fiction','I write what I really think.','It is my original answer.','strive','A real story','UNTESTED','复制不等于外部同步'])assert.ok(value.includes(phrase),'Missing '+phrase);
+ assert.equal(JSON.stringify({report,words}),before);
+ assert.match(centralLearningHandoff({report:null,readingWords:[],generatedAt:''}),/本机暂无已生成的战报/);
 });
