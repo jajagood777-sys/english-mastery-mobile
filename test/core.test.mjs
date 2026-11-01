@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -209,4 +209,29 @@ test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
 test('V5.1 transfer task types classify speaking writing grammar and reading-to-speaking conservatively',()=>{
  const out=recordsFromLearningPack({pack_id:'types',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'s',prompt:'Speak for a minute.',task_type:'speaking'},{id:'w',prompt:'Write an argument.',tags:['writing']},{id:'g',prompt:'Transform the sentence.',tags:['grammar']},{id:'r',prompt:'Retell the story.',tags:['reading-to-speaking']},{id:'u',prompt:'Use it elsewhere.'}]});
  assert.deepEqual(out.pack.transferTasks.map(x=>x.taskType),['speaking','writing','grammar','reading_to_speaking','general_transfer']);
+});
+
+
+test('reading vocabulary share uses saved cards, true KVN and original reading provenance without changing originals',()=>{
+ const items=[
+  {id:'reading:1',kind:'word',readingId:'story:1',target:'strive',context:'The students strive for accuracy.',status:'UNTESTED',createdAt:'2026-11-02'},
+  {id:'reading:2',kind:'word',readingId:'story:1',target:'diminish',example:'The sound began to diminish.',status:'V'},
+  {id:'regular:1',kind:'word',target:'strive',status:'N'},
+  {id:'reading:1',kind:'word',readingId:'story:1',target:'strive',status:'UNTESTED'}
+ ];
+ const marks=[{savedItemId:'reading:1',savedStatus:'SAVED',markedAt:'2026-11-02T01:00:00Z',packId:'EN-DAILY-20261102-006'}];
+ const rows=collectSavedReadingWords(items,marks,[{id:'story:1',title:'The Notebook'}]);
+ assert.equal(rows.length,2);
+ assert.equal(rows.find(x=>x.id==='reading:1').status,'UNTESTED');
+ assert.equal(rows.find(x=>x.id==='reading:1').packId,'EN-DAILY-20261102-006');
+ assert.equal(rows.find(x=>x.id==='reading:2').status,'V');
+ assert.equal(rows.find(x=>x.id==='reading:2').sourceTitle,'The Notebook');
+ const exported=readingVocabularyHandoff(rows,{exportedAt:'2026-11-02T01:00:00Z'});
+ assert.match(exported,/The Notebook/);
+ assert.match(exported,/The students strive for accuracy/);
+ assert.match(exported,/未测试（UNTESTED）/);
+ assert.match(exported,/EN-DAILY-20261102-006/);
+ assert.doesNotMatch(exported,/regular:1/);
+ assert.equal(items[0].status,'UNTESTED');
+ assert.deepEqual(collectSavedReadingWords([],[],[]),[]);
 });
