@@ -27,6 +27,7 @@ jobs:
       - name: Extract tasks and generate Heart MP3s
         run: node scripts/generate-audio-pack.mjs --pack examples/v56-audio-sample-pack.json --out audio-pack-output --voice af_heart --zip
       - name: Upload ZIP and machine-readable report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: authorized-audio-pack-heart
