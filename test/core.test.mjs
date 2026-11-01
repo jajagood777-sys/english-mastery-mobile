@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.6.2');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.7.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -225,6 +225,13 @@ test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
 test('V5.1 transfer task types classify speaking writing grammar and reading-to-speaking conservatively',()=>{
  const out=recordsFromLearningPack({pack_id:'types',items:[{type:'word',target:'address',example:'We address the issue.'}],transfer_tasks:[{id:'s',prompt:'Speak for a minute.',task_type:'speaking'},{id:'w',prompt:'Write an argument.',tags:['writing']},{id:'g',prompt:'Transform the sentence.',tags:['grammar']},{id:'r',prompt:'Retell the story.',tags:['reading-to-speaking']},{id:'u',prompt:'Use it elsewhere.'}]});
  assert.deepEqual(out.pack.transferTasks.map(x=>x.taskType),['speaking','writing','grammar','reading_to_speaking','general_transfer']);
+});
+
+test('V5.7 mixed English and IELTS pack keeps authentic metadata in one report contract',()=>{
+ const pack={schema_version:'2.0',pack_id:'mixed-ielts',title:'Mixed Daily Pack',items:[{id:'s1',type:'sentence',text:'Practice makes progress.'}],readings:[{id:'ielts-r1',title:'Cambridge Reading Passage',text:'A sufficiently long reading passage gives context for several questions and supports a small practice set.',exam_source:'Cambridge IELTS 9',exam_type:'Academic',test_number:'Test 1',skill:'Reading',is_authentic_ielts:true,questions:[{id:'R1-Q1',type:'choice',prompt:'What is the main idea?',options:['Practice helps.','Nothing changes.'],answer:'Practice helps.',question_type:'multiple_choice',source_page:'12'},{id:'R1-Q2',type:'open',prompt:'Write NO MORE THAN TWO WORDS.',answer_constraints:'NO MORE THAN TWO WORDS',question_type:'short_answer',source_page:'12'},{id:'R1-Q3',type:'open',prompt:'Give one detail.',question_type:'short_answer',source_page:'12'}]}],transfer_tasks:[{id:'ielts-s1',prompt:'Describe your hometown.',task_type:'speaking',exam_source:'Cambridge IELTS 9',exam_type:'Academic',test_number:'Test 1',skill:'Speaking',question_id:'S1-Q1',is_authentic_ielts:true},{id:'ielts-w1',prompt:'Write one body paragraph.',task_type:'writing',exam_source:'Cambridge IELTS 9',exam_type:'Academic',test_number:'Test 1',skill:'Writing',question_id:'W1-Q1',answer_constraints:'one paragraph',is_authentic_ielts:true}]};
+ const out=recordsFromLearningPack(pack);assert.equal(out.readings[0].questions.length,3);assert.equal(out.readings[0].examSource,'Cambridge IELTS 9');assert.equal(out.readings[0].questions[0].questionId,'R1-Q1');assert.equal(out.pack.transferTasks[0].examSource,'Cambridge IELTS 9');assert.equal(out.pack.transferTasks[1].skill,'Writing');
+ const report=buildBattleReport({session:{id:'journey:mixed',startedAt:'2026-11-02T00:00:00Z',endedAt:'2026-11-02T00:10:00Z',activeMs:600000,mode:'journey',packId:'mixed-ielts'},attempts:[],readings:out.readings,transferAttempts:[{id:'ta',taskId:'ielts-w1',taskType:'writing',examSource:'Cambridge IELTS 9',examType:'Academic',testNumber:'Test 1',skill:'Writing',questionId:'W1-Q1',firstAnswer:'My body paragraph.',rating:'V'}]});
+ assert.equal(report.transfer_attempts[0].questionId,'W1-Q1');assert.equal(report.reading_analysis.articles[0].questions[0].examSource,'Cambridge IELTS 9');assert.match(battleReportMarkdown(report),/Cambridge IELTS 9/);
 });
 
 

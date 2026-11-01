@@ -362,3 +362,11 @@ V3.5 batches
 - Markdown transfer sections now include task type/ID, prompt, pack/journey IDs, multiline original draft, submission time, hints, reference-answer evidence, optional retry, K/V/N, AI-unassessed status, recording status, and explicit submitted/skipped state. It never uses `undefined` as an ID.
 - Tests: `node .agents/skills/learning-data-safety/scripts/check-fixture.mjs` passed (4 synthetic safety checks, real Safari data not accessed); `npm run check` passed **110/110**. The synthetic tests cover an 80-word legacy writing answer with no retry, both answers, repeated merge, and daily-journey backup migration. Physical iPhone data remains inaccessible and unverified.
 - PR #36 remote verification: `test` passed in Actions run `41351011539`; `real-app` passed in run `41351011695`; staging Pages passed. The unrelated legacy check `Workers Builds: english-cultivation-gmini-v59-mobile` failed again. Because this release instruction requires stopping on any CI failure, PR #36 remains open and main/Formal Pages were not changed. The old Worker was not modified.
+
+## V5.7 — mixed IELTS metadata increment (2026-11-02)
+
+- Extended the existing schema 2.0 importer without adding navigation or a second database. `readings.questions` and `transfer_tasks` now preserve optional Cambridge/IELTS metadata: source, Academic/GT, test number, skill, question ID/number, type, answer constraints, source page, and authentic-source flag. Old English-only JSON remains unchanged.
+- The existing reading checks and transfer challenges remain the interaction surfaces. No official listening claim is made when an audio asset is absent; no automatic IELTS band score is generated.
+- The single Battle Report now carries IELTS reading question metadata/check answers and IELTS transfer metadata alongside ordinary practice, including original answers, reference visibility, retries, K/V/N, recording status and actual session time.
+- Release marker advanced to V5.7.0 and the Service Worker app-shell cache marker to `english-cultivation-static-v5.7.0`; localStorage keys, IndexedDB recordings and data schema `4.3` remain unchanged.
+- New mixed-pack regression covers ordinary English plus three IELTS reading questions, one speaking task and one writing task. `npm run check` passes **111/111** after the increment.
