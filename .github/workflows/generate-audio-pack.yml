@@ -1,0 +1,56 @@
+name: Build authorized public audio pack
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: github.repository == 'jajagood777-sys/english-mastery-mobile'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Guard public-only input
+        run: |
+          case "examples/v56-audio-sample-pack.json" in
+            examples/*.json) ;;
+            *) echo 'Only repository-authorized examples/ packs may run in the public repository.'; exit 1 ;;
+          esac
+      - name: Install pinned Kokoro generator
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts kokoro-js@1.2.1
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg zip
+      - name: Extract tasks and generate Heart MP3s
+        run: node scripts/generate-audio-pack.mjs --pack examples/v56-audio-sample-pack.json --out audio-pack-output --voice af_heart --zip
+      - name: Publish authorized synthetic fixture to public Pages assets
+        run: |
+          cp audio-pack-output/*.mp3 speech-assets/
+          node --input-type=module - <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const root=JSON.parse(await readFile('speech-assets/speech-manifest.json','utf8'));
+          const pack=JSON.parse(await readFile('audio-pack-output/speech-manifest.json','utf8'));
+          const map=new Map([...(root.clips||[]),...(pack.clips||[])].map(clip=>[`${clip.voice}|${clip.sha256}`,clip]));
+          root.version=1;root.source='authorized public demo and synthetic sample';root.generatedAt=new Date().toISOString();root.clips=[...map.values()];
+          await writeFile('speech-assets/speech-manifest.json',JSON.stringify(root,null,2)+'\n');
+          await writeFile('speech-assets/manifest.json',JSON.stringify(root,null,2)+'\n');
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add speech-assets
+          git diff --cached --quiet || (git commit -m 'assets(audio): publish authorized synthetic Heart sample pack' && git push origin HEAD:${GITHUB_REF_NAME})
+      - name: Upload ZIP and machine-readable report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authorized-audio-pack-heart
+          path: |
+            audio-pack-output/*.zip
+            audio-pack-output/audio-tasks.json
+            audio-pack-output/audio-report.json
+          if-no-files-found: error
