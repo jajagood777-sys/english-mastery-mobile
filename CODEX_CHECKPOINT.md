@@ -270,3 +270,10 @@ V3.5 batches
 - Fresh local verification: `npm test` passes **114/114**; `npm run check` remains the required final command. The provider HTTP test does not run Kokoro inference; it intentionally proves security and validation before model execution. No generated server MP3 count is claimed.
 - Official documentation checks performed 2026-11-01: Hugging Face Spaces says Static Spaces are free, while Gradio/Docker CPU Basic compute requires a subscription; ZeroGPU uses Gradio-only shared GPU quota and is not a private Node endpoint with durable cache. Cloud Run pricing documents a monthly free tier but billing documentation requires an active billing account and free-tier overages/storage/egress can charge. GitHub Actions is batch execution, not an always-available private TTS endpoint.
 - Deployment boundary: no provider host, account, card, long-lived token, PR merge, Pages deployment, or formal-site change. Browser Kokoro remains the live path with a bounded 90-second error; the exact remaining external action is approval and provisioning of a private authenticated host/account if server fallback is required. Physical iPhone playback and IndexedDB reuse remain unverified after the timeout change.
+
+### Remote verification for `366798842337338bc5e27bd6c76066e20ca14cfc`
+
+- PR #33 remains open and unmerged: https://github.com/jajagood777-sys/english-mastery-mobile/pull/33
+- `test` passed in Actions run `41304013768`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013768
+- `real-app` passed in Actions run `41304013735`: https://github.com/jajagood777-sys/english-mastery-mobile/actions/runs/41304013735
+- These are desktop/CI browser checks; they do not alter the physical-iPhone release gate.
