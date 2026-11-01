@@ -225,3 +225,12 @@ V3.5 batches
 - `npm run check` passes 104/104 locally. Local real TTS generation could not complete because this execution environment cannot reach the model endpoint (IPv4 connection refused/IPv6 unreachable); GitHub Actions must be the authoritative generation check after push. No generated audio is claimed until that workflow succeeds.
 
 - Public closure assets are now present in `speech-assets/`: 2 MP3 clips (Heart and Bella) for the verified demo sentence, 41,516 and 45,260 bytes, with ffprobe durations 3.744s and 3.432s. The manifest contains both text hashes and file hashes. This is the only public natural-audio set currently claimed; other words, new examples, and arbitrary articles use the explicit device fallback until their clips are generated.
+
+## V5.6 — real learning-pack audio pipeline checkpoint (2026-11-01)
+
+- Latest baseline rechecked: main `cc75269c7a57d79a6e8e6f4363fd17bbe48a7e68`, V5.5.0, PR #27 merged and Pages deployed.
+- Added `audio-tasks.mjs`: uses the existing `recordsFromLearningPack()` contract and extracts normalized, SHA-256 keyed tasks from word targets, word examples, sentences, listening, reading segments, transfer prompts, and reference answers. The public synthetic fixture `examples/v56-audio-sample-pack.json` produces 29 unique tasks: 8 words, 8 examples, 6 sentences, 3 listening, 2 reading segments, 2 transfer.
+- Added `scripts/generate-audio-pack.mjs`: incremental Heart/Bella generation, existing-manifest reuse, WAV/MP3/ffprobe validation, file hashes, duration, failure report, task report, and optional ZIP output. It never reads arbitrary files in the public workflow.
+- Added a manual public-only GitHub Actions workflow. It rejects pack paths outside `examples/*.json` and uploads an artifact instead of committing generated private material. Private daily packs are not connected to any inaccessible Central Immortal Aperture automation and must use a private execution environment or local/authorized ZIP flow.
+- The app now reports real natural-audio coverage by module, supports a one-file ZIP containing the learning-pack JSON, `speech-manifest.json`, and audio files, and plays reading segments sequentially when matching clips exist. Missing clips use explicit device fallback; learner data remains in its existing stores.
+- Validation so far: `npm run check` 108/108; real ZIP decompression test passed; dry-run extraction counts above passed. Full 29-clip Kokoro inference remains a GitHub Actions runtime check; no unverified generated count is claimed until that run succeeds.

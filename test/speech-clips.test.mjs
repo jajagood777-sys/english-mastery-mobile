@@ -7,7 +7,7 @@ test('public speech manifest and local importer use one content-addressed format
  assert.match(clips,/speech-assets\/speech-manifest\.json/);
  assert.match(clips,/speechTextHash\(text\)/);
  assert.match(clips,/fileSha256/);
- assert.match(clips,/unzipPackage/);
+ assert.match(clips,/unpackSpeechZip/);
  assert.match(generator,/speech-manifest\.json/);
  assert.match(generator,/af_heart/);assert.match(generator,/af_bella/);
  assert.match(generator,/libmp3lame/);assert.match(generator,/fileSha256/);
@@ -18,4 +18,9 @@ test('speech fallback is real and word cards expose word plus example controls',
  assert.match(app,/speakDevice\(value\)/);
  assert.match(app,/speechButton\(item\.target\)/);
  assert.match(app,/clipSpeech\.speak\(value,KOKORO_VOICES\[mode\]\)/);
+});
+test('V5.6 pack generator is incremental and public workflow is privacy-gated',()=>{
+ const script=read('scripts/generate-audio-pack.mjs'),workflow=read('.github/workflows/generate-audio-pack.yml'),app=read('app.js');
+ assert.match(script,/--pack/);assert.match(script,/ffprobe/);assert.match(script,/failed/);assert.match(script,/audio-report\.json/);assert.match(script,/speech-manifest\.json/);
+ assert.match(workflow,/examples\/\*\.json/);assert.match(workflow,/upload-artifact/);assert.match(app,/当前学习包自然配音覆盖率/);assert.match(app,/导入每日学习包 ZIP/);
 });

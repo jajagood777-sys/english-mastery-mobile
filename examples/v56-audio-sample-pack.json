@@ -1,0 +1,33 @@
+{
+  "schema_version": "2.0",
+  "pack_id": "V56-PUBLIC-AUDIO-SAMPLE",
+  "title": "V5.6 Natural Voice Coverage Sample",
+  "created_at": "2026-11-01",
+  "source": "Original synthetic public test material",
+  "language": "en",
+  "items": [
+    {"id":"w1","type":"word","target":"adapt","example":"Learners adapt their routines when a method stops working."},
+    {"id":"w2","type":"word","target":"clarify","example":"Please clarify the main point before the discussion begins."},
+    {"id":"w3","type":"word","target":"coherent","example":"Her explanation became coherent after she organized the evidence."},
+    {"id":"w4","type":"word","target":"derive","example":"Many useful expressions derive from everyday conversations."},
+    {"id":"w5","type":"word","target":"deliberate","example":"A deliberate review habit makes progress easier to notice."},
+    {"id":"w6","type":"word","target":"retain","example":"Short retrieval sessions help learners retain new vocabulary."},
+    {"id":"w7","type":"word","target":"transfer","example":"The final task asks students to transfer an idea to a new context."},
+    {"id":"w8","type":"word","target":"refine","example":"Writers refine a sentence when its meaning is almost clear."},
+    {"id":"s1","type":"sentence","text":"Focused practice creates better choices over time."},
+    {"id":"s2","type":"sentence","text":"A useful example gives a new word somewhere to live."},
+    {"id":"s3","type":"sentence","text":"Readers should question a claim before accepting it."},
+    {"id":"s4","type":"sentence","text":"Small review sessions are easier to repeat than heroic plans."},
+    {"id":"s5","type":"sentence","text":"Clear notes help a learner return to difficult material."},
+    {"id":"s6","type":"sentence","text":"Good questions turn passive reading into active learning."},
+    {"id":"l1","type":"listening","text":"Listen for the main idea before you notice every detail."},
+    {"id":"l2","type":"listening","text":"Write down one phrase that you could use today."},
+    {"id":"l3","type":"listening","text":"The speaker pauses so the listener can follow the structure."}
+  ],
+  "transfer_tasks": [
+    {"id":"t1","type":"speaking","prompt":"Explain how you would adapt a study routine.","model_answer":"I would adapt it by shortening each session and reviewing more often."}
+  ],
+  "readings": [
+    {"id":"r1","title":"The Quiet Revision","text":"A learner opened the notebook after a busy day. The first plan had been too ambitious, so she decided to refine it.\n\nShe kept one short reading, one listening task, and one deliberate review. The smaller routine felt coherent, and she could finally retain what she practiced.","questions":[]}
+  ]
+}
