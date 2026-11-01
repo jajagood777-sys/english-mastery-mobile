@@ -9,7 +9,7 @@ on:
       - .github/workflows/kokoro-browser-build.yml
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,8 +24,9 @@ jobs:
       - name: Record dependency audit and versions
         run: |
           npm ls kokoro-js @huggingface/transformers onnxruntime-web esbuild || true
+          npm install --package-lock-only --ignore-scripts --no-save kokoro-js@1.2.1 esbuild@0.25.12
           npm audit --json > kokoro-runtime-audit.json || true
-          node -e "const a=require('./kokoro-runtime-audit.json'); console.log('Experimental dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities||{}))"
+          node -e "const a=require('./kokoro-runtime-audit.json'); if(a.error){console.warn('Audit query failed',a.error);process.exitCode=1}else console.log('Experimental dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities||{}))"
       - name: Build self-hosted browser runtime
         run: |
           mkdir -p kokoro-runtime/dist
@@ -45,3 +46,12 @@ jobs:
             kokoro-runtime-audit.json
           if-no-files-found: error
           retention-days: 7
+      - name: Commit isolated runtime assets to PR branch only
+        if: github.ref == 'refs/heads/work/v5-4-kokoro-isolated-prototype-20261101'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f kokoro-runtime/dist/kokoro-engine.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.wasm
+          git diff --cached --quiet && exit 0
+          git commit -m 'build(kokoro): pin isolated browser bundle and WASM resources'
+          git push origin HEAD:work/v5-4-kokoro-isolated-prototype-20261101
