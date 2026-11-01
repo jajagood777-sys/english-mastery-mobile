@@ -25,4 +25,6 @@ test('V5.6 pack generator is incremental and public workflow is privacy-gated',(
  assert.match(workflow,/examples\/\*\.json/);assert.match(workflow,/upload-artifact/);assert.match(app,/当前学习包自然配音覆盖率/);assert.match(app,/导入每日学习包 ZIP/);
 });
 
-test('on-demand Heart generation is wired without system fallback in Heart mode',()=>{const app=read('app.js'),clips=read('speech-clips.mjs'),neural=read('neural-tts.mjs');assert.match(clips,/pendingGeneration/);assert.match(clips,/source:'on-demand-kokoro'/);assert.match(neural,/generate,?speak/);assert.match(app,/当前文字没有可用的Heart音频/);assert.doesNotMatch(app,/已使用设备兼容朗读/);});
+test('on-demand Heart generation is wired without system fallback in Heart mode',()=>{const app=read('app.js'),clips=read('speech-clips.mjs'),neural=read('neural-tts.mjs');assert.match(clips,/pendingGeneration/);assert.match(clips,/on-demand-kokoro/);assert.match(neural,/generate,?speak/);assert.match(app,/当前文字没有可用的Heart音频/);assert.doesNotMatch(app,/已使用设备兼容朗读/);});
+
+test('Gemini audio uses a distinct engine cache key and WAV client path',()=>{const clips=read('speech-clips.mjs'),client=read('private-tts-client.mjs'),worker=read('worker/src/index.mjs'),app=read('app.js');assert.match(clips,/speechClipKey/);assert.match(clips,/engine=KOKORO_SPEECH_ENGINE/);assert.match(clips,/on-demand-gemini/);assert.ok(client.includes('audio\\/'));assert.match(client,/wav/);assert.match(worker,/gemini-3\.8-flash-tts/);assert.match(worker,/x-goog-api-key/);assert.match(app,/Gemini云端/);assert.match(app,/GEMINI_TTS_ENGINE/);});

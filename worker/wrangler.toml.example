@@ -1,0 +1,12 @@
+name = "english-cultivation-gemini-tts"
+main = "src/index.mjs"
+compatibility_date = "2026-11-01"
+
+[vars]
+TTS_ALLOWED_ORIGIN = "https://jajagood777-sys.github.io"
+TTS_REQUESTS_PER_MINUTE = "20"
+TTS_TIMEOUT_MS = "45000"
+
+# Set these with `wrangler secret put`, never commit them:
+# GEMINI_API_KEY
+# TTS_CLIENT_TOKEN
