@@ -455,3 +455,11 @@ V3.5 batches
 - Added `handover.mjs` store-only ZIP writer and a local-only “导出完整中央交接包” action. The default package contains manifest, Battle Report JSON, central feedback JSON and README; recordings are included only after explicit user selection. No upload or automatic sync occurs.
 - Release marker is `7.0.0`; Service Worker marker is `english-cultivation-static-v7.0.0`. Data schema remains `4.3`; old JSON, reports and recording IDs are unchanged.
 - Local evidence: `npm run check` passes **141/141**; dedicated Studio/ZIP tests pass 4/4; data safety 4/4; PWA audit and mobile baseline 11/11 pass; V1/V6/native browser smokes pass, including Studio segment controls. Real iPhone Safari remains unverified.
+
+## V7.0 — Speaking Studio, mastery evidence and Central Handover (formal release verification, 2026-11-02)
+
+- PR #54 merged as `66083511a68c2d9571c078e65c1509a2a3f450e0`; main test run `41533661640` and Pages deployment `41533660927` completed successfully. The historical Cloudflare Worker is unrelated and unchanged.
+- Formal release marker is `7.0.0`; Service Worker cache is `english-cultivation-static-v7.0.0`; data schema remains `4.3`.
+- Public HTTPS verification returned `APP_VERSION = '7.0.0'`, the new `renderListeningStudio`, `buildMasteryAnalytics` and `exportCentralHandover` markers, and HTTP 200 for `/`, `app.js`, `core.mjs`, `studio.mjs`, `handover.mjs`, `styles.css` and `sw.js`.
+- V7 adds no second Journey, no second FSRS and no cloud sync. Original JSON, reports, K/V/N, IndexedDB recordings and visual assets remain compatible. Default handover ZIP excludes recordings; recording inclusion requires an explicit local action.
+- Local evidence: `npm run check` passes **141/141**; dedicated Studio/ZIP tests pass 4/4; data safety 4/4; PWA audit and mobile baseline 11/11; V1/V6/native browser smokes pass. Physical iPhone Safari, microphone permissions, ZIP download behavior and actual voice availability remain user-only checks.
