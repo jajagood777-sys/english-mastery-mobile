@@ -241,6 +241,12 @@ test('VNext preserves review provenance and does not duplicate repeated pack imp
  const attempt=normalizeTransferAttempt({id:'review-attempt',taskId:'review:past-tense:1',practice_role:'review',review_of:'grammar:past-tense',previous_report_id:'report:old',previous_date:'2026-11-02',previous_status:'N',evidence_type:'objective_error',first_answer:'Yesterday I visit the museum.',rating:'V'});const report=buildBattleReport({session:{id:'s-review',startedAt:'2026-11-05T00:00:00Z',endedAt:'2026-11-05T00:05:00Z',activeMs:300000,mode:'journey'},attempts:[],transferAttempts:[attempt]});const md=battleReportMarkdown(report);assert.match(md,/回炉来源/);assert.match(md,/grammar:past-tense/);assert.match(md,/2026-11-02/);assert.match(md,/objective_error/);
 });
 
+test('V5.0 listening packs preserve safe audio URLs for real-player controls',()=>{
+ const out=recordsFromLearningPack({pack_id:'audio-pack',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'https://example.com/audio/l1.mp3'}]});
+ assert.equal(out.items[0].audioUrl,'https://example.com/audio/l1.mp3');
+ const unsafe=recordsFromLearningPack({pack_id:'unsafe-audio',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'javascript:alert(1)'}]});assert.equal(unsafe.items[0].audioUrl,null);
+});
+
 
 test('reading vocabulary share uses saved cards, true KVN and original reading provenance without changing originals',()=>{
  const items=[
