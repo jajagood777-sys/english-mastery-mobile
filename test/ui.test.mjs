@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v6\.0\.0/);
+ assert.match(sw,/english-cultivation-static-v6\.0\.1/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -268,4 +268,10 @@ test('V5.8 offers explicit local-only handoff and separates JSON from IndexedDB 
  assert.match(app,/navigator\.storage\.estimate\(\)/);
  assert.match(app,/复制不等于外部同步|不会上传资料/);
  assert.match(app,/voiceSettingsPanel\(\),buildSettingsPanel\(\),dataSafetyPanel\(\)/);
+});
+
+
+test('new-content card retains recall but removes mastered direct-test shortcut',()=>{
+  assert.match(app,/btn\('开始回忆',\(\)=>\{item\.learningStage='learning'/);
+  assert.doesNotMatch(app,/我已经掌握，直接测试/);
 });
