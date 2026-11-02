@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '6.0.1';
+export const APP_VERSION = '6.1.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -100,6 +100,18 @@ function normalizeExamMeta(raw={}) {
     answerConstraints:clean(raw.answerConstraints||raw.answer_constraints)||null,
     sourcePage:clean(raw.sourcePage||raw.source_page)||null,
     isAuthenticIelts:Boolean(raw.isAuthenticIelts??raw.is_authentic_ielts)
+  };
+}
+function normalizeStoryMeta(raw={}) {
+  const order=Number(raw.sectionOrder??raw.section_order);
+  return {
+    storyId:clean(raw.storyId||raw.story_id)||null,
+    storyTitle:clean(raw.storyTitle||raw.story_title)||null,
+    sectionId:clean(raw.sectionId||raw.section_id)||null,
+    sectionOrder:Number.isFinite(order)?order:null,
+    sectionTitle:clean(raw.sectionTitle||raw.section_title)||null,
+    previousSectionId:clean(raw.previousSectionId||raw.previous_section_id)||null,
+    sourceReference:clean(raw.sourceReference||raw.source_reference)||null
   };
 }
 function normalizeReviewMeta(raw={}) {
@@ -472,7 +484,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const importedAt=new Date().toISOString();
   const errors=[],items=[],readings=[];
   const transferTasks=[];
-  const inferTaskType=(raw,tags)=>{const explicit=normalized(raw.task_type||raw.taskType||'').replaceAll('-','_').replaceAll(' ','_');if(['speaking','writing','grammar','reading_to_speaking','general_transfer'].includes(explicit))return explicit;const joined=tags.map(tag=>normalized(tag).replaceAll('-','_').replaceAll(' ','_'));if(joined.some(tag=>tag.includes('reading_to_speaking')||tag.includes('retell')))return 'reading_to_speaking';if(joined.some(tag=>tag.includes('speaking')||tag.includes('oral')))return 'speaking';if(joined.some(tag=>tag.includes('writing')||tag.includes('essay')))return 'writing';if(joined.some(tag=>tag.includes('grammar')||tag.includes('syntax')))return 'grammar';return 'general_transfer';};
+  const inferTaskType=(raw,tags)=>{const explicit=normalized(raw.task_type||raw.taskType||'').replaceAll('-','_').replaceAll(' ','_');if(['speaking','writing','grammar','reading_to_speaking','general_transfer','exit_ticket'].includes(explicit))return explicit;const joined=tags.map(tag=>normalized(tag).replaceAll('-','_').replaceAll(' ','_'));if(joined.some(tag=>tag.includes('exit_ticket')||tag.includes('exit')))return 'exit_ticket';if(joined.some(tag=>tag.includes('reading_to_speaking')||tag.includes('retell')))return 'reading_to_speaking';if(joined.some(tag=>tag.includes('speaking')||tag.includes('oral')))return 'speaking';if(joined.some(tag=>tag.includes('writing')||tag.includes('essay')))return 'writing';if(joined.some(tag=>tag.includes('grammar')||tag.includes('syntax')))return 'grammar';return 'general_transfer';};
   if(value.transfer_tasks!==undefined&&!Array.isArray(value.transfer_tasks)) errors.push('transfer_tasks 必须是数组；已跳过迁移挑战。');
   for(const [index,raw] of (Array.isArray(value.transfer_tasks)?value.transfer_tasks:[]).entries()){
     if(!raw||typeof raw!=='object'||!clean(raw.prompt||raw.question)){errors.push(`迁移挑战第 ${index+1} 项缺少 prompt。`);continue;}
@@ -484,7 +496,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     const taskTags=Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags);
     const taskType=inferTaskType(raw,taskTags);
     const contexts=Array.isArray(raw.contexts)&&raw.contexts.length?raw.contexts.slice(0,6).map((context,cIndex)=>({id:clean(context?.id)||`${taskId}:context-${cIndex+1}`,prompt:clean(context?.prompt||context?.question),referenceAnswer:clean(context?.model_answer||context?.modelAnswer||context?.reference_answer||context?.referenceAnswer),hints:Array.isArray(context?.hints)?context.hints.map(clean).filter(Boolean).slice(0,3):listValue(context?.hint),source:normalizeSourceMeta(context,taskSource)})).filter(context=>context.prompt):[{id:`${taskId}:context-1`,prompt,referenceAnswer:reference,hints:taskHints,source:taskSource}];
-    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,audioUrl:safeAudioUrl(raw.audioUrl||raw.audio_url),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...taskSource,contexts});
+    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,audioUrl:safeAudioUrl(raw.audioUrl||raw.audio_url),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,responseStructure:clean(raw.responseStructure||raw.response_structure)||null,targetPhrases:listValue(raw.targetPhrases||raw.target_phrases),ieltsPart:clean(raw.ieltsPart||raw.ielts_part||raw.part)||null,taskRole:clean(raw.taskRole||raw.task_role)||null,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...normalizeStoryMeta(raw),...taskSource,contexts});
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
@@ -516,7 +528,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
       const sourceId=clean(raw.id)||`reading-${index+1}`;
       const questions=(Array.isArray(raw.questions)?raw.questions:[]).slice(0,6).map((question,qIndex)=>({id:clean(question?.id)||`${sourceId}:q${qIndex+1}`,type:clean(question?.type||'open').toLowerCase()==='choice'?'choice':'open',prompt:clean(question?.prompt||question?.question),options:Array.isArray(question?.options)?question.options.map(clean).filter(Boolean).slice(0,6):[],answer:clean(question?.answer||question?.correct_answer||question?.correctAnswer),acceptedAnswers:listValue(question?.accepted_answers||question?.acceptedAnswers),modelAnswer:clean(question?.model_answer||question?.modelAnswer),explanation:clean(question?.explanation),...normalizeReviewMeta({...raw,...question}),...normalizeExamMeta({...raw,...question,questionId:question?.id||`${sourceId}:q${qIndex+1}`})})).filter(question=>question.prompt);
       const readingSource=normalizeSourceMeta(raw,{sourceType:'reading',sourceId:packId,sourceItemId:sourceId,sourceName:clean(raw.source||value.source)||source});
-      readings.push({id:`reading:pack:${stableHash(packId+'|'+sourceId)}`,sourceId,title:articleTitle,text,source:clean(raw.source||value.source)||source,packId,questions,createdAt:importedAt,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...readingSource});
+      readings.push({id:`reading:pack:${stableHash(packId+'|'+sourceId)}`,sourceId,title:articleTitle,text,source:clean(raw.source||value.source)||source,packId,questions,createdAt:importedAt,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...normalizeStoryMeta(raw),...readingSource});
     }catch(error){errors.push(`阅读第 ${index+1} 篇：${error.message}`);}
   });
   const unique=[],seen=new Set();
@@ -642,6 +654,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
       count:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.length:0,
       items:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.map(mark=>({mark_id:mark.markId||mark.id||null,word:mark.wordText||mark.normalizedWord||'',reading_id:mark.readingId||null,source_title:mark.sourceTitle||'',original_sentence:mark.originalSentence||'',saved_status:mark.savedStatus||'UNSAVED',status:mark.status||'UNTESTED',pack_id:mark.packId||null})):[]
     },
+    reading_recall_evidence:{count:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall.length:0,items:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall:[]},
     transfer_evidence:transferEvidence,
     integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false}
   };
@@ -748,6 +761,11 @@ export function validateBackup(value){
     completed:Array.isArray(journey.completed)?journey.completed.filter(x=>x&&typeof x.stage==='string'):[],
     sessionIds:Array.isArray(journey.sessionIds)?journey.sessionIds.filter(x=>typeof x==='string'):[],
     readingDoneIds:Array.isArray(journey.readingDoneIds)?journey.readingDoneIds.filter(x=>typeof x==='string'):[],
+    readingRecallQueue:Array.isArray(journey.readingRecallQueue)?journey.readingRecallQueue:[],
+    readingRecallIndex:Math.max(0,Number(journey.readingRecallIndex)||0),
+    readingRecallAttempts:Array.isArray(journey.readingRecallAttempts)?journey.readingRecallAttempts:[],
+    readingRecallStep:journey.readingRecallStep==='revealed'?'revealed':journey.readingRecallStep==='input'?'input':null,
+    readingRecallDraft:clean(journey.readingRecallDraft),
     transferAttempts:mergeTransferAttempts(journey.transferAttempts||[],[]),
     transferRecordingIds:journey.transferRecordingIds&&typeof journey.transferRecordingIds==='object'?journey.transferRecordingIds:{}
   }:null;
@@ -755,7 +773,7 @@ export function validateBackup(value){
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -813,6 +831,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     if (attempt.suggested_review_date && attempt.rating === 'N') reviewItems.due_tomorrow.push(attempt.item_id);
   }
   const readingMarkEvidence=collectReadingMarkEvidence(readingMarks,readings,items);
+  const immediateRecall=Array.isArray(readingRecallAttempts)?readingRecallAttempts.map(row=>({...row,mark_id:row.mark_id||row.markId||null,reading_id:row.reading_id||row.readingId||null,word:row.word||row.wordText||row.normalizedWord||'',original_sentence:row.original_sentence||row.originalSentence||'',source_title:row.source_title||row.sourceTitle||'',pack_id:row.pack_id||row.packId||null,user_answer:row.user_answer??row.userAnswer??'',status:row.status||row.rating||'UNTESTED',independent:row.independent!==false,at:row.at||row.timestamp||null})):[];
   const reportId = `report:${session.id}`;
   return {
     schema_version: REPORT_SCHEMA_VERSION,
@@ -839,9 +858,10 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     next_practice: {priority:['due_tomorrow','needing_practice','review_soon','untested'], source:'local review records'},
     session_ids: [...allowed],
     reading_analysis: {
-      articles: (Array.isArray(readings)?readings:[]).map(reading=>({reading_id:reading.id,title:reading.title||'Untitled',source:reading.source||'Local material',...normalizeExamMeta(reading),questions:(reading.questions||[]).map(question=>({id:question.id,prompt:question.prompt,type:question.type,answer:question.answer,examSource:question.examSource,examType:question.examType,testNumber:question.testNumber,skill:question.skill,questionId:question.questionId||question.id,questionNumbers:question.questionNumbers,questionType:question.questionType,answerConstraints:question.answerConstraints,sourcePage:question.sourcePage,isAuthenticIelts:question.isAuthenticIelts}))})),
+      articles: (Array.isArray(readings)?readings:[]).map(reading=>({reading_id:reading.id,title:reading.title||'Untitled',source:reading.source||'Local material',completed:Array.isArray(readingCompletedIds)&&readingCompletedIds.includes(reading.id),...normalizeStoryMeta(reading),...normalizeExamMeta(reading),questions:(reading.questions||[]).map(question=>({id:question.id,prompt:question.prompt,type:question.type,answer:question.answer,examSource:question.examSource,examType:question.examType,testNumber:question.testNumber,skill:question.skill,questionId:question.questionId||question.id,questionNumbers:question.questionNumbers,questionType:question.questionType,answerConstraints:question.answerConstraints,sourcePage:question.sourcePage,isAuthenticIelts:question.isAuthenticIelts}))})),
       mark_count:readingMarkEvidence.length,
       marks: readingMarkEvidence,
+      immediate_recall: immediateRecall,
       comprehension_checks: Array.isArray(readingChecks)?readingChecks:[]
     },
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
@@ -854,7 +874,7 @@ export function battleReportMarkdown(report) {
   const r = report.ratings_summary || {K:0,V:0,N:0};
   const inline = value => String(value ?? '').replaceAll('|','\\|').replaceAll('\n','<br>');
   const block = value => { const text=String(value ?? '').trim(); return text ? text.split('\n').map(line=>`  ${line}`).join('\n') : '  （未提交）'; };
-  const transferType = value => ({writing:'Writing',speaking:'Speaking',grammar:'Grammar',reading_to_speaking:'Reading to Speaking',general_transfer:'Transfer'})[value] || 'Transfer';
+  const transferType = value => ({writing:'Writing',speaking:'Speaking',grammar:'Grammar',reading_to_speaking:'Reading to Speaking',exit_ticket:'Exit Ticket',general_transfer:'Transfer'})[value] || 'Transfer';
   const readingChecks = (report.reading_analysis?.comprehension_checks||[]).flatMap(check=>(check.answers||[]).map(answer=>`- ${inline(answer.questionId||'未命名题目')} · 原答：${inline(answer.answer)} · 判定：${inline(answer.autoCheck?.status||'未判定')} · 提交：${inline(answer.at||'未记录')}`));
   const readingExamLines = (report.reading_analysis?.articles||[]).flatMap(article=>article.examSource?[`- ${inline(article.examSource)} · ${inline(article.examType||'')} · ${inline(article.testNumber||'')} · ${inline(article.skill||'')} · ${article.isAuthenticIelts?'原版真题':'练习材料'} · ${inline(article.sourcePage||'页码未记录')}`,...(article.questions||[]).map(question=>`  - ${inline(question.questionId||question.id)} · ${inline(question.questionType||question.type||'')} · ${inline(question.prompt||'')}`)]:[]);
   const transferLines = (report.transfer_attempts||[]).flatMap((attempt,index)=>[
@@ -888,6 +908,8 @@ export function battleReportMarkdown(report) {
     ...(report.attempts || []).map(a => `| ${(a.target||a.item_id||'').replaceAll('|','\\|')} | ${a.module||a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
     ``, `## 本次阅读标记生词`, ``, `本次阅读标记生词：${report.reading_analysis?.mark_count||0}条`,
     ...(report.reading_analysis?.marks||[]).map(mark=>`- ${inline(mark.wordText||mark.normalizedWord||'未记录')} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'仅标记未保存'} · K/V/N：${inline(mark.status||'UNTESTED')} · ${inline(mark.sourceTitle||'未记录')} · ${inline(mark.originalSentence||'')}`),
+    ``, `## 阅读标记即时回忆`, ``, `实际参加即时回忆：${(report.reading_analysis?.immediate_recall||[]).length}条`,
+    ...(report.reading_analysis?.immediate_recall||[]).map(row=>`- ${inline(row.word||row.mark_id||'未记录')} · ${inline(row.status||'UNTESTED')} · 原答：${inline(row.user_answer||'')} · 来源：${inline(row.source_title||'未记录')}`),
     ...(readingExamLines.length?[``, `## IELTS reading source`, ``, ...readingExamLines]:[]),
     ...(readingChecks.length?[``, `## IELTS / reading comprehension checks`, ``, ...readingChecks]:[]),
     ...(report.transfer_attempts?.length?[``, `## Transfer challenge`, ``, ...transferLines]:[]),

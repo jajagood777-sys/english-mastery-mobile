@@ -417,3 +417,14 @@ V3.5 batches
 - Main checks `41423721997` and Pages build/deploy `41423720904` completed successfully. The historical Cloudflare Worker check remains unrelated and non-blocking; no Worker or learner data was changed.
 - Live HTTPS verification returned `6.0.1`, `english-cultivation-static-v6.0.1`, `collectReadingMarkEvidence`, `reading_vocabulary_evidence`, the zero-count Markdown line, and Journey time-scoped mark filtering.
 - Synthetic tests cover 3 unsaved marks, 2 saved + 1 unsaved, multiple articles, zero marks, stable mark IDs, K/V/N preservation, duplicate suppression and feedback JSON compatibility. Physical iPhone Safari remains unverified.
+
+## V6.1.0 — daily pack four-in-one Journey (in progress, 2026-11-02)
+
+- Based on `origin/main` `c901da8` / V6.0.1. Existing reading vocabulary handoff, native Safari voice selection, follow-along recording, IELTS metadata, Battle Reports, localStorage and IndexedDB contracts remain in place.
+- Added optional schema 2.0 Story Section metadata (`story_id`, `story_title`, `section_id`, `section_order`, `section_title`, `previous_section_id`, `source_reference`) and `exit_ticket` transfer tasks with optional response structure, target phrases and IELTS Part metadata. Old packs remain accepted.
+- Reading marks in the active Journey now create up to five per-article immediate recall prompts after the user finishes reading. A mark alone remains `UNTESTED`; the report records the independent answer, self-rating, mark/reading/source IDs and original sentence. No marks skips this stage.
+- Exit Ticket tasks use the existing transfer first-answer, hint, reference, retry, recording and K/V/N evidence path. The visible label is `Exit Ticket｜课末独立验收`; no second navigation or database was added.
+- Battle Reports now carry Story Section fields, per-section completion, normalized immediate recall evidence and a dedicated Markdown section; central feedback includes `reading_recall_evidence` without changing `feedback_schema_version: "1.0"`.
+- Added synthetic schema documentation, a four-in-one pack example, and Chromium Journey smoke `scripts/test-v1-four-in-one.mjs`.
+- Local evidence: `npm run check` passes **131/131**; the four-in-one pack validator, PWA bundle audit, synthetic learning-data safety probe, V1 Journey smoke, existing V6 follow-along/feedback smoke and native speech/data persistence smoke all pass. Real iPhone Safari remains unverified.
+- Release marker is `6.1.0`; Service Worker cache is `english-cultivation-static-v6.1.0`. No localStorage, IndexedDB recordings, backups or private learning content were cleared or uploaded. Next action: commit and push this branch, wait for required CI, then merge and verify public Pages only after fresh checks.

@@ -1,0 +1,20 @@
+{
+  "schema_version": "2.0",
+  "pack_id": "V60-SYNTHETIC-FOUR-IN-ONE",
+  "title": "Synthetic four-in-one daily pack",
+  "source": "Synthetic test material",
+  "language": "en",
+  "recommended_minutes": 20,
+  "items": [
+    {"id":"w-composure","type":"word","target":"composure","example":"She struggled to maintain her composure."},
+    {"id":"s-reflect","type":"sentence","text":"After a stressful day, I take time to reflect."},
+    {"id":"l-focus","type":"listening","text":"A quiet routine can improve your focus."}
+  ],
+  "readings": [
+    {"id":"story-quiet-03","title":"The Quiet Room","text":"The room was quiet enough for careful thought. She struggled to maintain her composure as the meeting continued.","source":"Synthetic story","story_id":"quiet-room","story_title":"The Quiet Room","section_id":"03","section_order":3,"section_title":"A Difficult Meeting","previous_section_id":"02","questions":[{"id":"q1","type":"choice","prompt":"What was the room like?","options":["Quiet","Crowded"],"answer":"Quiet"}]}
+  ],
+  "transfer_tasks": [
+    {"id":"spk-1","task_type":"speaking","prompt":"Do you enjoy spending time alone?","response_structure":"观点 → 原因 → 具体例子","target_phrases":["I tend to...","because...","for example..."],"ielts_part":"Part 1","hints":["Give one reason and one concrete example."],"model_answer":"I tend to enjoy some time alone because it helps me recover; for example, I read quietly after work."},
+    {"id":"exit-1","task_type":"exit_ticket","prompt":"After a stressful day, what would you do to clear your mind? Use take time to reflect.","hints":["Answer in a new situation without copying the lesson sentence."],"model_answer":"I would take time to reflect before deciding what to do next."}
+  ]
+}
