@@ -262,6 +262,11 @@ test('V1.0 Journey includes reading recall, Exit Ticket and story Section interf
  assert.match(core,/exit_ticket/);
 });
 
+test('transfer recording submission is idempotent after the first tap',()=>{
+ const fn=app.match(/function submitTransferRecordingOnly\(\)\{([\s\S]*?)\n\}/)?.[1]||'';
+ assert.match(fn,/j\.transferState==='revealed'/);
+});
+
 
 test('reading vocabulary offers a dedicated saved-card view and copy-to-chat export without automatic upload',()=>{
  assert.match(app,/function renderReadingVocabulary/);
