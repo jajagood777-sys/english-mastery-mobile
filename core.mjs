@@ -444,7 +444,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     const taskTags=Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags);
     const taskType=inferTaskType(raw,taskTags);
     const contexts=Array.isArray(raw.contexts)&&raw.contexts.length?raw.contexts.slice(0,6).map((context,cIndex)=>({id:clean(context?.id)||`${taskId}:context-${cIndex+1}`,prompt:clean(context?.prompt||context?.question),referenceAnswer:clean(context?.model_answer||context?.modelAnswer||context?.reference_answer||context?.referenceAnswer),hints:Array.isArray(context?.hints)?context.hints.map(clean).filter(Boolean).slice(0,3):listValue(context?.hint),source:normalizeSourceMeta(context,taskSource)})).filter(context=>context.prompt):[{id:`${taskId}:context-1`,prompt,referenceAnswer:reference,hints:taskHints,source:taskSource}];
-    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...taskSource,contexts});
+    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,audioUrl:safeSourceUrl(raw.audioUrl||raw.audio_url),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...taskSource,contexts});
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
@@ -464,7 +464,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
         const text=clean(raw.text||raw.sentence||raw.english);
         if(text.length<10||text.length>800)throw Error('句子或听力材料需要长度 10–800 的英文文本。');
         const module=type==='listening'?'listening':'sentences';
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,source:sourceName,...itemSource,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,audioUrl:safeSourceUrl(raw.audioUrl||raw.audio_url),source:sourceName,...itemSource,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }else throw Error('type 仅支持 word、sentence 或 listening。');
     }catch(error){errors.push(`第 ${index+1} 项：${error.message}`);}
   });

@@ -202,6 +202,14 @@ test('VNext hides manual weak-room navigation while retaining the daily journey 
  assert.match(app,/if\(page==='training'\)page='home'/);
 });
 
+test('V5.0 real audio listening exposes HTML audio and AB loop controls',()=>{
+ assert.match(app,/function audioControls\(url\)/);
+ assert.match(app,/audio\.currentTime/);
+ assert.match(app,/开始 A—B 循环/);
+ assert.match(app,/audio\.playbackRate/);
+ assert.match(app,/audioControls\(item\.audioUrl\)/);
+});
+
 test('V5.1 daily overview exposes independent pack modules and task-specific writing/recording UI',()=>{
  assert.match(app,/function renderDailyOverview/);assert.match(app,/口语训练/);assert.match(app,/写作训练/);assert.match(app,/语法迁移/);assert.match(app,/仅保存录音并提交初答/);assert.match(app,/建议 80–100 词/);assert.match(app,/阅读理解/);
 });
