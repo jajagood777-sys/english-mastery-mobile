@@ -246,6 +246,13 @@ p,.lead,.question,.subtle,.tiny{ text-wrap:pretty }
 .answer-input,.textarea,.select{scroll-margin-block:120px}
 .answer-input:focus,.textarea:focus,.select:focus{box-shadow:0 0 0 4px var(--quiet-focus)}
 .recording-panel:focus-within,.transfer-practice:focus-within{border-color:var(--quiet-line-strong)}
+.listening-speaking-studio{margin-top:var(--space-4);padding:var(--space-4);border:1px solid var(--quiet-line-strong);border-radius:var(--quiet-radius);background:var(--quiet-card-highlight)}
+.studio-source-text{margin-top:var(--space-3);padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--mist-green) 18%,var(--theme-card));line-height:1.7}
+.studio-segments{display:flex;gap:8px;flex-wrap:wrap;margin-top:var(--space-3)}
+.studio-segments .btn{min-height:42px}
+.mastery-evidence-panel{margin-top:var(--space-5);padding:var(--space-5);border:1px solid var(--theme-border);border-left:3px solid var(--quiet-gold);border-radius:var(--quiet-radius);background:var(--theme-card);box-shadow:0 10px 28px rgba(22,55,44,.05)}
+.mastery-evidence-panel .stat{background:var(--quiet-card-highlight);min-height:86px}
+@media(max-width:640px){.mastery-evidence-panel{padding:16px}.mastery-evidence-panel .grid-3{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
 .home-hero-visual .visual-caption{text-shadow:0 1px 12px rgba(10,25,20,.7)}
 @media(max-width:640px){
   .feature-card{box-shadow:0 6px 18px rgba(22,55,44,.05)}

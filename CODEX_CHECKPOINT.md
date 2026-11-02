@@ -446,3 +446,12 @@ V3.5 batches
 - Release marker is `6.2.0`; Service Worker cache marker is `english-cultivation-static-v6.2.0` so installed PWAs can receive the stylesheet safely.
 - Local evidence: `npm run check` passes **133/133**; PWA bundle audit, learning-data-safety fixture 4/4, mobile static baseline 11/11, V1/V6/native-speech browser smokes, 375/390/430 viewport overflow and navigation target checks, and day/night Chromium screenshots pass. Physical iPhone Safari remains unverified.
 - PR #52 merged as `42d1753b504a56992a39ae7892550f52a5b03842`. Main checks run `41529104567` and Pages build/deploy run `41529103737` completed successfully. Live HTTPS returns `6.2.0`, `english-cultivation-static-v6.2.0`, the new visual CSS markers, and HTTP 200 for the app shell and authorized hero asset. The historical Cloudflare Worker check remains unrelated and unchanged.
+
+## V7.0 — Speaking Studio, mastery evidence and Central Handover (in progress, 2026-11-02)
+
+- Based on latest `origin/main` `7bdfb9e` / V6.2.0. Existing Journey, audio A/B loop, native speech, MediaRecorder/IndexedDB recordings, Battle Report, central feedback and visual assets remain in use.
+- Added `studio.mjs` sentence-safe segmentation and evidence helpers. Listening tasks now show an optional Listening & Speaking Studio inside the existing listening Journey: show/hide source text, sentence-level native speech practice, existing reference audio/A-B controls, local original/retry recording and explicit `pronunciationAssessment: not_available` semantics.
+- Added `buildMasteryAnalytics()` to the existing core data layer. Progress can distinguish UNTESTED, exposed, independent correct, prompted correct, corrected-after-error, delayed-review success/pending, skipped and unmeasured evidence, with real 7/30-day sessions and error types. No second FSRS or score system was added.
+- Added `handover.mjs` store-only ZIP writer and a local-only “导出完整中央交接包” action. The default package contains manifest, Battle Report JSON, central feedback JSON and README; recordings are included only after explicit user selection. No upload or automatic sync occurs.
+- Release marker is `7.0.0`; Service Worker marker is `english-cultivation-static-v7.0.0`. Data schema remains `4.3`; old JSON, reports and recording IDs are unchanged.
+- Local evidence: `npm run check` passes **141/141**; dedicated Studio/ZIP tests pass 4/4; data safety 4/4; PWA audit and mobile baseline 11/11 pass; V1/V6/native browser smokes pass, including Studio segment controls. Real iPhone Safari remains unverified.

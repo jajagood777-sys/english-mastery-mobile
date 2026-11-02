@@ -27,6 +27,8 @@ try{
   await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
   await page.waitForSelector('audio[aria-label="真实听力音频"]');
   await page.waitForFunction(()=>{const audio=document.querySelector('audio[aria-label="真实听力音频"]');return audio&&Number.isFinite(audio.duration)&&audio.duration>0;},{timeout:20000});
+  assert.equal(await page.locator('.listening-speaking-studio').count(),1);
+  assert.ok(await page.getByRole('button',{name:/片段 1 · 朗读/}).count());
   assert.ok(await page.getByRole('button',{name:'听参考音频'}).count());
   await page.getByRole('button',{name:'开始跟读录音'}).click();
   await page.getByRole('button',{name:'停止录音'}).click();
