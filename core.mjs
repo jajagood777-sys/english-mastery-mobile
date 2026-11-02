@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '5.8.1';
+export const APP_VERSION = '6.0.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -147,11 +147,11 @@ export function normalizeTransferAttempt(raw={}) {
   const taskId=pick(raw.taskId,raw.task_id,raw.contextId,raw.context_id)||null;
   const id=clean(raw.id)||`transfer-attempt:${stableHash([raw.weaknessId||raw.weakness_id||'',taskId||'',at,firstAnswer].join('|'))}`;
   const sourceSnapshot=raw.sourceSnapshot||raw.source_snapshot||null;
-  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),skipped:Boolean(raw.skipped)};
+  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),recordingIds:Array.isArray(raw.recordingIds)?raw.recordingIds.filter(Boolean):Array.isArray(raw.recording_ids)?raw.recording_ids.filter(Boolean):[],skipped:Boolean(raw.skipped)};
 }
 export function mergeTransferAttempts(existing=[],incoming=[]) {
   const out=[]; const byId=new Map();
-  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){const item=normalizeTransferAttempt(raw),prior=byId.get(item.id);if(!prior){byId.set(item.id,item);out.push(item);continue;}for(const key of ['weaknessId','contextId','taskId','packId','journeyId','taskType','examSource','examType','testNumber','skill','questionId','questionNumbers','questionType','answerConstraints','sourcePage','practiceRole','reviewId','reviewOf','previousReportId','previousAttemptId','previousDate','previousStatus','weaknessType','reviewRound','reviewInstruction','prompt','targetExpression','firstAnswer','firstSubmittedAt','referenceViewedAt','referenceAnswer','retryAnswer','retrySubmittedAt','rating','evidenceType','autoCheck','sourceSnapshot'])if(!prior[key]&&item[key])prior[key]=item[key];prior.hintUsed=prior.hintUsed||item.hintUsed;prior.referenceViewed=prior.referenceViewed||item.referenceViewed;prior.delayed=prior.delayed||item.delayed;prior.recordingOnly=prior.recordingOnly||item.recordingOnly;prior.skipped=prior.skipped||item.skipped;prior.hintEvents=[...prior.hintEvents,...item.hintEvents];}
+  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){const item=normalizeTransferAttempt(raw),prior=byId.get(item.id);if(!prior){byId.set(item.id,item);out.push(item);continue;}for(const key of ['weaknessId','contextId','taskId','packId','journeyId','taskType','examSource','examType','testNumber','skill','questionId','questionNumbers','questionType','answerConstraints','sourcePage','practiceRole','reviewId','reviewOf','previousReportId','previousAttemptId','previousDate','previousStatus','weaknessType','reviewRound','reviewInstruction','prompt','targetExpression','firstAnswer','firstSubmittedAt','referenceViewedAt','referenceAnswer','retryAnswer','retrySubmittedAt','rating','evidenceType','autoCheck','sourceSnapshot'])if(!prior[key]&&item[key])prior[key]=item[key];prior.hintUsed=prior.hintUsed||item.hintUsed;prior.referenceViewed=prior.referenceViewed||item.referenceViewed;prior.delayed=prior.delayed||item.delayed;prior.recordingOnly=prior.recordingOnly||item.recordingOnly;prior.skipped=prior.skipped||item.skipped;prior.recordingIds=[...(prior.recordingIds||[]),...(item.recordingIds||[])].filter((id,index,array)=>array.indexOf(id)===index);prior.hintEvents=[...prior.hintEvents,...item.hintEvents];}
   return out;
 }
 export function transferEvidenceStatus(attempt={}) {
@@ -559,6 +559,43 @@ export function centralLearningHandoff({report=null,readingWords=[],generatedAt=
   return lines.join('\n').trim()+'\n';
 }
 
+export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
+  const generated=generatedAt||new Date().toISOString();
+  const attempts=Array.isArray(report?.attempts)?report.attempts:[];
+  const transfers=Array.isArray(report?.transfer_attempts)?report.transfer_attempts:[];
+  const candidate=(attempt,priority,reason)=>({priority,reason,item_id:attempt.item_id||null,target:attempt.target||null,module:attempt.module||attempt.content_type||null,rating:attempt.rating||'UNRATED',suggested_review_date:attempt.suggested_review_date||null,attempt_id:attempt.attempt_id||null,session_id:attempt.session_id||report?.session_id||null,source:attempt.source||null,independent:!attempt.prompt_used&&!attempt.viewed_answer});
+  const p0=attempts.filter(attempt=>attempt.rating==='N').map(attempt=>candidate(attempt,'P0','真实 N 自评或客观训练记录需要重新提取'));
+  const p1=attempts.filter(attempt=>attempt.rating==='V'||attempt.prompt_used||attempt.retried_after_error).map(attempt=>candidate(attempt,'P1',attempt.rating==='V'?'V · 模糊，需要独立复测':'使用提示或经历重练，掌握程度仍待核验'));
+  const p2=attempts.filter(attempt=>attempt.rating==='K').map(attempt=>candidate(attempt,'P2','已记录 K，可安排保持性复测而非历史错题'));
+  const unmeasured=attempts.filter(attempt=>attempt.rating==='UNRATED'||!attempt.rating).map(attempt=>candidate(attempt,'UNKNOWN','没有 K/V/N 或自动判定证据，不能推断掌握状态'));
+  const transferEvidence=transfers.map(attempt=>({attempt_id:attempt.id||null,task_id:attempt.taskId||attempt.contextId||null,task_type:attempt.taskType||'general_transfer',prompt:attempt.prompt||null,first_answer:attempt.firstAnswer||'',retry_answer:attempt.retryAnswer||'',first_submitted_at:attempt.firstSubmittedAt||null,retry_submitted_at:attempt.retrySubmittedAt||null,hint_used:Boolean(attempt.hintUsed),reference_viewed:Boolean(attempt.referenceViewed),rating:attempt.rating||'UNRATED',recording_only:Boolean(attempt.recordingOnly),recording_ids:Array.isArray(attempt.recordingIds)?attempt.recordingIds:[],evidence_type:attempt.evidenceType||null,review_of:attempt.reviewOf||null,previous_report_id:attempt.previousReportId||null}));
+  return {
+    feedback_schema_version:'1.0',
+    is_learning_pack:false,
+    generated_at:generated,
+    report_id:report?.report_id||null,
+    session_id:report?.session_id||null,
+    pack_id:report?.pack_id||null,
+    source_report_ids:report?.report_id?[report.report_id]:[],
+    completed_modules:Array.isArray(report?.module_coverage)?report.module_coverage:[],
+    actual_active_seconds:Number(report?.active_seconds||0),
+    evidence:{
+      ratings:{K:Number(report?.ratings_summary?.K||0),V:Number(report?.ratings_summary?.V||0),N:Number(report?.ratings_summary?.N||0)},
+      rated_attempts:Number(report?.total_rated_attempts||0),
+      unrated_attempts:Number(report?.unrated_attempts||0),
+      skipped_items:Number(report?.skipped_items||0),
+      first_independent_answers:Number(report?.prompt_stats?.first_attempt_independent||0),
+      prompted_answers:Number(report?.prompt_stats?.prompted||0),
+      viewed_answer_flows:Number(report?.prompt_stats?.viewed_answer||0),
+      retry_after_error:Number(report?.prompt_stats?.retried_after_error||0)
+    },
+    review_candidates:{p0,p1,p2},
+    unmeasured,
+    transfer_evidence:transferEvidence,
+    integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false}
+  };
+}
+
 export function nextDue(status, now = new Date()) {
   if (!REVIEW_DAYS[status]) throw Error('Invalid K/V/N status.');
   const start = new Date(now);return new Date(start.getTime()+REVIEW_DAYS[status]*86400000).toISOString();
@@ -660,7 +697,8 @@ export function validateBackup(value){
     completed:Array.isArray(journey.completed)?journey.completed.filter(x=>x&&typeof x.stage==='string'):[],
     sessionIds:Array.isArray(journey.sessionIds)?journey.sessionIds.filter(x=>typeof x==='string'):[],
     readingDoneIds:Array.isArray(journey.readingDoneIds)?journey.readingDoneIds.filter(x=>typeof x==='string'):[],
-    transferAttempts:mergeTransferAttempts(journey.transferAttempts||[],[])
+    transferAttempts:mergeTransferAttempts(journey.transferAttempts||[],[]),
+    transferRecordingIds:journey.transferRecordingIds&&typeof journey.transferRecordingIds==='object'?journey.transferRecordingIds:{}
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
@@ -696,6 +734,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       retry_answer: attempt.retry_answer || '',
       retry_check: attempt.retry_check || null,
       retried_after_error: Boolean(attempt.retried_after_error),
+      recording_ids: Array.isArray(attempt.recording_ids)?attempt.recording_ids:[],
+      recording_status: attempt.recording_status || (Array.isArray(attempt.recording_ids)&&attempt.recording_ids.length?'saved_locally':'not_recorded'),
       prompt_used: Boolean(attempt.prompt_used),
       prompt_events: Array.isArray(attempt.prompt_events)?attempt.prompt_events:[],
       viewed_chinese: Boolean(attempt.viewed_chinese),
