@@ -1,6 +1,6 @@
-/** Optional visual layer for the cultivation theme.
- * The image files are deliberately not committed until public redistribution rights are confirmed.
- * If a matching file is present locally, the app uses it; otherwise the layout falls back to CSS.
+/** Authorized visual layer for the cultivation theme.
+ * The nine optimized WebP files are public-use assets documented in assets/visuals/README.md.
+ * If a matching file is unavailable, the app falls back to a calm CSS placeholder.
  */
 export const VISUAL_ASSETS = [
   {id:'01', file:'assets/visuals/calligraphy-01.webp', title:'书法并置', caption:'墨与金的书法细节', placement:'gallery'},

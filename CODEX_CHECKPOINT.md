@@ -438,3 +438,10 @@ V3.5 batches
 - Added a regression assertion in `test/ui.test.mjs`. Local `npm run check` passes **132/132** after the fix; learning-data-safety fixture 4/4, mobile static baseline 11/11, PWA bundle audit, V1 four-in-one Journey, V6 follow-along/feedback and native speech/data persistence browser smokes all pass.
 - PR #50 merged as `18d72f37c3277d5f1505730d402d246cef4098b9`. Main CI run `41458148288` passed; Pages build/deploy run `41458147308` passed. Live HTTPS returned HTTP 200 for the app shell, `app.js`, `core.mjs` and `sw.js`; `app.js` contains the duplicate-submission guard and V6.1 interfaces, and `sw.js` remains `english-cultivation-static-v6.1.0`.
 - Historical `Workers Builds: english-cultivation-gmini-v59-mobile` remains an unrelated external failure and was not changed. Real iPhone Safari keyboard, microphone, voice enumeration, PWA cache refresh and touch selection remain unverified; Chromium emulation is not a substitute.
+
+## V6.2.0 — premium visual polish (in progress, 2026-11-02)
+
+- Based on latest `origin/main` `4ab8d04` / V6.1.0. The existing nine authorized WebP assets are present in `assets/visuals/` and already integrated into the hero, training strip, progress card and visual gallery; no historical image was missing from the repository.
+- Added a restrained CSS-only visual refinement: balanced heading/text wrapping, clearer card hierarchy and gold accent edges, improved focus rings, reading-toolbar depth, keyboard scroll margins, recording focus state and mobile safe-area spacing. No app interaction, learning order, data schema, K/V/N meaning, localStorage or IndexedDB contract changed.
+- Release marker is `6.2.0`; Service Worker cache marker is `english-cultivation-static-v6.2.0` so installed PWAs can receive the stylesheet safely.
+- Local evidence: `npm run check` passes **133/133**; PWA bundle audit, learning-data-safety fixture 4/4, mobile static baseline 11/11, V1/V6/native-speech browser smokes, 375/390/430 viewport overflow and navigation target checks, and day/night Chromium screenshots pass. Physical iPhone Safari remains unverified.
