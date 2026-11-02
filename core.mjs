@@ -404,6 +404,36 @@ export function collectSavedReadingWords(items = [], marks = [], readings = []) 
   }
   return found.reverse();
 }
+/** Read-only evidence for marks made during the selected reading/Journey.
+ * A mark is not a failed answer: unsaved or untested entries remain UNTESTED.
+ */
+export function collectReadingMarkEvidence(marks = [], readings = [], items = []) {
+  const titles = new Map((Array.isArray(readings)?readings:[]).map(row=>[String(row?.id||''),String(row?.title||'').trim()]));
+  const cards = new Map((Array.isArray(items)?items:[]).filter(item=>item?.id).map(item=>[String(item.id),item]));
+  const seen = new Set(); const rows=[];
+  for(const mark of (Array.isArray(marks)?marks:[])){
+    if(!mark||!mark.readingId)continue;
+    const id=String(mark.id||`${mark.readingId}:${mark.normalizedWord||mark.wordText||''}:${mark.position??''}`);
+    if(seen.has(id))continue;seen.add(id);
+    const card=mark.savedItemId?cards.get(String(mark.savedItemId)):null;
+    rows.push({
+      markId:id,
+      wordText:String(mark.wordText||mark.normalizedWord||'').trim(),
+      normalizedWord:String(mark.normalizedWord||normalized(mark.wordText||'')).trim(),
+      readingId:String(mark.readingId),
+      sourceTitle:String(mark.sourceTitle||titles.get(String(mark.readingId))||mark.source||'').trim(),
+      originalSentence:String(mark.originalSentence||mark.context||'').trim(),
+      paragraphIndex:Number.isFinite(Number(mark.paragraphIndex))?Number(mark.paragraphIndex):null,
+      position:Number.isFinite(Number(mark.position))?Number(mark.position):null,
+      savedStatus:mark.savedStatus==='SAVED'?'SAVED':'UNSAVED',
+      savedItemId:mark.savedItemId?String(mark.savedItemId):null,
+      status:card&&['K','V','N'].includes(card.status)?card.status:'UNTESTED',
+      packId:String(mark.packId||card?.packId||''),
+      markedAt:String(mark.markedAt||'').trim()
+    });
+  }
+  return rows;
+}
 /** Text only leaves the user's device when they deliberately copy or share it. */
 export function readingVocabularyHandoff(rows = [], {exportedAt = ''} = {}) {
   const entries = Array.isArray(rows) ? rows : [];
@@ -543,18 +573,35 @@ export function describeReferenceDifference(user, reference) {
 /** User-triggered, privacy-local copy/export: last real report and saved reading vocabulary. */
 export function centralLearningHandoff({report=null,readingWords=[],generatedAt='' }={}) {
   const words=Array.isArray(readingWords)?readingWords:[];
+  const marks=Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks:[];
+  const currentCardIds=new Set(marks.filter(mark=>mark.savedStatus==='SAVED'&&mark.savedItemId).map(mark=>String(mark.savedItemId)));
+  const historicalWords=words.filter(row=>!currentCardIds.has(String(row?.id||'')));
+  const markLines=[
+    '## 本次阅读标记（随本次战报）',
+    '本次阅读标记生词：'+marks.length+'条',
+    marks.length?'以下标记未自动视为 N；请按真实 K/V/N 或新题复测：':'本次没有标记阅读生词。',
+    ...marks.flatMap((row,index)=>[
+      `${index+1}. ${row.wordText||row.normalizedWord||'未记录'}`,
+      '   标记ID：'+(row.markId||row.id||'未记录')+' · 状态：'+(row.savedStatus==='SAVED'?'已保存为卡片':'仅标记未保存')+' · K/V/N：'+(row.status||'UNTESTED'),
+      '   阅读来源：'+(row.sourceTitle||'未记录')+' · 阅读ID：'+(row.readingId||'未记录'),
+      '   原文例句：'+(row.originalSentence||'未记录'),
+      ''
+    ])
+  ];
   const lines=[
     '# 中央仙窍｜英语学习交接',
     '生成时间（设备）：'+(generatedAt||'未提供'),
-    '范围：当前设备最近一份战报＋已保存的阅读生词；不是全部历史，复制不等于外部同步。',
+    '范围：当前战报中的本次阅读标记＋未重复的已保存阅读生词；不是全部历史，复制不等于外部同步。',
     '批改要求：保留真实原答和初稿，区分网站自动检查、用户K/V/N与AI严判；口语未附音频不得判断真实发音。',
     '后续选题：对核实错误进行新语境回炉；V/N仅是自评，未测不能算不会；依稳定report_id和card_id查重。',
     '',
     '## 最近一份Battle Report',
     report?battleReportMarkdown(report):'本机暂无已生成的战报。',
     '',
+    ...markLines,
+    '',
     '## 阅读生词（设备原始记录）',
-    readingVocabularyHandoff(words,{exportedAt:generatedAt})
+    readingVocabularyHandoff(historicalWords,{exportedAt:generatedAt})
   ];
   return lines.join('\n').trim()+'\n';
 }
@@ -591,6 +638,10 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
     },
     review_candidates:{p0,p1,p2},
     unmeasured,
+    reading_vocabulary_evidence:{
+      count:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.length:0,
+      items:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.map(mark=>({mark_id:mark.markId||mark.id||null,word:mark.wordText||mark.normalizedWord||'',reading_id:mark.readingId||null,source_title:mark.sourceTitle||'',original_sentence:mark.originalSentence||'',saved_status:mark.savedStatus||'UNSAVED',status:mark.status||'UNTESTED',pack_id:mark.packId||null})):[]
+    },
     transfer_evidence:transferEvidence,
     integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false}
   };
@@ -761,6 +812,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     else if (attempt.rating === 'K') reviewItems.stronger_recall.push(attempt.item_id);
     if (attempt.suggested_review_date && attempt.rating === 'N') reviewItems.due_tomorrow.push(attempt.item_id);
   }
+  const readingMarkEvidence=collectReadingMarkEvidence(readingMarks,readings,items);
   const reportId = `report:${session.id}`;
   return {
     schema_version: REPORT_SCHEMA_VERSION,
@@ -788,7 +840,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     session_ids: [...allowed],
     reading_analysis: {
       articles: (Array.isArray(readings)?readings:[]).map(reading=>({reading_id:reading.id,title:reading.title||'Untitled',source:reading.source||'Local material',...normalizeExamMeta(reading),questions:(reading.questions||[]).map(question=>({id:question.id,prompt:question.prompt,type:question.type,answer:question.answer,examSource:question.examSource,examType:question.examType,testNumber:question.testNumber,skill:question.skill,questionId:question.questionId||question.id,questionNumbers:question.questionNumbers,questionType:question.questionType,answerConstraints:question.answerConstraints,sourcePage:question.sourcePage,isAuthenticIelts:question.isAuthenticIelts}))})),
-      marks: Array.isArray(readingMarks)?readingMarks.filter(mark=>!session.packId||!mark.packId||mark.packId===session.packId):[],
+      mark_count:readingMarkEvidence.length,
+      marks: readingMarkEvidence,
       comprehension_checks: Array.isArray(readingChecks)?readingChecks:[]
     },
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
@@ -833,7 +886,8 @@ export function battleReportMarkdown(report) {
     ]:[]),
     `## Practice details`, ``, `| 项目 | 类型 | 评价 | 初答 | 检查 | 重练 | 复习 |`, `|---|---|---|---|---|---|---|`,
     ...(report.attempts || []).map(a => `| ${(a.target||a.item_id||'').replaceAll('|','\\|')} | ${a.module||a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
-    ...(report.reading_analysis?.marks?.length?[``, `## Reading vocabulary marks`, ``, ...report.reading_analysis.marks.map(mark=>`- ${mark.wordText||mark.normalizedWord} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'尚未保存'} · ${mark.originalSentence||''}`)]:[]),
+    ``, `## 本次阅读标记生词`, ``, `本次阅读标记生词：${report.reading_analysis?.mark_count||0}条`,
+    ...(report.reading_analysis?.marks||[]).map(mark=>`- ${inline(mark.wordText||mark.normalizedWord||'未记录')} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'仅标记未保存'} · K/V/N：${inline(mark.status||'UNTESTED')} · ${inline(mark.sourceTitle||'未记录')} · ${inline(mark.originalSentence||'')}`),
     ...(readingExamLines.length?[``, `## IELTS reading source`, ``, ...readingExamLines]:[]),
     ...(readingChecks.length?[``, `## IELTS / reading comprehension checks`, ``, ...readingChecks]:[]),
     ...(report.transfer_attempts?.length?[``, `## Transfer challenge`, ``, ...transferLines]:[]),

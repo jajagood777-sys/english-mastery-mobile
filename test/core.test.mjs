@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,collectReadingMarkEvidence,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -329,4 +329,24 @@ test('central handoff retains original report, reading words and honest evidence
  for(const phrase of ['report:fiction','I write what I really think.','It is my original answer.','strive','A real story','UNTESTED','复制不等于外部同步'])assert.ok(value.includes(phrase),'Missing '+phrase);
  assert.equal(JSON.stringify({report,words}),before);
  assert.match(centralLearningHandoff({report:null,readingWords:[],generatedAt:''}),/本机暂无已生成的战报/);
+});
+
+test('V6.0 reading marks enter the current report even when cards were not saved',()=>{
+ const readings=[{id:'read:one',title:'The First Story',text:'A long enough reading passage.'},{id:'read:two',title:'The Second Story',text:'Another long enough reading passage.'}];
+ const items=[{id:'card:saved',kind:'word',readingId:'read:one',target:'nuance',status:'V',packId:'pack:today'}];
+ const marks=[
+  {id:'mark:one',readingId:'read:one',wordText:'nuance',originalSentence:'The nuance mattered.',savedStatus:'SAVED',savedItemId:'card:saved',packId:'pack:today',markedAt:'2026-11-05T01:00:00Z'},
+  {id:'mark:two',readingId:'read:one',wordText:'derive',originalSentence:'They derive meaning.',savedStatus:'UNSAVED',packId:'pack:today',markedAt:'2026-11-05T01:01:00Z'},
+  {id:'mark:three',readingId:'read:two',wordText:'subtle',originalSentence:'A subtle change appeared.',savedStatus:'UNSAVED',packId:'pack:today',markedAt:'2026-11-05T01:02:00Z'}
+ ];
+ const evidence=collectReadingMarkEvidence(marks,readings,items);assert.equal(evidence.length,3);assert.equal(evidence.find(row=>row.markId==='mark:one').status,'V');assert.equal(evidence.find(row=>row.markId==='mark:two').status,'UNTESTED');assert.equal(evidence.find(row=>row.markId==='mark:three').sourceTitle,'The Second Story');
+ const report=buildBattleReport({session:{id:'journey:marks',startedAt:'2026-11-05T00:00:00Z',endedAt:'2026-11-05T01:10:00Z',activeMs:600000,mode:'journey',packId:'pack:today'},attempts:[],items,readings,readingMarks:marks,now:new Date('2026-11-05T01:10:00Z')});
+ assert.equal(report.reading_analysis.mark_count,3);assert.match(battleReportMarkdown(report),/本次阅读标记生词：3条/);assert.match(battleReportMarkdown(report),/derive/);assert.match(battleReportMarkdown(report),/The Second Story/);
+ const feedback=buildCentralLearningFeedback({report,generatedAt:'2026-11-05T01:11:00Z'});assert.equal(feedback.reading_vocabulary_evidence.count,3);assert.equal(feedback.evidence.ratings.N,0);assert.equal(feedback.review_candidates.p0.length,0);
+ const handoff=centralLearningHandoff({report,readingWords:[{id:'card:saved',target:'nuance',sourceTitle:'The First Story',originalSentence:'The nuance mattered.',readingId:'read:one',status:'V'}],generatedAt:'2026-11-05T01:11:00Z'});assert.match(handoff,/mark:two/);assert.match(handoff,/仅标记未保存/);assert.doesNotMatch(handoff.split('## 阅读生词（设备原始记录）')[1],/card:saved/);
+});
+
+test('V6.0 empty reading marks are explicit and do not pull historical vocabulary into the report',()=>{
+ const report=buildBattleReport({session:{id:'journey:no-marks',startedAt:'2026-11-05T00:00:00Z',endedAt:'2026-11-05T00:01:00Z',activeMs:60000,mode:'journey',packId:'pack:today'},attempts:[],readings:[{id:'read:one',title:'Today'}],readingMarks:[],now:new Date('2026-11-05T00:01:00Z')});
+ assert.equal(report.reading_analysis.mark_count,0);assert.match(battleReportMarkdown(report),/本次阅读标记生词：0条/);assert.match(centralLearningHandoff({report,readingWords:[],generatedAt:'2026-11-05T00:01:00Z'}),/本次没有标记阅读生词/);
 });

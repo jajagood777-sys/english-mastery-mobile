@@ -242,6 +242,15 @@ test('V6 central feedback export is distinct from daily-pack import and legacy h
  assert.match(app,/导出反馈 JSON/);
 });
 
+test('V6 reading marks are scoped to the current Journey and copied with the report',()=>{
+ assert.match(core,/collectReadingMarkEvidence/);
+ assert.match(core,/reading_vocabulary_evidence/);
+ assert.match(core,/本次阅读标记生词/);
+ assert.match(app,/function journeyReadingMarksForReport/);
+ assert.match(app,/readingMarks:journeyReadingMarksForReport/);
+ assert.match(app,/copyReport\(x\)/);
+});
+
 
 test('reading vocabulary offers a dedicated saved-card view and copy-to-chat export without automatic upload',()=>{
  assert.match(app,/function renderReadingVocabulary/);

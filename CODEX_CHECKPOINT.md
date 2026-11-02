@@ -403,3 +403,10 @@ V3.5 batches
 - Live HTTPS verification returned package/app version `6.0.0`, Service Worker cache `english-cultivation-static-v6.0.0`, `buildCentralLearningFeedback`, follow-along controls and the `central-english-feedback-` export path.
 - The disposable Chromium 390px flow passed against the formal Pages URL: external CC0 reference audio loaded, synthetic recording permission saved/replayed without overlap, microphone tracks were released, the recording ID appeared in the Battle Report, and the feedback JSON copied with `feedback_schema_version: "1.0"` and `is_learning_pack: false`.
 - No localStorage, IndexedDB recordings, learning records, backups or private material were cleared or uploaded. Physical iPhone Safari microphone, keyboard and PWA behavior remain the only final device checks.
+
+## V6.0.1 — reading mark evidence handoff (in progress, 2026-11-02)
+
+- Based on latest `origin/main` `c901da8` / V6.0.1. Existing reading mark storage, saved-card view, Battle Report, central handoff and feedback JSON were retained.
+- Added read-only `collectReadingMarkEvidence()`. Current Journey reports now include unsaved and saved marks with stable mark ID, word, reading ID/title, sentence, saved state, pack ID and true card K/V/N when available; untested marks remain `UNTESTED` and never enter P0/P1/P2.
+- Markdown always states `本次阅读标记生词：N条`, including zero. Central handoff includes current marks and removes duplicated current saved cards from the historical vocabulary section. Feedback JSON adds optional `reading_vocabulary_evidence` without changing the existing schema version or score statistics.
+- Current Journey marks are time-scoped from `startedAt` to `finishedAt`, so unrelated historical marks are excluded. Local `npm run check` passes **128/128** and the PWA bundle audit passes. PR, CI, Pages deployment and physical iPhone Safari remain pending.
