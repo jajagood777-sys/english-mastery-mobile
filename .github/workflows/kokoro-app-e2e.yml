@@ -9,6 +9,7 @@ on:
       - 'sw.js'
       - 'scripts/test-real-app-native-speech.mjs'
       - 'scripts/test-v6-follow-along-feedback.mjs'
+      - 'scripts/test-v1-four-in-one.mjs'
       - '.github/workflows/kokoro-app-e2e.yml'
   workflow_dispatch:
 permissions:
@@ -33,3 +34,5 @@ jobs:
         run: node scripts/test-real-app-native-speech.mjs
       - name: Verify V6 follow-along recording and central feedback
         run: node scripts/test-v6-follow-along-feedback.mjs
+      - name: Verify V1 four-in-one Journey and Exit Ticket
+        run: node scripts/test-v1-four-in-one.mjs

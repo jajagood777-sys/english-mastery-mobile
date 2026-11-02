@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'6.0.1');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'6.1.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -349,4 +349,14 @@ test('V6.0 reading marks enter the current report even when cards were not saved
 test('V6.0 empty reading marks are explicit and do not pull historical vocabulary into the report',()=>{
  const report=buildBattleReport({session:{id:'journey:no-marks',startedAt:'2026-11-05T00:00:00Z',endedAt:'2026-11-05T00:01:00Z',activeMs:60000,mode:'journey',packId:'pack:today'},attempts:[],readings:[{id:'read:one',title:'Today'}],readingMarks:[],now:new Date('2026-11-05T00:01:00Z')});
  assert.equal(report.reading_analysis.mark_count,0);assert.match(battleReportMarkdown(report),/本次阅读标记生词：0条/);assert.match(centralLearningHandoff({report,readingWords:[],generatedAt:'2026-11-05T00:01:00Z'}),/本次没有标记阅读生词/);
+});
+
+test('V1.0 four-in-one pack extensions remain schema 2.0 compatible',()=>{
+ const pack={schema_version:'2.0',pack_id:'four-in-one',items:[{type:'word',target:'composure',example:'She kept her composure.'}],readings:[{id:'story-03',title:'The Quiet Room',text:'This synthetic story section contains enough English text for the reader.',story_id:'quiet-room',story_title:'The Quiet Room',section_id:'03',section_order:3,section_title:'A Difficult Meeting',previous_section_id:'02'}],transfer_tasks:[{id:'spk',task_type:'speaking',prompt:'Do you enjoy time alone?',response_structure:'观点 → 原因 → 具体例子',target_phrases:['because','for example'],ielts_part:'Part 1'},{id:'exit',task_type:'exit_ticket',prompt:'Use composure in a new situation.',model_answer:'I kept my composure.'}]};
+ const out=recordsFromLearningPack(pack);assert.equal(out.readings[0].sectionId,'03');assert.equal(out.readings[0].storyTitle,'The Quiet Room');assert.equal(out.readings[0].previousSectionId,'02');assert.deepEqual(out.transferTasks.map(task=>task.taskType),['speaking','exit_ticket']);assert.equal(out.transferTasks[0].responseStructure,'观点 → 原因 → 具体例子');assert.equal(out.transferTasks[1].taskType,'exit_ticket');
+});
+
+test('V1.0 immediate recall normalizes report evidence and preserves completed story sections',()=>{
+ const report=buildBattleReport({session:{id:'journey:v1',startedAt:'2026-11-02T00:00:00Z',endedAt:'2026-11-02T00:05:00Z',activeMs:300000,mode:'journey',packId:'four-in-one'},attempts:[],readings:[{id:'story-03',title:'The Quiet Room',storyId:'quiet-room',sectionId:'03'}],readingCompletedIds:['story-03'],readingRecallAttempts:[{markId:'mark:composure',readingId:'story-03',word:'composure',sourceTitle:'The Quiet Room',userAnswer:'composure',rating:'K',independent:true}]});
+ assert.equal(report.reading_analysis.articles[0].completed,true);assert.equal(report.reading_analysis.immediate_recall[0].status,'K');assert.equal(report.reading_analysis.immediate_recall[0].user_answer,'composure');assert.match(battleReportMarkdown(report),/composure · K · 原答：composure/);
 });
