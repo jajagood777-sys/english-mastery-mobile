@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -259,6 +259,31 @@ test('V5.1 audio AB loop validation requires a real non-empty in-range interval'
  assert.equal(isValidAudioLoop(2,2.05,10),false);
  assert.equal(isValidAudioLoop(2,2.2,10),true);
  assert.equal(isValidAudioLoop(0,10,10),true);
+});
+
+test('V6 central learning feedback is a separate, evidence-only next-review contract',()=>{
+ const report=buildBattleReport({session:{id:'session:v6',startedAt:'2026-11-02T00:00:00Z',endedAt:'2026-11-02T00:05:00Z',activeMs:300000,mode:'journey',packId:'pack:v6'},attempts:[
+  {id:'a-n',sessionId:'session:v6',itemId:'w-n',kind:'word',status:'N',answer:'',at:'2026-11-02T00:01:00Z'},
+  {id:'a-v',sessionId:'session:v6',itemId:'w-v',kind:'word',status:'V',answer:'almost',prompt_used:true,at:'2026-11-02T00:02:00Z'},
+  {id:'a-u',sessionId:'session:v6',itemId:'s-u',kind:'sentence',status:null,answer:'draft',recording_ids:['recording:v6:original'],at:'2026-11-02T00:03:00Z'}
+ ],items:[
+  {id:'w-n',kind:'word',target:'derision',status:'N',dueAt:'2026-11-03T00:00:00Z'},
+  {id:'w-v',kind:'word',target:'nuance',status:'V',dueAt:'2026-11-05T00:00:00Z'},
+  {id:'s-u',kind:'sentence',text:'A sentence awaiting review.',status:'UNTESTED'}
+ ],now:new Date('2026-11-02T00:05:00Z')});
+ const feedback=buildCentralLearningFeedback({report,generatedAt:'2026-11-02T00:06:00Z'});
+ assert.equal(feedback.feedback_schema_version,'1.0');
+ assert.equal(feedback.report_id,'report:session:v6');
+ assert.equal(feedback.session_id,'session:v6');
+ assert.ok(feedback.review_candidates.p0.some(row=>row.item_id==='w-n'));
+ assert.ok(feedback.review_candidates.p1.some(row=>row.item_id==='w-v'));
+ assert.ok(feedback.unmeasured.some(row=>row.item_id==='s-u'));
+ assert.equal(feedback.evidence.ratings.N,1);
+ assert.equal(feedback.evidence.ratings.V,1);
+ assert.equal(feedback.evidence.ratings.K,0);
+ assert.deepEqual(report.attempts.find(row=>row.item_id==='s-u').recording_ids,['recording:v6:original']);
+ assert.equal(report.attempts.find(row=>row.item_id==='s-u').recording_status,'saved_locally');
+ assert.equal(feedback.is_learning_pack,false);
 });
 
 
