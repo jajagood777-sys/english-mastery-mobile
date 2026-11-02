@@ -337,7 +337,7 @@ function finishDailyJourney(){
   const session={id:j.id,startedAt:j.startedAt,endedAt,activeMs,mode:'journey',scope:'today',packId:j.packId};
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
-  const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:(data.readingMarks||[]).filter(mark=>readingIds.has(mark.readingId)),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
   report.reading_completed=j.readingDoneIds.length;
   report.reading_seconds=Math.round(j.readingMs/1000);
@@ -360,7 +360,7 @@ function rebuildJourneyReport(){
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
   const session={id:j.id,startedAt:j.startedAt,endedAt:j.finishedAt,activeMs:sessions.reduce((sum,item)=>sum+Number(item.activeMs||0),0)+Number(j.readingMs||0)+Number(j.transferMs||0),mode:'journey',scope:'today',packId:j.packId};
-  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:(data.readingMarks||[]).filter(mark=>readingIds.has(mark.readingId)),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.report_id=`report:${j.id}:recovered`;report.recovered_from_report_id=`report:${j.id}`;report.recovery={source:'local raw attempts and stage sessions',verified:true};
   report.module_coverage=(j.completed||[]).map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));report.reading_completed=(j.readingDoneIds||[]).length;report.reading_seconds=Math.round(Number(j.readingMs||0)/1000);report.target_minutes=j.targetMinutes;report.modules_completed=(j.completed||[]).filter(x=>x.status==='completed').length;report.modules_planned=j.steps?.length||0;report.data_quality={...report.data_quality,recovered_without_overwriting_original:true,reading_completion_self_reported:true,goal_not_a_completion_rule:true};
   report.transfer_attempts=journeyTransferAttempts;report.transfer_summary={attempted:report.transfer_evidence?.counts.total||0,independent:report.transfer_evidence?.counts.independent||0,prompted:report.transfer_evidence?.counts.prompted||0,self_corrected:journeyTransferAttempts.filter(x=>x.retryAnswer).length,unassessed:journeyTransferAttempts.filter(x=>!x.rating).length};
@@ -547,6 +547,15 @@ function journeyTransferAttemptsForReport(j){
   const tasks=transferTasks();
   const rows=mergeTransferAttempts(j?.transferAttempts||[],(data.transferAttempts||[]).filter(attempt=>inferredWeaknesses().some(weakness=>weakness.id===attempt.weaknessId&&(!weakness.sourceId||weakness.sourceId===j?.packId))));
   return rows.map(row=>{const task=tasks.find(item=>item.id===row.taskId);return normalizeTransferAttempt({...row,packId:row.packId||j?.packId,journeyId:row.journeyId||j?.id,taskType:row.taskType||task?.taskType,prompt:row.prompt||task?.prompt,referenceAnswer:row.referenceAnswer||task?.referenceAnswer,targetExpression:row.targetExpression||task?.targetExpression,examSource:row.examSource||task?.examSource,examType:row.examType||task?.examType,testNumber:row.testNumber||task?.testNumber,skill:row.skill||task?.skill,questionId:row.questionId||task?.questionId,questionNumbers:row.questionNumbers||task?.questionNumbers,questionType:row.questionType||task?.questionType,answerConstraints:row.answerConstraints||task?.answerConstraints,sourcePage:row.sourcePage||task?.sourcePage,isAuthenticIelts:row.isAuthenticIelts||task?.isAuthenticIelts});});
+}
+function journeyReadingMarksForReport(j,readingIds){
+  const start=Date.parse(j?.startedAt||''); const end=Date.parse(j?.finishedAt||'');
+  return (data.readingMarks||[]).filter(mark=>{
+    if(!readingIds.has(mark.readingId))return false;
+    const at=Date.parse(mark.markedAt||'');
+    if(!Number.isFinite(at))return true;
+    return (!Number.isFinite(start)||at>=start)&&(!Number.isFinite(end)||at<=end);
+  });
 }
 function finishTransferStage(j,tasks,{status}={}){
   const skipped=new Set(Array.isArray(j.transferSkippedTaskIds)?j.transferSkippedTaskIds:[]);
