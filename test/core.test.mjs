@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.8.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'5.8.1');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -245,6 +245,20 @@ test('V5.0 listening packs preserve safe audio URLs for real-player controls',()
  const out=recordsFromLearningPack({pack_id:'audio-pack',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'https://example.com/audio/l1.mp3'}]});
  assert.equal(out.items[0].audioUrl,'https://example.com/audio/l1.mp3');
  const unsafe=recordsFromLearningPack({pack_id:'unsafe-audio',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'javascript:alert(1)'}]});assert.equal(unsafe.items[0].audioUrl,null);
+ const insecure=recordsFromLearningPack({pack_id:'insecure-audio',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'http://example.com/audio/l1.mp3'}]});assert.equal(insecure.items[0].audioUrl,null);
+ const data=recordsFromLearningPack({pack_id:'data-audio',items:[{id:'l1',type:'listening',text:'A short listening sentence for practice.',audio_url:'data:audio/mpeg;base64,AAAA'}]});assert.equal(data.items[0].audioUrl,null);
+});
+
+test('V5.1 audio AB loop validation requires a real non-empty in-range interval',()=>{
+ assert.equal(isValidAudioLoop(null,1,10),false);
+ assert.equal(isValidAudioLoop(2,null,10),false);
+ assert.equal(isValidAudioLoop(2,2,10),false);
+ assert.equal(isValidAudioLoop(4,3,10),false);
+ assert.equal(isValidAudioLoop(-1,2,10),false);
+ assert.equal(isValidAudioLoop(2,11,10),false);
+ assert.equal(isValidAudioLoop(2,2.05,10),false);
+ assert.equal(isValidAudioLoop(2,2.2,10),true);
+ assert.equal(isValidAudioLoop(0,10,10),true);
 });
 
 

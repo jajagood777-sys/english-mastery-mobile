@@ -31,7 +31,7 @@ jobs:
           html=Path('kokoro-preview/live.html')
           s=html.read_text()
           s=s.replace('./kokoro-test.mjs','./live.mjs')
-          csp="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
+          csp="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; media-src 'self' blob: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
           s=s.replace('<title>Kokoro', '<meta http-equiv="Content-Security-Policy" content="'+csp+'"><title>Kokoro')
           s=s.replace('<h1>Kokoro Heart / Bella — V5.4 experiment</h1>','<h1>Kokoro Heart / Bella — iPhone浏览器实验</h1><p><strong>此页面和正式学习系统相互独立。</strong> 点击Load后才会下载约92MB模型；浏览器自动生成音频需要时间，不会修改学习记录。</p>')
           html.write_text(s)

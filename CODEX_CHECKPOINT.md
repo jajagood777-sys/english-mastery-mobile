@@ -377,3 +377,12 @@ V3.5 batches
 - Main test run `41352027523` passed. Formal Pages run `41352027278` passed build, deploy, and build-status reporting.
 - Public verification: `https://jajagood777-sys.github.io/english-mastery-mobile/core.mjs` reports `APP_VERSION = '5.7.0'`; public `sw.js` uses `english-cultivation-static-v5.7.0`; public `app.js` contains `native-voice-select`, `pageshow`, and `refreshSpeechVoiceUi`; public `core.mjs` contains `normalizeExamMeta` and IELTS metadata handling.
 - No localStorage key, IndexedDB recording store, backup schema (`4.3`), learning record, or private Cambridge source was uploaded or cleared. Physical iPhone voice enumeration and any actual private historical draft remain user-device-only checks.
+
+## V5.8.1 — PR #43 audio delivery and cache fixes (2026-11-02)
+
+- Based on the latest `origin/main` PR #43 merge `cb88618f2826f229e30437eaeff39ff2f1c13ead`; no prior audio-player work was reimplemented.
+- External listening URLs now use `safeAudioUrl`, which accepts HTTPS only and rejects HTTP, `javascript:`, `data:`, and malformed values. `index.html` and the isolated preview CSP use `media-src 'self' blob: https:`; scripts, workers, connections and objects remain restricted.
+- Audio A/B controls require loaded metadata and a valid `0 <= A < B <= duration` interval with a 0.1-second minimum. Invalid or incomplete ranges show an actionable message; stale audio is stopped on navigation and `pagehide`; load/play errors remain explicit.
+- The app shell is versioned as `5.8.1`. The Service Worker cache marker is `english-cultivation-static-v5.8.1`, registration uses `updateViaCache: 'none'` and requests an update. No localStorage, IndexedDB, backups, learning records or recordings are cleared.
+- New regression coverage checks HTTPS-only audio parsing, invalid A/B intervals, CSP alignment, cache marker and app version. Local `npm run check` passes 121/121; `check-bundle.mjs` passes. A real Chromium mobile-viewport smoke loaded and played the CC0 MDN MP3 (`https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3`, 2.074s) and exercised an A/B loop. A separate browser profile confirmed old `v5.8.0` cache removal and new `v5.8.1` cache activation.
+- Formal Pages deployment and physical iPhone Safari remain pending until the repair PR is merged and the public resources are fetched. This checkpoint makes no live-site claim.
