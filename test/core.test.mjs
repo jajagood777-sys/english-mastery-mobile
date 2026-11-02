@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,collectReadingMarkEvidence,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,collectReadingMarkEvidence,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -71,7 +71,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'6.2.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'7.0.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
 });
 
@@ -220,6 +220,15 @@ test('V5 transfer tasks preserve optional alternate contexts for delayed re-test
 test('V5 analytics does not count hint-only unanswered rows as measured',()=>{
  const analytics=buildTransferAnalytics({weaknesses:[makeWeakness({id:'weak-hint'})],transferAttempts:[{id:'hint-only',weaknessId:'weak-hint',hintUsed:true,referenceViewed:false,firstAnswer:'',retryAnswer:''}]});
  assert.equal(analytics.denominators.prompted,0);assert.equal(analytics.counts.prompted,0);
+});
+
+test('V7 mastery analytics separates independent, prompted, corrected and unmeasured evidence',()=>{
+ const analytics=buildMasteryAnalytics({items:[{id:'independent'},{id:'prompted'},{id:'unmeasured'},{id:'untested'}],attempts:[
+  {itemId:'independent',status:'K',answer:'yes',prompt_used:false,viewed_answer:false},
+  {itemId:'prompted',status:'K',answer:'yes',prompt_used:true,viewed_answer:false},
+  {itemId:'unmeasured',answer:'draft',status:null,skipped:false}
+ ],sessions:[{endedAt:'2026-11-02T00:00:00Z',activeMs:120000,count:3,K:1,V:1,N:0}],now:new Date('2026-11-02T12:00:00Z')});
+ assert.equal(analytics.evidence.UNTESTED,1);assert.equal(analytics.evidence.independentCorrect,1);assert.equal(analytics.evidence.promptedCorrect,1);assert.equal(analytics.evidence.unmeasured,1);assert.equal(analytics.windows.days7.tasks,3);assert.equal(analytics.windows.days7.activeSeconds,120);
 });
 
 test('V5.1 transfer task types classify speaking writing grammar and reading-to-speaking conservatively',()=>{

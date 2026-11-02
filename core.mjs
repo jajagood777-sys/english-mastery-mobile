@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '6.2.0';
+export const APP_VERSION = '7.0.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -182,6 +182,19 @@ export function buildTransferAnalytics({weaknesses=[],transferAttempts=[],now=Da
   const retryRows=rows.filter(row=>row.retryAnswer);
   const delayedRows=rows.filter(row=>row.delayed);
   return {counts:{total:rows.length,measured:measured.length,unmeasured:rows.length-measured.length,independent:independentRows.filter(row=>row.rating==='K').length,prompted:promptedRows.filter(row=>row.rating==='K').length,retry:retryRows.filter(row=>row.rating==='K').length,delayed:delayedRows.filter(row=>row.rating==='K').length},denominators:{independent:independentRows.length,prompted:promptedRows.length,retry:retryRows.length,delayed:delayedRows.length},due,byCategory:categories,bySource:sources};
+}
+export function buildMasteryAnalytics({items=[],attempts=[],sessions=[],transferAttempts=[],now=new Date()}={}) {
+  const rows=Array.isArray(attempts)?attempts:[];const itemRows=new Map();rows.forEach(row=>{const list=itemRows.get(row.itemId)||[];list.push(row);itemRows.set(row.itemId,list);});
+  const evidence={UNTESTED:0,exposed:0,independentCorrect:0,promptedCorrect:0,correctedAfterError:0,delayedReviewSuccess:0,delayedReviewPending:0,skipped:0,unmeasured:0};const unmeasured=[];
+  for(const item of (Array.isArray(items)?items:[])){
+    const history=itemRows.get(item.id)||[];if(!history.length){evidence.UNTESTED++;continue;}evidence.exposed++;
+    const answered=history.filter(row=>!row.skipped&&(row.answer||row.retry_answer));const independent=history.some(row=>row.status==='K'&&!row.prompt_used&&!row.viewed_answer&&!row.promptUsed&&!row.viewedAnswer);const prompted=history.some(row=>row.status==='K'&&(row.prompt_used||row.viewed_answer||row.promptUsed||row.viewedAnswer));const corrected=history.some(row=>row.retried_after_error&&['correct','case_or_punctuation'].includes(row.retry_check?.status));
+    if(independent)evidence.independentCorrect++;else if(prompted)evidence.promptedCorrect++;if(corrected)evidence.correctedAfterError++;if(!answered.length){evidence.skipped++;}else if(!history.some(row=>['K','V','N'].includes(row.status))){evidence.unmeasured++;unmeasured.push(item.id);}
+  }
+  for(const row of (Array.isArray(transferAttempts)?transferAttempts:[])){if(row.delayed&&row.rating==='K')evidence.delayedReviewSuccess++;else if(row.firstAnswer||row.retryAnswer){const delayedDate=row.nextReviewAt||row.delayedAt;if(delayedDate&&!row.delayed)evidence.delayedReviewPending++;}}
+  const current=new Date(now).getTime();const windowStats=days=>{const cutoff=current-days*86400000;const recent=(Array.isArray(sessions)?sessions:[]).filter(row=>{const at=new Date(row.endedAt||row.startedAt||0).getTime();return Number.isFinite(at)&&at>=cutoff&&at<=current;});return {sessions:recent.length,activeSeconds:Math.round(recent.reduce((sum,row)=>sum+Number(row.activeMs||0),0)/1000),tasks:recent.reduce((sum,row)=>sum+Number(row.count||0),0),rated:recent.reduce((sum,row)=>sum+Number(row.K||0)+Number(row.V||0)+Number(row.N||0),0)};};
+  const errors={};for(const row of rows){if(row.status==='N'||row.initial_check?.status==='incorrect'||row.retry_check?.status==='incorrect'){const key=clean(row.errorType||row.error_type||row.taskType||row.kind||'unclassified');errors[key]=(errors[key]||0)+1;}}for(const row of (Array.isArray(transferAttempts)?transferAttempts:[])){if(row.rating==='N'||row.autoCheck?.status==='incorrect'){const key=clean(row.weaknessType||row.taskType||'transfer');errors[key]=(errors[key]||0)+1;}}
+  return {evidence,windows:{days7:windowStats(7),days30:windowStats(30)},errors:Object.entries(errors).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count})),unmeasured,notes:['这些指标只由本机真实作答、提示、重答和延迟复测字段推导。','UNTESTED、阅读接触和自评不会自动变成掌握。']};
 }
 function baseRecord(item) {
   const importedAt = item.importedAt || item.createdAt || new Date().toISOString(); return { status:'UNTESTED', attempts:0, lastAt:null, dueAt:null, intervalDays:0, successStreak:0, errorCount:0, learningStage:'new', promptCount:0, viewedAnswerCount:0, createdAt:importedAt, importedAt, ...item };
