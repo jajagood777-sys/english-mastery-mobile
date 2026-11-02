@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '5.8.0';
+export const APP_VERSION = '5.8.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -58,6 +58,16 @@ export function safeSourceUrl(value) {
   const raw=clean(value); if(!raw) return null;
   try { const url=new URL(raw); if(!['http:','https:'].includes(url.protocol)) return null; return url.toString(); }
   catch { return null; }
+}
+export function safeAudioUrl(value) {
+  const raw=clean(value); if(!raw) return null;
+  try { const url=new URL(raw); return url.protocol==='https:' ? url.toString() : null; }
+  catch { return null; }
+}
+export function isValidAudioLoop(a,b,duration,minLength=0.1) {
+  if(a===null||a===undefined||b===null||b===undefined) return false;
+  const start=Number(a), end=Number(b), total=Number(duration), minimum=Math.max(0.1,Number(minLength)||0.1);
+  return Number.isFinite(start)&&Number.isFinite(end)&&Number.isFinite(total)&&total>0&&start>=0&&end<=total&&end-start>=minimum&&start<end;
 }
 const sourceValue=(raw,...keys)=>{for(const key of keys){if(raw?.[key]!==undefined&&raw?.[key]!==null&&clean(raw[key]))return raw[key];}return '';};
 export function normalizeSourceMeta(raw={},fallback={}) {
@@ -444,7 +454,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     const taskTags=Array.isArray(raw.tags)?raw.tags.map(clean).filter(Boolean):listValue(raw.tags);
     const taskType=inferTaskType(raw,taskTags);
     const contexts=Array.isArray(raw.contexts)&&raw.contexts.length?raw.contexts.slice(0,6).map((context,cIndex)=>({id:clean(context?.id)||`${taskId}:context-${cIndex+1}`,prompt:clean(context?.prompt||context?.question),referenceAnswer:clean(context?.model_answer||context?.modelAnswer||context?.reference_answer||context?.referenceAnswer),hints:Array.isArray(context?.hints)?context.hints.map(clean).filter(Boolean).slice(0,3):listValue(context?.hint),source:normalizeSourceMeta(context,taskSource)})).filter(context=>context.prompt):[{id:`${taskId}:context-1`,prompt,referenceAnswer:reference,hints:taskHints,source:taskSource}];
-    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,audioUrl:safeSourceUrl(raw.audioUrl||raw.audio_url),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...taskSource,contexts});
+    transferTasks.push({id:taskId,prompt,referenceAnswer:reference,audioUrl:safeAudioUrl(raw.audioUrl||raw.audio_url),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),hints:taskHints,sourceItemIds:listValue(raw.source_item_ids||raw.sourceItemIds),tags:taskTags,taskType,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),...taskSource,contexts});
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
@@ -464,7 +474,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
         const text=clean(raw.text||raw.sentence||raw.english);
         if(text.length<10||text.length>800)throw Error('句子或听力材料需要长度 10–800 的英文文本。');
         const module=type==='listening'?'listening':'sentences';
-        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,audioUrl:safeSourceUrl(raw.audioUrl||raw.audio_url),source:sourceName,...itemSource,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
+        items.push(baseRecord({id:`s:pack:${stableHash(packId+'|'+sourceId+'|'+module+'|'+normalized(text))}`,sourceItemId:sourceId,packId,packTitle:title,kind:'sentence',module,contentType:module==='listening'?'Listening':'Sentences',text,audioUrl:safeAudioUrl(raw.audioUrl||raw.audio_url),source:sourceName,...itemSource,...normalizeReviewMeta(raw),...normalizeExamMeta(raw),group:clean(raw.group)||'Daily pack',clozeTarget:clean(raw.cloze_target||raw.clozeTarget||raw.target),clozeAnswer:clean(raw.cloze_answer||raw.clozeAnswer),acceptedAnswers:listValue(raw.accepted_answers||raw.acceptedAnswers),tags,learningStage:clean(raw.learning_stage||raw.learningStage)||'new',importedAt}));
       }else throw Error('type 仅支持 word、sentence 或 listening。');
     }catch(error){errors.push(`第 ${index+1} 项：${error.message}`);}
   });
