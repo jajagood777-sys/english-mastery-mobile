@@ -410,3 +410,10 @@ V3.5 batches
 - Added read-only `collectReadingMarkEvidence()`. Current Journey reports now include unsaved and saved marks with stable mark ID, word, reading ID/title, sentence, saved state, pack ID and true card K/V/N when available; untested marks remain `UNTESTED` and never enter P0/P1/P2.
 - Markdown always states `本次阅读标记生词：N条`, including zero. Central handoff includes current marks and removes duplicated current saved cards from the historical vocabulary section. Feedback JSON adds optional `reading_vocabulary_evidence` without changing the existing schema version or score statistics.
 - Current Journey marks are time-scoped from `startedAt` to `finishedAt`, so unrelated historical marks are excluded. Local `npm run check` passes **128/128** and the PWA bundle audit passes. PR, CI, Pages deployment and physical iPhone Safari remain pending.
+
+## V6.0.1 reading mark handoff formal verification (2026-11-02)
+
+- PR #47 merged as `72d0790952ab885c4e93f6b005fb237c02c07200`.
+- Main checks `41423721997` and Pages build/deploy `41423720904` completed successfully. The historical Cloudflare Worker check remains unrelated and non-blocking; no Worker or learner data was changed.
+- Live HTTPS verification returned `6.0.1`, `english-cultivation-static-v6.0.1`, `collectReadingMarkEvidence`, `reading_vocabulary_evidence`, the zero-count Markdown line, and Journey time-scoped mark filtering.
+- Synthetic tests cover 3 unsaved marks, 2 saved + 1 unsaved, multiple articles, zero marks, stable mark IDs, K/V/N preservation, duplicate suppression and feedback JSON compatibility. Physical iPhone Safari remains unverified.
