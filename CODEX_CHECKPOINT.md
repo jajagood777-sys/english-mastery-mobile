@@ -395,3 +395,11 @@ V3.5 batches
 - UI transfer labels now use “综合输出”; legacy `transfer_tasks` parsing and IDs remain intact.
 - Fresh local `npm run check` passes **124/124**; the static mobile baseline passes 11/11. A disposable Chromium 390px flow (`scripts/test-v6-follow-along-feedback.mjs`) passed with synthetic microphone permission: reference audio loaded, original recording was saved and replayed without overlap, tracks were released, the recording ID appeared in the report, and the separate feedback JSON copied with `feedback_schema_version: "1.0"`. Existing native speech browser flow also passes. Transfer Journey recording IDs are now retained in `dailyJourney.transferRecordingIds` and transfer attempts.
 - This remains an unmerged checkpoint: PR/CI, Pages deployment and physical iPhone Safari are pending. Next action: push this branch, wait for `test` and real-app CI, then review and merge only after fresh verification.
+
+## V6.0 formal release verification (2026-11-02)
+
+- PR #45 merged as `0c668e2de28a8cc60d47bb69c5a4ed6d607b2cb6`.
+- Main checks run `41387441555` and Pages build/deploy run `41387441593` completed successfully. The historical `Workers Builds: english-cultivation-gmini-v59-mobile` check remains an unrelated non-blocking failure; the Worker was not changed.
+- Live HTTPS verification returned package/app version `6.0.0`, Service Worker cache `english-cultivation-static-v6.0.0`, `buildCentralLearningFeedback`, follow-along controls and the `central-english-feedback-` export path.
+- The disposable Chromium 390px flow passed against the formal Pages URL: external CC0 reference audio loaded, synthetic recording permission saved/replayed without overlap, microphone tracks were released, the recording ID appeared in the Battle Report, and the feedback JSON copied with `feedback_schema_version: "1.0"` and `is_learning_pack: false`.
+- No localStorage, IndexedDB recordings, learning records, backups or private material were cleared or uploaded. Physical iPhone Safari microphone, keyboard and PWA behavior remain the only final device checks.
