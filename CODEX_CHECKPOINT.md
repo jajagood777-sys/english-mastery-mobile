@@ -463,3 +463,12 @@ V3.5 batches
 - Public HTTPS verification returned `APP_VERSION = '7.0.0'`, the new `renderListeningStudio`, `buildMasteryAnalytics` and `exportCentralHandover` markers, and HTTP 200 for `/`, `app.js`, `core.mjs`, `studio.mjs`, `handover.mjs`, `styles.css` and `sw.js`.
 - V7 adds no second Journey, no second FSRS and no cloud sync. Original JSON, reports, K/V/N, IndexedDB recordings and visual assets remain compatible. Default handover ZIP excludes recordings; recording inclusion requires an explicit local action.
 - Local evidence: `npm run check` passes **141/141**; dedicated Studio/ZIP tests pass 4/4; data safety 4/4; PWA audit and mobile baseline 11/11; V1/V6/native browser smokes pass. Physical iPhone Safari, microphone permissions, ZIP download behavior and actual voice availability remain user-only checks.
+
+## V7.0 reliability/data-preservation audit (2026-11-03, unmerged)
+
+- Baseline verified: `origin/main` `25ae304`, package/app/SW `7.0.0`, data schema `4.3`; branch `audit/v7-reliability`.
+- Added synthetic-only recovery fixtures and scripts: `test/reliability-audit.test.mjs`, `test/reliability-fixture.mjs`, `scripts/reliability-audit.mjs`, `scripts/test-reliability-browser.mjs`, and `scripts/test-reliability-offline.mjs`. Added report `docs/reliability-audit-v7.md`.
+- Found and minimally fixed two data-safety issues: mastery analytics no longer counts skipped/blank K rows as independent mastery; `persistState()` now safely returns a failed save result when JSON serialization throws. No user data or storage schema changed.
+- Fresh local evidence: `npm run check` **149/149**; focused audit **8/8**; learning-data-safety **4/4**; PWA bundle **pass**; mobile static baseline **11/11**; recovery/malformed-storage/offline browser probes and existing V1/V6/native browser smokes pass. Synthetic stress metrics are recorded in the audit report.
+- Security/dependency boundary: no secrets or dynamic HTML sinks found in production paths; `npm audit` could not run because the repository has no lockfile, so dependency CVE status is explicitly **unverified**. No lockfile was generated.
+- No PR merge, Pages deployment or real iPhone Safari test performed. Next action: review the unmerged audit PR and, if accepted, run the repository CI; physical iPhone checks remain manual.

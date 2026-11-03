@@ -188,8 +188,8 @@ export function buildMasteryAnalytics({items=[],attempts=[],sessions=[],transfer
   const evidence={UNTESTED:0,exposed:0,independentCorrect:0,promptedCorrect:0,correctedAfterError:0,delayedReviewSuccess:0,delayedReviewPending:0,skipped:0,unmeasured:0};const unmeasured=[];
   for(const item of (Array.isArray(items)?items:[])){
     const history=itemRows.get(item.id)||[];if(!history.length){evidence.UNTESTED++;continue;}evidence.exposed++;
-    const answered=history.filter(row=>!row.skipped&&(row.answer||row.retry_answer));const independent=history.some(row=>row.status==='K'&&!row.prompt_used&&!row.viewed_answer&&!row.promptUsed&&!row.viewedAnswer);const prompted=history.some(row=>row.status==='K'&&(row.prompt_used||row.viewed_answer||row.promptUsed||row.viewedAnswer));const corrected=history.some(row=>row.retried_after_error&&['correct','case_or_punctuation'].includes(row.retry_check?.status));
-    if(independent)evidence.independentCorrect++;else if(prompted)evidence.promptedCorrect++;if(corrected)evidence.correctedAfterError++;if(!answered.length){evidence.skipped++;}else if(!history.some(row=>['K','V','N'].includes(row.status))){evidence.unmeasured++;unmeasured.push(item.id);}
+    const answered=history.filter(row=>!row.skipped&&(row.answer||row.retry_answer));const independent=answered.some(row=>row.status==='K'&&!row.prompt_used&&!row.viewed_answer&&!row.promptUsed&&!row.viewedAnswer);const prompted=answered.some(row=>row.status==='K'&&(row.prompt_used||row.viewed_answer||row.promptUsed||row.viewedAnswer));const corrected=history.some(row=>!row.skipped&&row.retried_after_error&&['correct','case_or_punctuation'].includes(row.retry_check?.status));
+    if(independent)evidence.independentCorrect++;else if(prompted)evidence.promptedCorrect++;if(corrected)evidence.correctedAfterError++;if(!answered.length){if(history.some(row=>row.skipped))evidence.skipped++;else{evidence.unmeasured++;unmeasured.push(item.id);}}else if(!answered.some(row=>['K','V','N'].includes(row.status))){evidence.unmeasured++;unmeasured.push(item.id);}
   }
   for(const row of (Array.isArray(transferAttempts)?transferAttempts:[])){if(row.delayed&&row.rating==='K')evidence.delayedReviewSuccess++;else if(row.firstAnswer||row.retryAnswer){const delayedDate=row.nextReviewAt||row.delayedAt;if(delayedDate&&!row.delayed)evidence.delayedReviewPending++;}}
   const current=new Date(now).getTime();const windowStats=days=>{const cutoff=current-days*86400000;const recent=(Array.isArray(sessions)?sessions:[]).filter(row=>{const at=new Date(row.endedAt||row.startedAt||0).getTime();return Number.isFinite(at)&&at>=cutoff&&at<=current;});return {sessions:recent.length,activeSeconds:Math.round(recent.reduce((sum,row)=>sum+Number(row.activeMs||0),0)/1000),tasks:recent.reduce((sum,row)=>sum+Number(row.count||0),0),rated:recent.reduce((sum,row)=>sum+Number(row.K||0)+Number(row.V||0)+Number(row.N||0),0)};};
@@ -344,7 +344,9 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
   return out;
 }
 export function persistState(storage, key, state, previousRaw=null) {
-  const serialized = typeof state === 'string' ? state : JSON.stringify(state);
+  let serialized;
+  try { serialized = typeof state === 'string' ? state : JSON.stringify(state); }
+  catch (error) { return {ok:false, error:error instanceof Error ? error.message : String(error), serialized:null}; }
   try { storage.setItem(key, serialized); return {ok:true, serialized}; }
   catch (error) {
     if (previousRaw !== null) { try { storage.setItem(key, previousRaw); } catch {} }
