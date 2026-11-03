@@ -1,7 +1,8 @@
 # English Mastery V7.0.0 数据安全与恢复能力审计
 
-审计日期：2026-11-03  
-审计分支：`audit/v7-reliability`  
+审计日期：2026-11-03
+
+审计分支：`audit/v7-reliability`
 审计基线：`origin/main` / `25ae304`（V7.0.0，数据版本 `4.3`）
 
 ## 范围与边界
