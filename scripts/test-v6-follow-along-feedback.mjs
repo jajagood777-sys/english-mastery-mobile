@@ -45,6 +45,8 @@ try{
   const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
   const report=stored.reports.at(-1),attempt=report?.attempts?.find(row=>row.item_id==='listening-v6');
   assert.ok(attempt?.recording_ids?.length,'recording ID missing from report');
+  await page.locator('details.report-export-options summary').click();
+  assert.equal(await page.locator('details.report-export-options').evaluate(node=>node.open),true);
   await page.getByRole('button',{name:'生成下次学习依据'}).click();
   const feedback=JSON.parse(await page.evaluate(()=>window.__clipboard));
   assert.equal(feedback.feedback_schema_version,'1.0');assert.equal(feedback.report_id,report.report_id);assert.equal(feedback.is_learning_pack,false);

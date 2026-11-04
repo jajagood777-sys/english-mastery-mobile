@@ -1,5 +1,6 @@
-import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary} from './core.mjs';
+import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,compareAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
+import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip} from './speech-clips.mjs';
 import {splitStudioSegments} from './studio.mjs';
@@ -249,7 +250,9 @@ function sourcePackForHandover(report){
   }catch(error){return {unavailableReason:`原始学习包不可安全导出：${error.message}`};}
 }
 function reportRecordingIds(report){const ids=new Set();for(const row of (report?.attempts||[])){for(const id of (row.recording_ids||[]))ids.add(id);}for(const row of (report?.transfer_attempts||[])){for(const id of (row.recordingIds||row.recording_ids||[]))ids.add(id);}return [...ids];}
+
 async function exportCentralHandover(includeRecordings=false){const report=reportFor();if(!report)return notify('请先完成一次训练，再导出中央交接包。');if(includeRecordings&&!confirm('录音会写入本地 ZIP 文件，不会上传。确认继续？'))return;const ids=includeRecordings?reportRecordingIds(report):[];const recordings=[];try{for(const id of ids){const row=await getRecording(id);if(!row?.blob)continue;const bytes=new Uint8Array(await row.blob.arrayBuffer());recordings.push({...row,bytes,sha256:await sha256Hex(bytes)});}const sourcePack=sourcePackForHandover(report);if(sourcePack.bytes)sourcePack.sha256=await sha256Hex(sourcePack.bytes);const feedback=JSON.parse(centralFeedbackJSON());const packageData=handoverEntries({report,feedback,pack:data.dailyPack,sourcePack,recordings});const zip=zipStore(packageData.entries);const reread=readZipStore(zip.bytes);const manifestEntry=reread.find(entry=>entry.name==='manifest.json');if(!manifestEntry)throw Error('导出后回读失败：缺少 manifest.json。');const checked=JSON.parse(new TextDecoder().decode(manifestEntry.bytes));if(checked.actual_packaged_count!==recordings.filter(row=>row.bytes.length>0).length)throw Error('导出后回读失败：录音数量不一致。');if(checked.source_pack_included){const packEntry=reread.find(entry=>entry.name==='learning-pack.json');if(!packEntry)throw Error('导出后回读失败：缺少 learning-pack.json。');if(checked.source_pack_sha256!==await sha256Hex(packEntry.bytes))throw Error('导出后回读失败：原始学习包 SHA-256 不一致。');}downloadBytes(`english-cultivation-central-handover-${report.session_id||Date.now()}.zip`,zip.bytes,'application/zip');notify(`中央交接包已生成并完成隔离回读：${packageData.entries.length} 个文件${recordings.length?`，包含 ${recordings.length} 条录音`:''}。不会自动同步外部服务。`);}catch(error){notify(`交接包生成失败或回读失败：${error.message}；原始录音和学习记录未改变。`);}}
+
 
 function renderMore(){
   app.append(el('div','我的 · MORE','eyebrow'),h('h1','资料与设置'),p('学习记录只保存在这台设备。你可以在这里管理资料、战报、主题和备份。','lead'));
@@ -451,7 +454,7 @@ if(item.kind==='word')buildWordQuestion(content,item,s);else buildSentenceQuesti
 outer.append(content);app.append(outer);}
 function isNewLearningItem(s,item){return (s.scope==='new'||s.scope==='today')&&item.learningStage==='new';}
 function highlightTarget(example,target){const safe=String(target||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');if(!safe)return p(example);const re=new RegExp(`(^|[^\\p{L}\\p{N}])(${safe})(?=$|[^\\p{L}\\p{N}])`,'iu');const out=String(example||'').split(re);const box=div('learning-example');if(out.length===1){box.textContent=example;return box;}for(let i=0;i<out.length;i++){if(i%4===2){const mark=el('mark',out[i]);box.append(mark);}else box.append(document.createTextNode(out[i]));}return box;}
-function buildLearnCard(container,item,s){const card=section('learn-card');card.append(el('div',item.practiceRole==='review'?`回炉复测 · ${item.previousDate||'历史证据待核验'}`:'学习新内容 · LEARN','question-label'));if(item.practiceRole==='review')card.append(p(`历史问题：${item.reviewInstruction||item.weaknessType||'历史证据待核验'} · 来源：${item.source||'未记录'}`,'hint'));const trace=sourcePanel(item);if(trace)card.append(trace);if(item.kind==='word'){card.append(h('h2',item.target),highlightTarget(item.example,item.target));if(item.meaningZh){card.append(btn(s.meaningShown?'隐藏中文释义':'显示中文释义',()=>{s.meaningShown=!s.meaningShown;if(s.meaningShown){s.promptUsed=true;s.viewedChinese=true;s.promptEvents=[...(s.promptEvents||[]),{type:'meaning_zh',at:new Date().toISOString()}];}if(save())render();},'btn ghost'));if(s.meaningShown)card.append(p(`中文释义：${item.meaningZh}`,'hint'));else card.append(p('中文释义已隐藏。需要时可以主动查看。','tiny'));}if(item.definitionEn)card.append(p(`English definition: ${item.definitionEn}`,'subtle'));if(item.partOfSpeech)card.append(p(`词性：${item.partOfSpeech}`,'tiny'));if(item.collocations?.length)card.append(p(`常见搭配：${item.collocations.join(' / ')}`,'hint'));card.append(lines(speechButton(item.target),speechButton(item.example)));}else{card.append(h('h2','先阅读完整英文句子'),p(item.text,'question'));if(item.source)card.append(p(`来源：${item.source}`,'tiny'));card.append(speechButton(item.text));}card.append(p('首次阅读不计为记忆成功。准备好后再开始回忆。','subtle'),lines(btn('开始回忆',()=>{item.learningStage='learning';s.learningStageBefore='new';s.step='input';s.hintLevel=0;s.promptUsed=false;if(save())render();},'btn primary')));container.append(card);}
+function buildLearnCard(container,item,s){const card=section('learn-card');card.append(el('div',item.practiceRole==='review'?`回炉复测 · ${item.previousDate||'历史证据待核验'}`:'学习新内容 · LEARN','question-label'));if(item.practiceRole==='review')card.append(p(`历史问题：${item.reviewInstruction||item.weaknessType||'历史证据待核验'} · 来源：${item.source||'未记录'}`,'hint'));const trace=sourcePanel(item);if(trace)card.append(trace);if(item.kind==='word'){card.append(h('h2',item.target),highlightTarget(item.example,item.target));if(item.meaningZh){card.append(btn(s.meaningShown?'隐藏中文释义':'显示中文释义',()=>{s.meaningShown=!s.meaningShown;if(s.meaningShown){s.promptUsed=true;s.viewedChinese=true;s.promptEvents=[...(s.promptEvents||[]),{type:'meaning_zh',at:new Date().toISOString()}];}if(save())render();},'btn ghost'));if(s.meaningShown)card.append(p(`中文释义：${item.meaningZh}`,'hint'));else card.append(p('中文释义已隐藏。需要时可以主动查看。','tiny'));}const englishMeaning=englishDefinitionFor(item,data.dailyPack?.packId);if(englishMeaning)card.append(p(`English definition: ${englishMeaning}`,'subtle'));else card.append(p('English definition not supplied in this learning pack.','tiny'));if(item.partOfSpeech)card.append(p(`词性：${item.partOfSpeech}`,'tiny'));if(item.collocations?.length)card.append(p(`常见搭配：${item.collocations.join(' / ')}`,'hint'));card.append(lines(speechButton(item.target),speechButton(item.example)));}else{card.append(h('h2','先阅读完整英文句子'),p(item.text,'question'));if(item.source)card.append(p(`来源：${item.source}`,'tiny'));card.append(speechButton(item.text));}card.append(p('首次阅读不计为记忆成功。准备好后再开始回忆。','subtle'),lines(btn('开始回忆',()=>{item.learningStage='learning';s.learningStageBefore='new';s.step='input';s.hintLevel=0;s.promptUsed=false;if(save())render();},'btn primary')));container.append(card);}
 function firstLetterPrompt(prompt,target){const first=String(target||'').trim()[0]||'';return prompt.replace(/_{3,}/,`${first}${'_'.repeat(Math.max(3,String(target||'').trim().length-1))}`);}
 function speechButton(text,segments=null){return btn('▶ 朗读英文',()=>speakEnglish(text,null,segments),'btn secondary');}
 function speechControls(text,segments=null){return lines(speechButton(text,segments),btn('暂停朗读',pauseSpeech,'btn ghost'),btn('继续朗读',resumeSpeech,'btn ghost'),btn('停止朗读',stopSpeech,'btn ghost'));}
@@ -468,9 +471,20 @@ function revealAnswer(s, answer, reference, skipped=false, accepted=[]){if(s.ste
 function retryNeeded(s){return Boolean(data.settings.retryAfterError!==false&&!s.skipped&&s.answerCheck&&['incorrect','minor_spelling'].includes(s.answerCheck.status)&&!s.retryCompleted);}
 function answerFeedback(check){if(!check)return null;const labels={correct:'检查结果：正确',case_or_punctuation:'检查结果：内容一致（只有大小写或标点不同）',minor_spelling:'检查结果：可能有轻微拼写错误',incorrect:'检查结果：答案与参考表达不同，可能合理，请自行比较',blank:'检查结果：没有填写答案'};return p(`检查结果：${check.message||labels[check.status]||'请与参考答案比较。'}`,`answer-feedback ${check.status}`);}
 function retryBox(container,item,s,reference,accepted=[]){if(!retryNeeded(s))return;const box=section('retry-box');box.append(h('h3','再试一次'),p('第一次答案已保留。请重新输入正确表达，完成后再进入下一题。','subtle'));const input=textarea(s.retryDraft,'再次输入正确的英文表达……');input.classList.add('answer-input');focusForMobile(input);input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();s.retryDraft=input.value.trim();s.retryCheck=compareAnswer(s.retryDraft,reference,{accepted});if(['correct','case_or_punctuation'].includes(s.retryCheck.status)){s.retryCompleted=true;if(save())render();}}});input.addEventListener('input',()=>{s.retryDraft=input.value;});box.append(field('重练答案',input),btn('提交重练',()=>{s.retryDraft=input.value.trim();s.retryCheck=compareAnswer(s.retryDraft,reference,{accepted});if(['correct','case_or_punctuation'].includes(s.retryCheck.status)){s.retryCompleted=true;if(save())render();}else if(save()){render();notify('重练答案仍需比较参考表达。');}},'btn primary'));container.append(box);}
-function wordHintPanel(item,level){const box=div('hint-stack');if(level===1){if(item.meaningZh)box.append(p(`中文释义：${item.meaningZh}`,'hint'));if(item.definitionEn)box.append(p(`English definition: ${item.definitionEn}`,'hint'));if(item.partOfSpeech)box.append(p(`词性：${item.partOfSpeech}`,'hint'));if(item.collocations?.length)box.append(p(`常见搭配：${item.collocations.join(' / ')}`,'hint'));}else if(level===2){box.append(p(`首字母提示：${String(item.target||'').trim()[0]||''} · ${String(item.target||'').trim().split(/\s+/).filter(Boolean).length} 个词`,'hint'));}return box;}
+function wordHintPanel(item,level){
+  const box=div('hint-stack');
+  if(level===1){
+    const english=englishDefinitionFor(item,data.dailyPack?.packId);
+    const safeHint=englishWordHint(item,data.dailyPack?.packId);
+    box.append(p(english?`English definition: ${safeHint}`:safeHint,'hint'));
+    if(item.partOfSpeech)box.append(p(`Part of speech: ${item.partOfSpeech}`,'hint'));
+  }else if(level===2){
+    box.append(p(`First-letter hint: ${String(item.target||'').trim()[0]||''} · ${String(item.target||'').trim().split(/\s+/).filter(Boolean).length} word(s)`,'hint'));
+  }
+  return box;
+}
 function focusForMobile(input){input.addEventListener('focus',()=>{setTimeout(()=>input.scrollIntoView({block:'center',behavior:'smooth'}),120);});}
-function buildWordQuestion(container,item,s){const prompt=wordPrompt(item);const question=div('question');question.classList.add('cloze-question');let displayed=prompt.fallback?'请根据提示写出自然的英文单词或词块。':prompt.question;if(s.hintLevel===2&&!prompt.fallback)displayed=firstLetterPrompt(prompt.question,item.target);question.textContent=displayed;container.append(h('div',s.promptUsed?'引导练习 · GUIDED PRACTICE':'独立回忆 · INDEPENDENT RETRIEVAL','question-label'),question);if(prompt.fallback)container.append(el('div',item.meaningZh||item.cue||'请回忆适合这个语境的英文表达。','hint'));else if(s.hintLevel)container.append(wordHintPanel(item,s.hintLevel));if(!prompt.fallback)container.append(btn(s.hintLevel===1?'显示首字母提示':s.hintLevel===2?'取消提示':'给我一点提示',()=>{s.hintLevel=s.hintLevel===1?2:s.hintLevel===2?3:1;s.promptUsed=true;if(save())render();},'btn ghost'));if(s.step!=='revealed'){const input=textInput(s.draft,'例如：address');input.classList.add('answer-input','compact-answer-input');focusForMobile(input);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();revealAnswer(s,input.value,item.target,false,item.acceptedAnswers||[]);}});input.addEventListener('input',()=>{s.draft=input.value;});container.append(p('请填写缺少的英文单词或短语。','input-help'),field('你的答案',input));question.addEventListener('click',()=>input.focus(),{once:false});container.append(lines(btn('检查答案',()=>revealAnswer(s,input.value,item.target,false,item.acceptedAnswers||[]),'btn primary'),btn('跳过并揭晓',()=>revealAnswer(s,'',item.target,true,item.acceptedAnswers||[]),'btn')));}else {const card=section('answer-card');card.append(el('div','参考答案','eyebrow'),h('strong',item.target),p(item.example));if(item.acceptedAnswers?.length)card.append(p(`已验证可接受答案：${item.acceptedAnswers.join(' / ')}`,'hint'));if(s.draft.trim())card.append(p(`你的答案：${s.draft}`,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card);retryBox(container,item,s,item.target,item.acceptedAnswers||[]);rateControls(container,item,s);}}
+function buildWordQuestion(container,item,s){const prompt=wordPrompt(item);const question=div('question');question.classList.add('cloze-question');let displayed=prompt.fallback?'请根据提示写出自然的英文单词或词块。':prompt.question;if(s.hintLevel===2&&!prompt.fallback)displayed=firstLetterPrompt(prompt.question,item.target);question.textContent=displayed;container.append(h('div',s.promptUsed?'引导练习 · GUIDED PRACTICE':'独立回忆 · INDEPENDENT RETRIEVAL','question-label'),question);if(prompt.fallback){const english=englishDefinitionFor(item,data.dailyPack?.packId);const hint=englishWordHint(item,data.dailyPack?.packId);container.append(el('div',english?`English definition: ${hint}`:hint,'hint'));}else if(s.hintLevel)container.append(wordHintPanel(item,s.hintLevel));if(!prompt.fallback)container.append(btn(s.hintLevel===1?'显示首字母提示':s.hintLevel===2?'取消提示':'给我一点提示',()=>{s.hintLevel=s.hintLevel===1?2:s.hintLevel===2?3:1;s.promptUsed=true;if(save())render();},'btn ghost'));if(s.step!=='revealed'){const input=textInput(s.draft,'例如：address');input.classList.add('answer-input','compact-answer-input');focusForMobile(input);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();revealAnswer(s,input.value,item.target,false,item.acceptedAnswers||[]);}});input.addEventListener('input',()=>{s.draft=input.value;});container.append(p('请填写缺少的英文单词或短语。','input-help'),field('你的答案',input));question.addEventListener('click',()=>input.focus(),{once:false});container.append(lines(btn('检查答案',()=>revealAnswer(s,input.value,item.target,false,item.acceptedAnswers||[]),'btn primary'),btn('跳过并揭晓',()=>revealAnswer(s,'',item.target,true,item.acceptedAnswers||[]),'btn')));}else {const card=section('answer-card');card.append(el('div','参考答案','eyebrow'),h('strong',item.target),p(item.example));if(item.acceptedAnswers?.length)card.append(p(`已验证可接受答案：${item.acceptedAnswers.join(' / ')}`,'hint'));if(s.draft.trim())card.append(p(`你的答案：${s.draft}`,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card);retryBox(container,item,s,item.target,item.acceptedAnswers||[]);rateControls(container,item,s);}}
 function sentenceStyleOptions(s){const opts=div('setup-options');for(const [value,label,sub] of [['cloze','句子填空','只填缺少的词'],['recall','整句回忆','写出完整句子'],['listening','听力回忆','先听后写']]){const radio=el('input');radio.type='radio';radio.name='sentence-style';radio.value=value;radio.checked=s.sentenceStyle===value;radio.addEventListener('change',()=>{s.sentenceStyle=value;s.step=null;s.draft='';s.skipped=false;if(save())render();});const wrap=el('label');wrap.append(radio,el('span',`${label} · ${sub}`));opts.append(wrap);}return opts;}
 function audioTime(seconds){return Number.isFinite(seconds)?`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`:'--:--';}
 function stopActiveAudio(){if(!activeAudio)return;activeAudio.pause();activeAudio.removeAttribute('src');activeAudio.load();activeAudio=null;}
@@ -521,7 +535,28 @@ if(x.module_coverage){const overview=section('daily-journey-card');overview.appe
 const box=section();box.append(h('h2','K / V / N 自评'));const r=div('grid-3');r.append(statistic('K · 会用',x.ratings_summary?.K||0),statistic('V · 模糊',x.ratings_summary?.V||0),statistic('N · 不会',x.ratings_summary?.N||0));box.append(r,p(`评级作答：${x.total_rated_attempts||0} · 未评级：${x.unrated_attempts||0} · 词汇：${x.mode_breakdown?.words||0} · 句子：${x.mode_breakdown?.sentences||0} · 听力：${x.mode_breakdown?.listening||0}`,'tiny'),p(`新内容：${x.learning_breakdown?.new_items||0} · 学习中：${x.learning_breakdown?.learning_stage_items||0} · 复习：${x.learning_breakdown?.review_items||0}`,'tiny'),p(`独立初答：${x.prompt_stats?.first_attempt_independent||0} · 使用提示：${x.prompt_stats?.prompted||0} · 查看中文：${x.prompt_stats?.viewed_chinese||0} · 查看答案：${x.prompt_stats?.viewed_answer||0} · 错题重练：${x.prompt_stats?.retried_after_error||0}`,'tiny'),p(`导出状态：${x.sync_status==='NOT_SUBMITTED'?'本地已保存':'已导出'}（不代表外部系统已同步）`,'tiny'));
 if(Array.isArray(x.attempts)){const details=document.createElement('details');details.className='report-details';details.append(el('summary','展开逐项学习记录'));const list=el('ul','','list');x.attempts.forEach(a=>{const li=el('li');li.append(el('div',`${a.target||a.item_id} · ${a.module||a.content_type} · ${a.rating||'未评级'}`,'item-title'),el('div',`你的回答：${a.user_answer||'（空）'} · 参考：${a.reference_answer||'—'}${a.prompt_used?' · 使用提示':''}${a.retried_after_error?' · 已重练':''}`,'item-sub'));list.append(li);});details.append(list);box.append(details);}
 if(x.reading_analysis?.marks?.length){const marks=section('reading-marks-report');marks.append(h('h3','本次阅读生词'));x.reading_analysis.marks.forEach(mark=>marks.append(p(`${mark.wordText||mark.normalizedWord} · ${mark.savedStatus==='SAVED'?'已保存':'未保存'} · ${mark.originalSentence||''}`,'tiny')));box.append(marks);}
-box.append(lines(btn('复制战报给中央仙窍',()=>copyReport(x),'btn primary'),btn('导出完整中央交接包',()=>exportCentralHandover(false),'btn secondary'),btn('交接包（含录音）',()=>exportCentralHandover(true),'btn ghost'),btn('生成下次学习依据',copyCentralFeedback,'btn secondary'),btn('导出反馈 JSON',exportCentralFeedback,'btn ghost'),btn('分享战报',()=>shareReport(x),'btn secondary'),btn('下载 Markdown',()=>exportReportMarkdown(x),'btn'),btn('下载 JSON',()=>exportReportJSON(x),'btn'),btn('返回首页',()=>setPage('home'),'btn ghost')));app.append(box);}
+const handoff=section('report-handoff');
+handoff.append(h('h3','交接给中央仙窍'),
+  p('下载一个 ZIP（战报、学习包、结构化反馈及本机可读取的录音）。下载后请发送给中央仙窍；网站不会自动上传。','subtle'));
+const primary=lines(
+  btn('下载完整交接包 ZIP',()=>exportCentralHandover(true),'btn primary'),
+  btn('返回首页',()=>setPage('home'),'btn ghost'));
+primary.classList.add('report-primary-actions');
+handoff.append(primary);
+const more=document.createElement('details');
+more.className='report-details report-export-options';
+more.append(el('summary','其他导出方式（备用）'),
+  lines(
+    btn('交接包 ZIP（不含录音）',()=>exportCentralHandover(false),'btn secondary'),
+    btn('复制文字战报',()=>copyReport(x),'btn ghost'),
+    btn('生成下次学习依据',copyCentralFeedback,'btn ghost'),
+    btn('导出反馈 JSON',exportCentralFeedback,'btn ghost'),
+    btn('分享文字战报',()=>shareReport(x),'btn ghost'),
+    btn('下载 Markdown',()=>exportReportMarkdown(x),'btn ghost'),
+    btn('下载 JSON',()=>exportReportJSON(x),'btn ghost')));
+handoff.append(more);
+box.append(handoff);
+app.append(box);}
 function renderReports(){app.append(el('div','修炼战报 · LOCAL ARCHIVE','eyebrow'),h('h1','我的修炼战报'),p('战报保存在本机。“已导出”只表示你选择了输出，不代表 Google Sheets、Notion 或 Drive 已收到。','lead'));if(!data.reports?.length){const box=section();box.append(h('h2','还没有战报'),p('完成一次训练后，这里会生成结构化战报。','subtle'));app.append(box);return;}const list=el('ul','','list');data.reports.slice().reverse().forEach(report=>{const li=el('li');const info=div();info.append(el('div',new Date(report.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),'item-title'),el('div',`${modeLabel(report.mode)} · ${report.total_rated_attempts||0} 次评级作答 · ${report.unrated_attempts||0} 条未评级 · ${report.sync_status==='NOT_SUBMITTED'?'本地已保存':'已导出'}`,'item-sub'));const side=div('head-actions');side.append(btn('打开',()=>{lastSessionSummary=report;setPage('summary');},'btn ghost'),btn('JSON',()=>exportReportJSON(report),'btn ghost'));li.append(info,side);list.append(li);});const box=section();box.append(list,lines(btn('导出最新 Markdown',()=>exportReportMarkdown(data.reports.at(-1)),'btn primary'),btn('导出最新 JSON',()=>exportReportJSON(data.reports.at(-1)),'btn'),btn('导出完整中央交接包',()=>exportCentralHandover(false),'btn secondary'),btn('交接包（含录音）',()=>exportCentralHandover(true),'btn ghost'),btn('生成下次学习依据',copyCentralFeedback,'btn secondary'),btn('导出反馈 JSON',exportCentralFeedback,'btn ghost')));if(data.dailyJourney?.finishedAt)box.append(btn('重新导出修复后的 Battle Report（保留原报告）',rebuildJourneyReport,'btn secondary'));app.append(box);}
 let importRaw='',importFilename='';
 function preserveSourcePack(raw,parsed,filename){
@@ -589,16 +624,90 @@ function touchSpellingInput(initial='',onSubmit){const wrap=section('spelling-to
 function renderSpellingForge(){
   const j=data.dailyJourney,tasks=Array.isArray(data.dailyPack?.spellingTasks)?data.dailyPack.spellingTasks:[];
   if(!j||journeyStage()!=='spelling')return;
-  j.spellingIndex=Number.isInteger(j.spellingIndex)?j.spellingIndex:0;j.spellingAttempts=Array.isArray(j.spellingAttempts)?j.spellingAttempts:[];
-  if(j.spellingIndex>=tasks.length){j.completed=(j.completed||[]).filter(x=>x.stage!=='spelling');j.completed.push({stage:'spelling',status:'completed',count:tasks.length});j.index++;if(save())beginJourneyStage();return;}
-  const task=tasks[j.spellingIndex], prior=j.spellingAttempts.find(x=>x.taskId===task.id), box=section('transfer-challenge');
-  box.append(el('div','今日综合学习 · 炼字｜SPELLING FORGE','eyebrow'),h('h1','拼写强化'),p(`第 ${j.spellingIndex+1} / ${tasks.length} 题 · 首次独立拼写不会显示答案。`,'tiny'));
-  const prompt=task.promptMode==='audio_to_spelling'?`先听发音，再拼写：${task.ttsText}`:task.promptMode==='sentence_cloze'?task.example||'请补全句子':task.cueZh||'请根据提示写出英文拼写';
-  box.append(h('h2',prompt));
-  if(task.promptMode==='audio_to_spelling')box.append(btn('▶ 听发音',()=>speakEnglish(task.ttsText),'btn secondary'));
-  if(!prior||!prior.firstSubmittedAt){const input=textInput('','独立输入英文拼写');input.autocomplete='off';input.autocorrect='off';input.spellcheck=false;input.classList.add('answer-input');focusForMobile(input);const submit=(answer,inputMode='free_text')=>{const value=String(answer||'').trim();if(!value){notify('请先输入拼写。');return;}const check=compareSpellingAnswer(value,task.target);j.spellingAttempts.push({id:`spelling:${task.id}:${Date.now()}`,taskId:task.id,packId:j.packId,sessionId:j.id,target:task.target,promptMode:task.promptMode,firstAnswer:value,firstCheck:check,retryAnswer:'',retryCheck:null,hintUsed:false,referenceViewed:false,inputMode,activeSeconds:0,completedAt:null});if(save())render();};box.append(btn(spellingTouchMode?'切换键盘输入':'切换触控字母输入',()=>{spellingTouchMode=!spellingTouchMode;render();},'btn ghost'));if(spellingTouchMode)box.append(touchSpellingInput('',submit));else box.append(field('你的首次拼写',input),btn('提交首次拼写',()=>submit(input.value),'btn primary'));
-  }else{const row=j.spellingAttempts.find(x=>x.taskId===task.id);box.append(p(`首次结果：${row.firstCheck.status==='correct'?'正确':'需要纠错'} · ${row.firstCheck.errorType||''}`,'hint'),p(`你的首次拼写：${row.firstAnswer}`,'small-block'),p(`参考答案：${task.target}`,'small-block'));if(!row.retrySubmittedAt){const input=textInput(row.retryAnswer||'','不看答案再拼一次');input.classList.add('answer-input');const submitRetry=(answer,inputMode='free_text')=>{row.retryAnswer=String(answer||'').trim();row.retryCheck=compareSpellingAnswer(row.retryAnswer,task.target);row.retrySubmittedAt=new Date().toISOString();row.inputModeRetry=inputMode;row.completedAt=row.retryCheck.status==='correct'?row.retrySubmittedAt:null;if(save())render();};box.append(btn(spellingTouchMode?'切换键盘输入':'切换触控字母输入',()=>{spellingTouchMode=!spellingTouchMode;render();},'btn ghost'));if(spellingTouchMode)box.append(touchSpellingInput(row.retryAnswer,submitRetry));else box.append(field('纠错后拼写',input),btn('保存纠错拼写',()=>submitRetry(input.value),'btn primary'));}else{box.append(p(`纠错结果：${row.retryCheck?.status==='correct'?'正确':'仍需复测'} · ${row.retryCheck?.errorType||''}`,'hint'),btn('进入下一题',()=>{j.spellingIndex++;if(save())render();},'btn primary'));}}
-  box.append(btn('跳过本题（保留未测试证据）',()=>{j.spellingAttempts.push({id:`spelling:skip:${task.id}:${Date.now()}`,taskId:task.id,packId:j.packId,sessionId:j.id,target:task.target,promptMode:task.promptMode,firstAnswer:'',firstCheck:{status:'unassessed'},inputMode:'free_text',skipped:true,completedAt:new Date().toISOString()});j.spellingIndex++;if(save())render();},'btn ghost'));app.append(box);
+  j.spellingIndex=Number.isInteger(j.spellingIndex)?j.spellingIndex:0;
+  j.spellingAttempts=Array.isArray(j.spellingAttempts)?j.spellingAttempts:[];
+  if(j.spellingIndex>=tasks.length){
+    const testedIds=new Set(j.spellingAttempts.filter(r=>!r.skipped&&String(r.firstAnswer||'').trim()).map(r=>r.taskId));
+    const skippedIds=new Set(j.spellingAttempts.filter(r=>r.skipped).map(r=>r.taskId));
+    const tested=tasks.filter(task=>testedIds.has(task.id)).length;
+    const skipped=tasks.filter(task=>!testedIds.has(task.id)&&skippedIds.has(task.id)).length;
+    j.completed=(j.completed||[]).filter(x=>x.stage!=='spelling');
+    j.completed.push({stage:'spelling',status:skipped?'partial':'completed',count:tested,planned:tasks.length,skipped});
+    j.index++;
+    if(save())beginJourneyStage();
+    return;
+  }
+  const task=tasks[j.spellingIndex];
+  // Legacy V9.0.1 stored firstAnswer and firstCheck, but forgot firstSubmittedAt.
+  // Rehydrate that first submission instead of resetting the screen to blank.
+  const prior=findExistingSpellingAttempt(j.spellingAttempts,task.id);
+  const box=section('transfer-challenge');
+  box.append(el('div','今日综合学习 · 炼字｜SPELLING FORGE','eyebrow'),
+    h('h1','拼写强化'),p(`第 ${j.spellingIndex+1} / ${tasks.length} 题 · 首次独立拼写不会显示答案。`,'tiny'));
+  const clue=englishSpellingCue(task);
+  box.append(h('h2',clue.prompt));
+  if(clue.audioText)box.append(btn(clue.audioLabel,()=>speakEnglish(clue.audioText),'btn secondary'));
+  const advance=message=>{
+    j.spellingIndex++;
+    if(save()){render();if(message)notify(message);}
+  };
+  if(!prior){
+    const input=textInput('','独立输入英文拼写');
+    input.autocomplete='off';input.autocorrect='off';input.spellcheck=false;
+    input.classList.add('answer-input');focusForMobile(input);
+    const submit=(answer,inputMode='free_text')=>{
+      const attempt=createSpellingFirstAttempt(task,answer,{packId:j.packId,sessionId:j.id,inputMode});
+      if(!attempt){notify('请先输入拼写。');return;}
+      j.spellingAttempts.push(attempt);
+      const passed=spellingPassed(attempt.firstCheck);
+      // Save answer and progress index atomically, preserving the real first response.
+      if(passed)j.spellingIndex++;
+      if(save()){
+        render();
+        notify(passed?'首次拼写已保存，进入下一题。':'首次答案已保存，请查看纠错并重试。');
+      }
+    };
+    box.append(btn(spellingTouchMode?'切换键盘输入':'切换触控字母输入',
+      ()=>{spellingTouchMode=!spellingTouchMode;render();},'btn ghost'));
+    if(spellingTouchMode)box.append(touchSpellingInput('',submit));
+    else box.append(field('你的首次拼写',input),btn('提交首次拼写',()=>submit(input.value),'btn primary'));
+    box.append(btn('跳过本题（保留未测试证据）',()=>{
+      j.spellingAttempts.push({id:`spelling:skip:${task.id}:${Date.now()}`,taskId:task.id,
+        packId:j.packId,sessionId:j.id,target:task.target,promptMode:task.promptMode,
+        firstAnswer:'',firstCheck:{status:'unassessed'},inputMode:'free_text',
+        skipped:true,completedAt:new Date().toISOString()});
+      advance('本题已跳过，没有记为正确或错误。');
+    },'btn ghost'));
+  }else{
+    box.append(p(`首次结果：${spellingPassed(prior.firstCheck)?'已记录':'需要纠错'} · ${prior.firstCheck?.errorType||''}`,'hint'),
+      p(`你的首次拼写：${prior.firstAnswer}`,'small-block'),
+      p(`参考答案：${task.target}`,'small-block'));
+    if(!spellingPassed(prior.firstCheck)&&!prior.retrySubmittedAt){
+      const input=textInput(prior.retryAnswer||'','不看答案再拼一次');
+      input.autocomplete='off';input.autocorrect='off';input.spellcheck=false;
+      input.classList.add('answer-input');focusForMobile(input);
+      const submitRetry=(answer,inputMode='free_text')=>{
+        const value=String(answer||'').trim();if(!value){notify('请先输入重练拼写。');return;}
+        prior.retryAnswer=value;
+        prior.retryCheck=compareSpellingAnswer(value,task.target);
+        prior.retrySubmittedAt=new Date().toISOString();
+        prior.inputModeRetry=inputMode;
+        prior.completedAt=prior.retrySubmittedAt;
+        advance(spellingPassed(prior.retryCheck)?'重练拼写已保存，进入下一题。':'重练结果已保留，后续仍需复习。');
+      };
+      box.append(btn(spellingTouchMode?'切换键盘输入':'切换触控字母输入',
+        ()=>{spellingTouchMode=!spellingTouchMode;render();},'btn ghost'));
+      if(spellingTouchMode)box.append(touchSpellingInput(prior.retryAnswer||'',submitRetry));
+      else box.append(field('纠错后拼写',input),btn('保存纠错拼写',()=>submitRetry(input.value),'btn primary'));
+      box.append(btn('暂不重练，进入下一题（保留首次错误）',
+        ()=>{prior.reviewDeferred=true;advance('首次错误已保留，未记为跳过。');},'btn ghost'));
+    }else{
+      if(prior.retrySubmittedAt)box.append(p(`重练答案：${prior.retryAnswer||'未填写'} · ${prior.retryCheck?.status||'未评估'}`,'hint'));
+      box.append(btn('进入下一题（首次作答已保存）',
+        ()=>advance('已保留之前的首次作答。'),'btn primary'));
+    }
+  }
+  app.append(box);
 }
 function transferTasks(){return Array.isArray(data.dailyPack?.transferTasks)?data.dailyPack.transferTasks:[];}
 function transferIndexValue(j,tasks=transferTasks()){

@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '9.0.0';
+export const APP_VERSION = '9.0.3';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -206,11 +206,31 @@ export function compareSpellingAnswer(answer,target) {
   const errorType=transposed?'letter_order_or_substitution':distance===1?(a.length===b.length?'letter_order_or_substitution':a.length<b.length?'missing_letter':'extra_letter'):raw.split(/\s+/).length>1?'word_choice_or_form':'different_answer';
   return {status:'incorrect',errorType,answer:raw,target:expected,distance};
 }
+/** Reuse the earliest genuinely submitted first answer, including V9.0.1 rows
+ * which were stored without firstSubmittedAt. Never reinterpret a skip as tested. */
+export function findExistingSpellingAttempt(attempts=[],taskId=''){
+  if(!Array.isArray(attempts))return null;
+  return attempts.find(row=>row?.taskId===taskId&&!row.skipped&&
+    typeof row.firstAnswer==='string'&&row.firstAnswer.trim().length>0&&
+    typeof row.firstCheck?.status==='string')||null;
+}
+export function spellingPassed(check){
+  return ['correct','case_or_punctuation'].includes(check?.status);
+}
+export function createSpellingFirstAttempt(task,answer,{packId='',sessionId='',inputMode='free_text',submittedAt=new Date().toISOString()}={}){
+  const value=String(answer??'').trim(),target=String(task?.target??'').trim();
+  if(!value||!target)return null;
+  const firstCheck=compareSpellingAnswer(value,target);
+  return {id:`spelling:${task.id}:${submittedAt}`,taskId:task.id,packId,sessionId,target,
+    promptMode:task.promptMode||'',firstAnswer:value,firstCheck,firstSubmittedAt:submittedAt,
+    retryAnswer:'',retryCheck:null,hintUsed:false,referenceViewed:false,
+    inputMode,activeSeconds:0,completedAt:spellingPassed(firstCheck)?submittedAt:null};
+}
 export function normalizeSpellingTask(raw={}, index=0, packId='') {
   const target=clean(raw.target||raw.answer); if(!target) return null;
   const mode=clean(raw.prompt_mode||raw.promptMode).toLowerCase()||'meaning_to_spelling';
   if(!['meaning_to_spelling','audio_to_spelling','sentence_cloze'].includes(mode)) return null;
-  return {id:clean(raw.id)||`spelling-${index+1}`,type:'spelling',target,promptMode:mode,cueZh:clean(raw.cue_zh||raw.cueZh||raw.hint_zh),example:clean(raw.example),ttsText:clean(raw.tts_text||raw.ttsText)||target,sourceItemId:clean(raw.source_item_id||raw.sourceItemId)||null,packId};
+  return {id:clean(raw.id)||`spelling-${index+1}`,type:'spelling',target,promptMode:mode,cueZh:clean(raw.cue_zh||raw.cueZh||raw.hint_zh),cueEn:clean(raw.cue_en||raw.cueEn||raw.definition_en||raw.definitionEn),example:clean(raw.example),ttsText:clean(raw.tts_text||raw.ttsText)||target,sourceItemId:clean(raw.source_item_id||raw.sourceItemId)||null,packId};
 }
 export function buildSpellingSummary(attempts=[]) {
   const rows=Array.isArray(attempts)?attempts:[], first=rows.filter(r=>r.firstCheck?.status==='correct'||r.first_check?.status==='correct'), retry=rows.filter(r=>r.retryCheck?.status==='correct'||r.retry_check?.status==='correct'), errors={};
