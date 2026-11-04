@@ -244,6 +244,7 @@ p,.lead,.question,.subtle,.tiny{ text-wrap:pretty }
 .reading-toolbar{box-shadow:0 10px 26px rgba(22,55,44,.12);border-color:var(--quiet-line-strong)}
 .reading-toolbar .btn{min-height:44px}
 .answer-input,.textarea,.select{scroll-margin-block:120px}
+.spelling-letter-grid{display:grid;grid-template-columns:repeat(7,minmax(2.4rem,1fr));gap:.4rem;margin:.75rem 0}.spelling-letter{min-height:2.8rem;padding:.35rem}.spelling-touch-value{min-height:3rem;border:1px solid var(--line);border-radius:var(--radius-sm);padding:.75rem;background:var(--surface);font-family:ui-monospace,monospace;letter-spacing:.08em;word-break:break-all}@media(max-width:390px){.spelling-letter-grid{grid-template-columns:repeat(6,minmax(2.35rem,1fr));gap:.3rem}.spelling-letter{min-height:2.6rem}}
 .answer-input:focus,.textarea:focus,.select:focus{box-shadow:0 0 0 4px var(--quiet-focus)}
 .recording-panel:focus-within,.transfer-practice:focus-within{border-color:var(--quiet-line-strong)}
 .listening-speaking-studio{margin-top:var(--space-4);padding:var(--space-4);border:1px solid var(--quiet-line-strong);border-radius:var(--quiet-radius);background:var(--quiet-card-highlight)}

@@ -15,8 +15,18 @@ export function zipStore(entries=[]){
   const centralSize=offset-centralOffset;const end=concat([u32(0x06054b50),u16(0),u16(0),u16(central.length),u16(central.length),u32(centralSize),u32(centralOffset),u16(0)]);const bytes=concat([...local,end]);return {bytes,entries:safeEntries};
 }
 
+export function readZipStore(input){
+  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||[]);const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);const entries=[];let offset=0;
+  while(offset+30<=bytes.length){if(view.getUint32(offset,true)!==0x04034b50)break;const method=view.getUint16(offset+8,true),size=view.getUint32(offset+18,true),nameLen=view.getUint16(offset+26,true),extraLen=view.getUint16(offset+28,true);if(method!==0||offset+30+nameLen+extraLen+size>bytes.length)throw new Error('ZIP contains unsupported or truncated entry.');const name=new TextDecoder().decode(bytes.slice(offset+30,offset+30+nameLen));const start=offset+30+nameLen+extraLen;entries.push({name,bytes:bytes.slice(start,start+size),size});offset=start+size;}
+  if(!entries.length||entries.some(e=>!e.name))throw new Error('ZIP has no readable entries.');return entries;
+}
+export async function sha256Hex(input){const bytes=input instanceof Uint8Array?input:new Uint8Array(input||[]);if(globalThis.crypto?.subtle){const hash=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}return null;}
+
 export function handoverEntries({report=null,feedback=null,pack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
+  const expected=Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[];
+  const abnormal=recordings.filter(row=>!row.bytes||row.bytes.length===0||row.error).map(row=>({recording_id:row.id||null,reason:row.error||'empty_bytes'}));
   const manifest={handover_schema_version:'1.0',generated_at:generatedAt,report_id:report?.report_id||null,session_id:report?.session_id||null,pack_id:report?.pack_id||pack?.packId||null,includes_recordings:recordings.length>0,recording_count:recordings.length,privacy:'local export only; no automatic upload',unknowns:['AI scoring and external sync are not performed by the website']};
+  if(recordings.length||expected.length)Object.assign(manifest,{expected_recording_count:expected.length||recordings.length,actual_packaged_count:recordings.filter(row=>row.bytes?.length>0&&!row.error).length,missing_recording_ids:expected.filter(id=>!recordings.some(row=>row.id===id)),abnormal_recordings:abnormal,total_recording_bytes:recordings.reduce((sum,row)=>sum+Number(row.bytes?.length||0),0),recording_task_ids:recordings.map(row=>({recording_id:row.id||null,task_id:row.taskId||null,attempt_id:row.attemptId||null,sha256:row.sha256||null,bytes:Number(row.bytes?.length||0)}))});
   const entries=[
     {name:'manifest.json',bytes:encoder.encode(JSON.stringify(manifest,null,2)+'\n')},
     {name:'battle-report.json',bytes:encoder.encode(JSON.stringify(report||{},null,2)+'\n')},

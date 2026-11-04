@@ -463,3 +463,29 @@ V3.5 batches
 - Public HTTPS verification returned `APP_VERSION = '7.0.0'`, the new `renderListeningStudio`, `buildMasteryAnalytics` and `exportCentralHandover` markers, and HTTP 200 for `/`, `app.js`, `core.mjs`, `studio.mjs`, `handover.mjs`, `styles.css` and `sw.js`.
 - V7 adds no second Journey, no second FSRS and no cloud sync. Original JSON, reports, K/V/N, IndexedDB recordings and visual assets remain compatible. Default handover ZIP excludes recordings; recording inclusion requires an explicit local action.
 - Local evidence: `npm run check` passes **141/141**; dedicated Studio/ZIP tests pass 4/4; data safety 4/4; PWA audit and mobile baseline 11/11; V1/V6/native browser smokes pass. Physical iPhone Safari, microphone permissions, ZIP download behavior and actual voice availability remain user-only checks.
+
+## V7.0 reliability/data-preservation audit (2026-11-03, unmerged)
+
+- Baseline verified: `origin/main` `25ae304`, package/app/SW `7.0.0`, data schema `4.3`; branch `audit/v7-reliability`.
+- Added synthetic-only recovery fixtures and scripts: `test/reliability-audit.test.mjs`, `test/reliability-fixture.mjs`, `scripts/reliability-audit.mjs`, `scripts/test-reliability-browser.mjs`, and `scripts/test-reliability-offline.mjs`. Added report `docs/reliability-audit-v7.md`.
+- Found and minimally fixed two data-safety issues: mastery analytics no longer counts skipped/blank K rows as independent mastery; `persistState()` now safely returns a failed save result when JSON serialization throws. No user data or storage schema changed.
+- Fresh local evidence: `npm run check` **149/149**; focused audit **8/8**; learning-data-safety **4/4**; PWA bundle **pass**; mobile static baseline **11/11**; recovery/malformed-storage/offline browser probes and existing V1/V6/native browser smokes pass. Synthetic stress metrics are recorded in the audit report.
+- Security/dependency boundary: no secrets or dynamic HTML sinks found in production paths; `npm audit` could not run because the repository has no lockfile, so dependency CVE status is explicitly **unverified**. No lockfile was generated.
+- Commits `217cdd1b5883061bba4da21dfb5bc1492a692550` (implementation), `0c346bf`, `dbcbe5d`, and `f31dc8e` (documentation/checkpoint updates); unmerged PR #56: https://github.com/jajagood777-sys/english-mastery-mobile/pull/56. GitHub `test` run `41652383179` passed 149/149; the existing unrelated `Workers Builds: english-cultivation-gmini-v59-mobile` check is red and `Cloudflare Pages` staging check passed. No formal Pages deployment or merge was performed; physical iPhone checks remain manual.
+
+## V8.0 quality upgrade (implementation checkpoint, 2026-11-04)
+
+- Branch: `feature/v8-quality-upgrade`, based on the previous reliability checkpoint.
+- Added structured `resolveTaskInputMode()` routing for speaking, reading-to-speaking, writing, grammar, Exit Ticket and general transfer tasks.
+- Added normalized reading choice comparison for answer keys and full option text, preserving open questions as unassessed.
+- Added explicit transfer status normalization and persisted skipped transfer evidence.
+- Added optional schema 2.0 `spelling_tasks[]`, integrated as a vocabulary-adjacent Journey stage with first/retry answers, real spelling checks, error categories and independent Battle Report evidence.
+- Added live recording duration/short-recording warning UI and expanded local handover manifest evidence for expected, packaged, abnormal, missing and byte counts while retaining manifest v1.0 compatibility.
+- Synthetic V8 tests pass with the existing suite: **155/155**. No real localStorage, IndexedDB recordings or private material were touched. Browser/iPhone regression and CI/PR remain pending.
+
+## V8.1 touch spelling and handover readback (2026-11-04)
+
+- Added an optional A–Z touch spelling keyboard with undo, clear, submit, keyboard/touch switching, repeated-letter support and separate retry input evidence. It does not reveal the target word or alter the spelling comparator.
+- Added store-only ZIP readback (`readZipStore`) and SHA-256 helper. Recording handover now computes hashes, preserves task/attempt IDs, checks manifest counts after re-reading the generated ZIP, and reports empty/abnormal audio without changing learner storage.
+- Added synthetic regressions for touch first/retry evidence, duplicate recording IDs, empty audio, 1 MiB audio, corrupted ZIP input, manifest readback and SHA-256 metadata.
+- Local `npm run check`: **158/158**. Staging/CI and PR checks remain pending after this continuation commit; physical iPhone Safari remains **NOT_VERIFIED**.
