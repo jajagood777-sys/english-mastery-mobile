@@ -182,6 +182,12 @@ test('V4.4 transfer and optional reading comprehension paths preserve evidence',
  assert.match(core,/transfer_tasks/);
  assert.match(core,/questions/);
 });
+test('V10 reading completion keeps unfinished comprehension partial',()=>{
+ assert.match(app,/readingPartialIds/);assert.match(app,/check\?\.status!=='completed'/);assert.match(app,/status:partial\?'partial':'completed'/);
+});
+test('V10 Journey schedules bounded delayed correction attempts and preserves linkage',()=>{
+ assert.match(app,/baseQueueLength/);assert.match(app,/correctionIds/);assert.match(app,/Math\.min\(5/);assert.match(app,/correction_attempt/);assert.match(app,/correction_of/);
+});
 
 test('V5 training exposes a single transfer room route and local recording fallback',()=>{
  assert.match(app,/function renderTransferHub/);assert.match(app,/综合输出/);assert.match(app,/recordingCapability/);assert.match(app,/getUserMedia/);assert.match(app,/IndexedDB/);
