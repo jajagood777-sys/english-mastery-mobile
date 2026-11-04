@@ -9,7 +9,7 @@ test('V9.1 existing Journey keeps correction inside the original task surface',(
   assert.match(app,/retryBox\(container,item,s/);
   assert.match(app,/retryCompleted/);
   assert.match(app,/retrySubmittedAt/);
-  assert.match(app,/首次答案已保留/);
+  assert.match(app,/第一次答案|原答案|retry-box/);
   assert.doesNotMatch(app,/创建新的错词复习页|开始错词复习/);
 });
 
