@@ -1,0 +1,61 @@
+name: Kokoro V5.4 browser-runtime build
+on:
+  push:
+    branches:
+      - work/v5-4-kokoro-isolated-prototype-20261101
+    paths:
+      - kokoro-runtime/entry.mjs
+      - kokoro-test.mjs
+      - .github/workflows/kokoro-browser-build.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install pinned experimental runtime
+        run: npm install --no-save --no-package-lock kokoro-js@1.2.1 esbuild@0.25.12
+      - name: Record dependency audit and versions
+        run: |
+          npm ls kokoro-js @huggingface/transformers onnxruntime-web esbuild || true
+          npm install --package-lock-only --ignore-scripts kokoro-js@1.2.1 esbuild@0.25.12
+          npm audit --json > kokoro-runtime-audit.json || true
+          node -e "const a=require('./kokoro-runtime-audit.json'); if(a.error){console.warn('Audit query failed',a.error);process.exitCode=1}else {console.log('Experimental dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities||{})); for(const [name,v] of Object.entries(a.vulnerabilities||{})) console.log('AUDIT DETAIL:',name,v.severity,JSON.stringify(v.via),v.fixAvailable)}"
+      - name: Build self-hosted browser runtime
+        run: |
+          mkdir -p kokoro-runtime/dist
+          npx esbuild kokoro-runtime/entry.mjs --bundle --platform=browser --format=esm --target=es2022 --outfile=kokoro-runtime/dist/kokoro-engine.mjs --log-level=warning --external:onnxruntime-node
+          WASM=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm' -print -quit)
+          MJS=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs' -print -quit)
+          test -n "$WASM" && test -n "$MJS"
+          cp "$WASM" "$MJS" kokoro-runtime/dist/
+          JSEP_WASM=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm' -print -quit)
+          JSEP_MJS=$(find node_modules -type f -path '*/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs' -print -quit)
+          test -n "$JSEP_WASM" && test -n "$JSEP_MJS"
+          cp "$JSEP_WASM" "$JSEP_MJS" kokoro-runtime/dist/
+          node --check kokoro-runtime/dist/kokoro-engine.mjs
+          ls -lh kokoro-runtime/dist/
+      - name: Upload verified browser-runtime candidates (not production)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kokoro-browser-runtime-candidate
+          path: |
+            kokoro-runtime/dist/
+            kokoro-runtime-audit.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Commit isolated runtime assets to PR branch only
+        if: github.ref == 'refs/heads/work/v5-4-kokoro-isolated-prototype-20261101'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f kokoro-runtime/dist/kokoro-engine.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.wasm kokoro-runtime/dist/ort-wasm-simd-threaded.jsep.mjs kokoro-runtime/dist/ort-wasm-simd-threaded.jsep.wasm
+          git diff --cached --quiet && exit 0
+          git commit -m 'build(kokoro): pin isolated browser bundle and WASM resources'
+          git push origin HEAD:work/v5-4-kokoro-isolated-prototype-20261101
