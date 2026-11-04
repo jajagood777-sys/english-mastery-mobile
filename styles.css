@@ -261,3 +261,17 @@ p,.lead,.question,.subtle,.tiny{ text-wrap:pretty }
   .reading-toolbar .btn{min-height:46px}
 }
 @media(prefers-reduced-motion:reduce){.feature-card{box-shadow:none}.feature-card::before{opacity:.45}}
+
+.report-handoff{margin-top:20px;padding:18px;border:1px solid var(--theme-border);border-radius:16px;background:var(--theme-card)}
+.report-handoff .report-primary-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:stretch}
+.report-handoff .report-primary-actions .btn{min-width:0}
+.report-export-options{margin-top:16px;border-top:1px solid var(--theme-border);padding-top:12px}
+.report-export-options>summary{cursor:pointer;color:var(--theme-muted);font-size:14px;font-weight:650;list-style:revert}
+.report-export-options .actions{padding-top:6px}
+@media(max-width:540px){
+ .report-handoff{padding:14px}
+ .report-handoff .report-primary-actions{grid-template-columns:1fr}
+ .report-handoff .report-primary-actions .btn{width:100%}
+ .report-export-options .actions{display:grid;grid-template-columns:1fr}
+ .report-export-options .actions .btn{width:100%}
+}
