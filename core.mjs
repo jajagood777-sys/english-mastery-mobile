@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '9.0.0';
+export const APP_VERSION = '9.0.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -210,7 +210,7 @@ export function normalizeSpellingTask(raw={}, index=0, packId='') {
   const target=clean(raw.target||raw.answer); if(!target) return null;
   const mode=clean(raw.prompt_mode||raw.promptMode).toLowerCase()||'meaning_to_spelling';
   if(!['meaning_to_spelling','audio_to_spelling','sentence_cloze'].includes(mode)) return null;
-  return {id:clean(raw.id)||`spelling-${index+1}`,type:'spelling',target,promptMode:mode,cueZh:clean(raw.cue_zh||raw.cueZh||raw.hint_zh),example:clean(raw.example),ttsText:clean(raw.tts_text||raw.ttsText)||target,sourceItemId:clean(raw.source_item_id||raw.sourceItemId)||null,packId};
+  return {id:clean(raw.id)||`spelling-${index+1}`,type:'spelling',target,promptMode:mode,cueZh:clean(raw.cue_zh||raw.cueZh||raw.hint_zh),cueEn:clean(raw.cue_en||raw.cueEn||raw.definition_en||raw.definitionEn),example:clean(raw.example),ttsText:clean(raw.tts_text||raw.ttsText)||target,sourceItemId:clean(raw.source_item_id||raw.sourceItemId)||null,packId};
 }
 export function buildSpellingSummary(attempts=[]) {
   const rows=Array.isArray(attempts)?attempts:[], first=rows.filter(r=>r.firstCheck?.status==='correct'||r.first_check?.status==='correct'), retry=rows.filter(r=>r.retryCheck?.status==='correct'||r.retry_check?.status==='correct'), errors={};
