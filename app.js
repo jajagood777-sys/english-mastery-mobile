@@ -294,7 +294,7 @@ function startDailyJourney(){
   const steps=journeyStages();
   if(!steps.length){notify('此学习包没有可用模块，请检查导入内容。');return setPage('library');}
   const id=`journey:${pack.packId}:${Date.now()}`;
-  data.dailyJourney={id,packId:pack.packId,startedAt:new Date().toISOString(),steps,index:0,completed:[],sessionIds:[],readingMs:0,readingRunning:false,readingLastTick:null,readingDoneIds:[],readingRecallQueue:[],readingRecallIndex:0,readingRecallAttempts:[],readingRecallStep:null,readingRecallDraft:'',spellingIndex:0,spellingAttempts:[],transferIndex:0,transferAttempts:[],transferRecordingIds:{},transferSkippedTaskIds:[],transferMs:0,transferRunning:false,transferLastTick:null,targetMinutes:Number(pack.recommendedMinutes||data.settings.duration)||40,finishedAt:null};
+  data.dailyJourney={id,packId:pack.packId,startedAt:new Date().toISOString(),steps,index:0,completed:[],sessionIds:[],readingMs:0,readingRunning:false,readingLastTick:null,readingDoneIds:[],readingPartialIds:[],readingRecallQueue:[],readingRecallIndex:0,readingRecallAttempts:[],readingRecallStep:null,readingRecallDraft:'',spellingIndex:0,spellingAttempts:[],transferIndex:0,transferAttempts:[],transferRecordingIds:{},transferSkippedTaskIds:[],transferMs:0,transferRunning:false,transferLastTick:null,targetMinutes:Number(pack.recommendedMinutes||data.settings.duration)||40,finishedAt:null};
   if(!save())return;
   beginJourneyStage();
 }
@@ -345,12 +345,13 @@ function readingRecallQueueFor(article){
   return rows.slice(0,5);
 }
 function finishReadingArticle(j,article){
-  j.readingDoneIds.push(article.id);j.readingRecallQueue=[];j.readingRecallIndex=0;j.readingRecallStep=null;j.readingRecallDraft='';
+  if(!j.readingDoneIds.includes(article.id))j.readingDoneIds.push(article.id);const questions=readingQuestionsFor(article),check=readingCheckState(article);if(questions.length&&check?.status!=='completed'){j.readingPartialIds=[...(j.readingPartialIds||[]).filter(id=>id!==article.id),article.id];}
+  j.readingRecallQueue=[];j.readingRecallIndex=0;j.readingRecallStep=null;j.readingRecallDraft='';
   if(!save())return;
   if(readingQuestionsFor(article).length&&!readingCheckState(article))notify(`文章已完成；阅读理解还有 ${readingQuestionsFor(article).length} 题待完成，可在阅读目录继续。`);
   const pending=journeyReadings().filter(x=>!j.readingDoneIds.includes(x.id));
   if(pending.length){selectedReadingId=pending[0].id;resumeJourneyReading();return;}
-  j.completed.push({stage:'reading',status:'completed',count:j.readingDoneIds.length});j.index++;
+  const partial=(j.readingPartialIds||[]).length>0;j.completed.push({stage:'reading',status:partial?'partial':'completed',count:j.readingDoneIds.length,partial_count:(j.readingPartialIds||[]).length});j.index++;
   if(save())beginJourneyStage();
 }
 function renderReadingRecall(j,article){
@@ -379,7 +380,8 @@ function finishDailyJourney(){
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
   const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],spellingAttempts:j.spellingAttempts||[],timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
-  report.reading_completed=j.readingDoneIds.length;
+  report.reading_completed=j.readingDoneIds.filter(id=>!(j.readingPartialIds||[]).includes(id)).length;
+  report.reading_partial=j.readingPartialIds||[];
   report.reading_seconds=Math.round(j.readingMs/1000);
   report.target_minutes=j.targetMinutes;
   report.modules_completed=j.completed.filter(x=>x.status==='completed').length;
