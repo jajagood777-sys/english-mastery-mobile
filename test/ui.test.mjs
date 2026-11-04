@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v9\.0\.3/);
+ assert.match(sw,/english-cultivation-static-v10\.0\.0/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -165,7 +165,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v9\.0\.3/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v10\.0\.0/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V6.2 visual polish keeps the existing asset layer and mobile-safe rhythm',()=>{
@@ -252,7 +252,7 @@ test('V7 progress page exposes evidence analytics without changing the existing 
  assert.match(app,/function renderMasteryAnalytics/);assert.match(app,/buildMasteryAnalytics/);assert.match(app,/真实掌握证据/);assert.match(css,/\.mastery-evidence-panel/);
 });
 
-test('V9.0.3 finished-summary prioritizes only two visible actions while retaining advanced exports',()=>{
+test('V10.0.0 finished-summary prioritizes only two visible actions while retaining advanced exports',()=>{
  const summary=app.slice(app.indexOf('function renderSummary(){'),app.indexOf('function renderReports(){'));
  assert.match(summary,/report-primary-actions/);
  assert.match(summary,/btn\('下载完整交接包 ZIP',\(\)=>exportCentralHandover\(true\)/);
