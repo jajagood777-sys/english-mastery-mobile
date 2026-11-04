@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {V8_009_CONTEXT_GLOSSES,englishDefinitionFor,englishSpellingCue,maskSpellingTarget} from '../english-first.mjs';
-import {recordsFromLearningPack} from '../core.mjs';
+import {readFileSync} from 'node:fs';
+import {V8_009_CONTEXT_GLOSSES,englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from '../english-first.mjs';
+import {recordsFromLearningPack,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from '../core.mjs';
 const PACK='EN-DAILY-20261104-V8-009';
 test('V8-009 existing 16 word cards have English-only contextual definitions without replacing source evidence',()=>{
   assert.equal(Object.keys(V8_009_CONTEXT_GLOSSES).length,18);
@@ -46,4 +47,54 @@ test('new spelling cue_en survives pack normalization without rewriting the orig
   assert.equal(imported.pack.spellingTasks[0].cueEn,'a subtle difference in meaning');
   assert.equal(imported.pack.spellingTasks[0].promptMode,'meaning_to_spelling');
   assert.equal(imported.pack.packId,'SYNTHETIC');
+});
+
+test('V9.0.2 recovers first answer saved before firstSubmittedAt was introduced',()=>{
+  const first={id:'spelling:sp1:old',taskId:'sp1',firstAnswer:'scramble',firstCheck:{status:'correct'},retryAnswer:'',retryCheck:null};
+  const attempts=[first,{id:'spelling:sp1:duplicate',taskId:'sp1',firstAnswer:'scramble',firstCheck:{status:'correct'}}];
+  assert.equal(findExistingSpellingAttempt(attempts,'sp1'),first);
+  assert.equal(first.firstSubmittedAt,undefined);
+  assert.equal(findExistingSpellingAttempt([{taskId:'sp1',firstAnswer:'',skipped:true,firstCheck:{status:'unassessed'}}],'sp1'),null);
+});
+test('V9.0.2 first spelling creates timestamp and retains original independent answer',()=>{
+  const task={id:'sp1',target:'scramble',promptMode:'meaning_to_spelling'};
+  const at='2026-11-04T08:00:00.000Z';
+  const attempt=createSpellingFirstAttempt(task,'scramble',{packId:PACK,sessionId:'journey-1',submittedAt:at});
+  assert.equal(attempt.firstSubmittedAt,at);
+  assert.equal(attempt.firstAnswer,'scramble');
+  assert.equal(attempt.firstCheck.status,'correct');
+  assert.equal(attempt.completedAt,at);
+  assert.equal(spellingPassed(attempt.firstCheck),true);
+  assert.equal(findExistingSpellingAttempt([attempt],'sp1'),attempt);
+});
+test('V9.0.2 incorrect spelling keeps first-answer evidence for retry; empty does not count',()=>{
+  const task={id:'sp2',target:'nuance',promptMode:'meaning_to_spelling'};
+  const attempt=createSpellingFirstAttempt(task,'nuence',{packId:PACK,sessionId:'journey-1',submittedAt:'2026-11-04T08:01:00Z'});
+  assert.equal(attempt.firstAnswer,'nuence');
+  assert.equal(attempt.firstCheck.status,'incorrect');
+  assert.equal(attempt.completedAt,null);
+  assert.equal(spellingPassed(attempt.firstCheck),false);
+  assert.equal(createSpellingFirstAttempt(task,'  '),null);
+});
+test('V9.0.2 first-level guided word hint uses English without Chinese translations',()=>{
+  const item={target:'lose track of time',meaningZh:'忘记时间；不知不觉过了很久'};
+  const hint=englishWordHint(item,PACK);
+  assert.match(hint,/stop noticing how much time has passed/i);
+  assert.doesNotMatch(hint,/[\u3400-\u9fff]/);
+  const context=englishWordHint({target:'clarify',meaningZh:'澄清',example:'I need to clarify the issue.'},'OTHER');
+  assert.match(context,/_____ /);
+  assert.doesNotMatch(context,/clarify|澄清/i);
+});
+test('V9.0.2 screen honors legacy attempts and contains no Chinese word-hint injection',()=>{
+  const src=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+  const pos=src.indexOf('function wordHintPanel('),next=src.indexOf('function focusForMobile(',pos);
+  const hintSource=src.slice(pos,next);
+  assert.ok(pos>=0&&next>pos);
+  assert.doesNotMatch(hintSource,/中文释义：|item\.meaningZh/);
+  assert.match(hintSource,/englishWordHint/);
+  const screen=src.slice(src.indexOf('function renderSpellingForge('),src.indexOf('function transferTasks('));
+  assert.match(screen,/findExistingSpellingAttempt/);
+  assert.match(screen,/createSpellingFirstAttempt/);
+  assert.doesNotMatch(screen,/!prior\.firstSubmittedAt/);
+  assert.match(screen,/prior\.retrySubmittedAt/);
 });
