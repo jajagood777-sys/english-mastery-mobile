@@ -64,3 +64,13 @@ export function englishSpellingCue(task={}){
     ? {prompt:'Context clue: '+context,audioLabel:'▶ Listen to the context clue',audioText:'Complete the missing word in this sentence: '+context.replaceAll('_____','blank'),hasEnglishClue:true}
     : {prompt:'English clue unavailable for this pack. You may skip this question without a test result.',audioLabel:'',audioText:'',hasEnglishClue:false};
 }
+
+/** English-only hint with source-backed English definition or masked example. */
+export function englishWordHint(item={},packId=''){
+  const meaning=englishDefinitionFor(item,packId);
+  if(meaning)return maskSpellingTarget(meaning,item.target)||meaning;
+  const example=clean(item.example);
+  const masked=maskSpellingTarget(example,item.target);
+  return masked&&masked!==example?'Context clue: '+masked:
+    'English definition unavailable for this item. Skip rather than claiming recall.';
+}

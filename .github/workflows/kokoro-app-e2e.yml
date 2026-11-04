@@ -8,6 +8,7 @@ on:
       - 'styles.css'
       - 'sw.js'
       - 'scripts/test-real-app-native-speech.mjs'
+      - 'scripts/test-spelling-progress.mjs'
       - 'scripts/test-v6-follow-along-feedback.mjs'
       - 'scripts/test-v1-four-in-one.mjs'
       - '.github/workflows/kokoro-app-e2e.yml'
@@ -32,6 +33,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:4175/ >/dev/null
       - name: Verify native Web Speech in the real app and preserve learner data
         run: node scripts/test-real-app-native-speech.mjs
+      - name: Verify spelling first-submission progress and legacy Safari recovery
+        run: node scripts/test-spelling-progress.mjs
       - name: Verify V6 follow-along recording and central feedback
         run: node scripts/test-v6-follow-along-feedback.mjs
       - name: Verify V1 four-in-one Journey and Exit Ticket
