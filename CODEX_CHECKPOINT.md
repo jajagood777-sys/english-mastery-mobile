@@ -489,3 +489,12 @@ V3.5 batches
 - Added store-only ZIP readback (`readZipStore`) and SHA-256 helper. Recording handover now computes hashes, preserves task/attempt IDs, checks manifest counts after re-reading the generated ZIP, and reports empty/abnormal audio without changing learner storage.
 - Added synthetic regressions for touch first/retry evidence, duplicate recording IDs, empty audio, 1 MiB audio, corrupted ZIP input, manifest readback and SHA-256 metadata.
 - Local `npm run check`: **158/158**. Staging/CI and PR checks remain pending after this continuation commit; physical iPhone Safari remains **NOT_VERIFIED**.
+
+## V9.0 production release (2026-11-04)
+
+- PR #56 and PR #57 are merged into `main`; production merge commit: `b68ff937c376fbe1aae1c01804c76fd65c530596`.
+- GitHub Actions `English Cultivation checks` run `41748513455` passed. GitHub Pages build/deployment run `41748512982` passed. The historical Cloudflare Worker build remains an unrelated failure and was not modified.
+- Production URL: https://jajagood777-sys.github.io/english-mastery-mobile/ . Pages API reports `status: built`, source `main:/`.
+- Automated production smoke at 390×844 loaded the shell, four bottom-navigation targets, title and app content with no page errors or console errors. Live `app.js`, `core.mjs`, `handover.mjs`, `sw.js` and Schema documentation return HTTP 200 and expose V8/V8.1 markers (`resolveTaskInputMode`, `readZipStore`, `spelling-letter-grid`, `english-cultivation-static-v7.0.0`).
+- Local V8.1 evidence remains **158/158**. No localStorage, IndexedDB recordings, reports or private learning data were cleared, migrated destructively, or uploaded.
+- Final state: `PRODUCTION_DEPLOYED_MANUAL_DEVICE_TEST_PENDING`. Physical iPhone Safari microphone permission, system keyboard, touch spelling, audio replay, ZIP download and PWA cache refresh remain manual checks. Rollback is the normal GitHub Pages rollback to the previous main commit `25ae304` if a release regression is verified.
