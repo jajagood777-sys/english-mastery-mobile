@@ -493,10 +493,12 @@ V3.5 batches
 ## V9.0 production release (2026-11-04)
 
 - PR #56 and PR #57 are merged into `main`; production merge commit: `b68ff937c376fbe1aae1c01804c76fd65c530596`.
+- Final V9 release version/cache commit: `7be8b709809cfe97ab66a07ad3c2bef7ab5b18ca`; GitHub Actions checks run `41750058215` and Pages build/deployment run `41750058108` both passed.
 - Final release verification documentation commit: `d9e11da2e8a53fba06ec9b79f8cc2bc4a94750bb` (deployed and verified; later checkpoint-only commits do not change application resources).
 - GitHub Actions `English Cultivation checks` run `41748513455` passed. GitHub Pages build/deployment run `41748512982` passed. The historical Cloudflare Worker build remains an unrelated failure and was not modified.
 - Production URL: https://jajagood777-sys.github.io/english-mastery-mobile/ . Pages API reports `status: built`, source `main:/`.
 - Release marker/package version and Service Worker cache are now `9.0.0` (`english-cultivation-static-v9.0.0`); storage schema remains `4.3` and no migration/reset is required.
 - Automated production smoke at 390×844 loaded the shell, four bottom-navigation targets, title and app content with no page errors or console errors. Live `app.js`, `core.mjs`, `handover.mjs`, `sw.js` and Schema documentation return HTTP 200 and expose V8/V8.1 markers (`resolveTaskInputMode`, `readZipStore`, `spelling-letter-grid`, `english-cultivation-static-v9.0.0`).
+- A post-deploy synthetic JSON import on the live URL entered the existing Journey and reached Spelling Forge; a 390×844 touch-mode probe exposed 26 letter controls, verified undo behavior and reported no page or console errors. This used only `/tmp/v9-production-pack.json` in an isolated browser context.
 - Local V8.1 evidence remains **158/158**. No localStorage, IndexedDB recordings, reports or private learning data were cleared, migrated destructively, or uploaded.
 - Final state: `PRODUCTION_DEPLOYED_MANUAL_DEVICE_TEST_PENDING`. Physical iPhone Safari microphone permission, system keyboard, touch spelling, audio replay, ZIP download and PWA cache refresh remain manual checks. Rollback is the normal GitHub Pages rollback to the previous main commit `25ae304` if a release regression is verified.
