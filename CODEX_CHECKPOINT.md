@@ -482,3 +482,10 @@ V3.5 batches
 - Added optional schema 2.0 `spelling_tasks[]`, integrated as a vocabulary-adjacent Journey stage with first/retry answers, real spelling checks, error categories and independent Battle Report evidence.
 - Added live recording duration/short-recording warning UI and expanded local handover manifest evidence for expected, packaged, abnormal, missing and byte counts while retaining manifest v1.0 compatibility.
 - Synthetic V8 tests pass with the existing suite: **155/155**. No real localStorage, IndexedDB recordings or private material were touched. Browser/iPhone regression and CI/PR remain pending.
+
+## V8.1 touch spelling and handover readback (2026-11-04)
+
+- Added an optional A–Z touch spelling keyboard with undo, clear, submit, keyboard/touch switching, repeated-letter support and separate retry input evidence. It does not reveal the target word or alter the spelling comparator.
+- Added store-only ZIP readback (`readZipStore`) and SHA-256 helper. Recording handover now computes hashes, preserves task/attempt IDs, checks manifest counts after re-reading the generated ZIP, and reports empty/abnormal audio without changing learner storage.
+- Added synthetic regressions for touch first/retry evidence, duplicate recording IDs, empty audio, 1 MiB audio, corrupted ZIP input, manifest readback and SHA-256 metadata.
+- Local `npm run check`: **158/158**. Staging/CI and PR checks remain pending after this continuation commit; physical iPhone Safari remains **NOT_VERIFIED**.

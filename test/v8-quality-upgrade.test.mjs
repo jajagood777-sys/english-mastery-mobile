@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,recordsFromLearningPack,buildBattleReport,buildSpellingSummary,normalizeTransferAttempt} from '../core.mjs';
-import {handoverEntries} from '../handover.mjs';
+import {handoverEntries,zipStore,readZipStore,sha256Hex} from '../handover.mjs';
 
 test('V8 structured task modes keep speaking controls separate from writing',()=>{
   assert.equal(resolveTaskInputMode({task_type:'speaking'}),'speaking');
@@ -39,4 +39,21 @@ test('V8 battle report carries spelling evidence without changing legacy attempt
 test('V8 handover manifest reports expected and abnormal audio without upload',()=>{
   const {manifest}=handoverEntries({report:{report_id:'r',session_id:'s',pack_id:'p',transfer_attempts:[{recording_ids:['r1','r2']}]},recordings:[{id:'r1',taskId:'T1',bytes:new Uint8Array([1,2])},{id:'r2',taskId:'T2',bytes:new Uint8Array()}]});
   assert.equal(manifest.expected_recording_count,2);assert.equal(manifest.actual_packaged_count,1);assert.deepEqual(manifest.missing_recording_ids,[]);assert.equal(manifest.abnormal_recordings.length,1);
+});
+test('V8 touch spelling evidence keeps first and retry input modes distinct',()=>{
+  const first=compareSpellingAnswer('calss','class'), retry=compareSpellingAnswer('class','class');
+  assert.equal(first.status,'incorrect');assert.equal(retry.status,'correct');
+  const row={firstAnswer:'calss',firstCheck:first,retryAnswer:'class',retryCheck:retry,inputMode:'touch_assisted',inputModeRetry:'touch_assisted'};
+  assert.equal(row.firstAnswer,'calss');assert.equal(row.retryAnswer,'class');assert.notEqual(row.firstAnswer,row.retryAnswer);
+});
+test('V8 ZIP round trip reads manifest, duplicate IDs and SHA-256 evidence',async()=>{
+  const bytes=new Uint8Array([1,2,3,4]),hash=await sha256Hex(bytes);
+  const {entries}=handoverEntries({report:{report_id:'r',session_id:'s',pack_id:'p',transfer_attempts:[{recording_ids:['r1']}]},recordings:[{id:'r1',taskId:'T1',attemptId:'A1',bytes,sha256:hash}]});
+  const zip=zipStore(entries),read=readZipStore(zip.bytes),manifest=JSON.parse(new TextDecoder().decode(read.find(x=>x.name==='manifest.json').bytes));
+  assert.equal(read.find(x=>x.name.startsWith('recordings/')).bytes.length,4);assert.equal(manifest.recording_task_ids[0].sha256,hash);assert.equal(manifest.total_recording_bytes,4);
+  const corrupt=zip.bytes.slice();corrupt[0]=0;assert.throws(()=>readZipStore(corrupt),/ZIP/);
+});
+test('V8 ZIP handles empty and large synthetic audio without silent success',async()=>{
+  const large=new Uint8Array(1024*1024);const {entries,manifest}=handoverEntries({report:{transfer_attempts:[{recording_ids:['empty','large']}]},recordings:[{id:'empty',bytes:new Uint8Array(),error:'empty'},{id:'large',bytes:large,sha256:await sha256Hex(large)}]});
+  const read=readZipStore(zipStore(entries).bytes);assert.equal(manifest.actual_packaged_count,1);assert.equal(manifest.abnormal_recordings.length,1);assert.equal(read.find(x=>x.name.includes('large')).bytes.length,large.length);
 });
