@@ -22,10 +22,27 @@ export function readZipStore(input){
 }
 export async function sha256Hex(input){const bytes=input instanceof Uint8Array?input:new Uint8Array(input||[]);if(globalThis.crypto?.subtle){const hash=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}return null;}
 
-export function handoverEntries({report=null,feedback=null,pack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
+export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
   const expected=Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[];
   const abnormal=recordings.filter(row=>!row.bytes||row.bytes.length===0||row.error).map(row=>({recording_id:row.id||null,reason:row.error||'empty_bytes'}));
-  const manifest={handover_schema_version:'1.0',generated_at:generatedAt,report_id:report?.report_id||null,session_id:report?.session_id||null,pack_id:report?.pack_id||pack?.packId||null,includes_recordings:recordings.length>0,recording_count:recordings.length,privacy:'local export only; no automatic upload',unknowns:['AI scoring and external sync are not performed by the website']};
+  const fallbackSource=sourcePack||pack?.sourcePack||null;
+  const sourceBytes=fallbackSource?.bytes instanceof Uint8Array?fallbackSource.bytes:(typeof fallbackSource?.raw==='string'?encoder.encode(fallbackSource.raw):null);
+  let sourceParsed=null,sourceError=clean(fallbackSource?.unavailableReason||pack?.sourcePackUnavailableReason);
+  if(sourceBytes){
+    try{
+      sourceParsed=JSON.parse(new TextDecoder().decode(sourceBytes));
+      if(sourceParsed?.schema_version!=='2.0')throw Error('source pack schema_version is not 2.0');
+      const sourceId=clean(sourceParsed.pack_id||fallbackSource.packId);
+      if(!sourceId)throw Error('source pack has no pack_id');
+      if(clean(sourceParsed.pack_id)!==sourceId)throw Error('source pack metadata mismatch');
+      if(report?.pack_id&&report.pack_id!==sourceId)throw Error('report.pack_id does not match source pack');
+      if(pack?.packId&&pack.packId!==sourceId)throw Error('daily pack ID does not match source pack');
+      fallbackSource.packId=sourceId;fallbackSource.schemaVersion='2.0';
+    }catch(error){sourceParsed=null;sourceError=`source pack rejected: ${error.message}`;}
+  }
+  const sourceIncluded=Boolean(sourceParsed&&sourceBytes);
+  if(!sourceIncluded&&!sourceError)sourceError='original imported source pack is unavailable for this older Journey';
+  const manifest={handover_schema_version:'1.0',generated_at:generatedAt,report_id:report?.report_id||null,session_id:report?.session_id||null,pack_id:report?.pack_id||pack?.packId||null,includes_recordings:recordings.length>0,recording_count:recordings.length,privacy:'local export only; no automatic upload',unknowns:['AI scoring and external sync are not performed by the website'],source_pack_included:sourceIncluded,source_pack_id:sourceIncluded?sourceParsed.pack_id:null,source_pack_schema_version:sourceIncluded?sourceParsed.schema_version:null,source_pack_sha256:sourceIncluded?(fallbackSource.sha256||null):null,source_pack_provenance:sourceIncluded?(fallbackSource.provenance||{type:'imported_daily_pack'}):null,source_pack_unavailable_reason:sourceIncluded?null:sourceError};
   if(recordings.length||expected.length)Object.assign(manifest,{expected_recording_count:expected.length||recordings.length,actual_packaged_count:recordings.filter(row=>row.bytes?.length>0&&!row.error).length,missing_recording_ids:expected.filter(id=>!recordings.some(row=>row.id===id)),abnormal_recordings:abnormal,total_recording_bytes:recordings.reduce((sum,row)=>sum+Number(row.bytes?.length||0),0),recording_task_ids:recordings.map(row=>({recording_id:row.id||null,task_id:row.taskId||null,attempt_id:row.attemptId||null,sha256:row.sha256||null,bytes:Number(row.bytes?.length||0)}))});
   const entries=[
     {name:'manifest.json',bytes:encoder.encode(JSON.stringify(manifest,null,2)+'\n')},
@@ -33,6 +50,7 @@ export function handoverEntries({report=null,feedback=null,pack=null,recordings=
     {name:'central-feedback.json',bytes:encoder.encode(JSON.stringify(feedback||{},null,2)+'\n')},
     {name:'README.txt',bytes:encoder.encode('English Cultivation Central Handover\n\nUpload this package manually to the Central Immortal Aperture. The website does not automatically sync to ChatGPT, Notion, Drive or Sheets.\n\nRecordings are included only when you explicitly chose the recording export.\n')}
   ];
+  if(sourceIncluded)entries.push({name:'learning-pack.json',bytes:sourceBytes});
   for(const recording of recordings){const id=clean(recording.id).replace(/[^A-Za-z0-9._-]/g,'_')||'recording';const ext=String(recording.mimeType||'').includes('mp4')?'m4a':String(recording.mimeType||'').includes('ogg')?'ogg':'webm';entries.push({name:`recordings/${id}.${ext}`,bytes:recording.bytes instanceof Uint8Array?recording.bytes:new Uint8Array(recording.bytes||[])});}
   return {entries,manifest};
 }
