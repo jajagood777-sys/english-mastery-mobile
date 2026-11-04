@@ -493,7 +493,7 @@ V3.5 batches
 ## V9.0 production release (2026-11-04)
 
 - PR #56 and PR #57 are merged into `main`; production merge commit: `b68ff937c376fbe1aae1c01804c76fd65c530596`.
-- Final `main` documentation/checkpoint commit: `d9e11da2e8a53fba06ec9b79f8cc2bc4a94750bb` (the commit deployed by the latest Pages run).
+- Final release verification documentation commit: `d9e11da2e8a53fba06ec9b79f8cc2bc4a94750bb` (deployed and verified; later checkpoint-only commits do not change application resources).
 - GitHub Actions `English Cultivation checks` run `41748513455` passed. GitHub Pages build/deployment run `41748512982` passed. The historical Cloudflare Worker build remains an unrelated failure and was not modified.
 - Production URL: https://jajagood777-sys.github.io/english-mastery-mobile/ . Pages API reports `status: built`, source `main:/`.
 - Automated production smoke at 390×844 loaded the shell, four bottom-navigation targets, title and app content with no page errors or console errors. Live `app.js`, `core.mjs`, `handover.mjs`, `sw.js` and Schema documentation return HTTP 200 and expose V8/V8.1 markers (`resolveTaskInputMode`, `readZipStore`, `spelling-letter-grid`, `english-cultivation-static-v7.0.0`).
