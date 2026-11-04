@@ -8,5 +8,22 @@ try{
  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});page.on('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'开始／继续今日完整学习',exact:true}).click();await page.getByRole('heading',{name:'阅读英语材料'}).waitFor({timeout:10000});
  await page.getByRole('button',{name:'完成阅读，进入下一模块'}).click();await page.getByRole('textbox',{name:'你的回忆'}).fill('composure');await page.getByRole('button',{name:'提交即时回忆'}).click();await page.getByRole('button',{name:/K · 会用/}).click();
  await page.getByRole('heading',{name:'Exit Ticket｜课末独立验收'}).waitFor({timeout:10000});await page.getByRole('textbox',{name:'文字辅助回答'}).fill('I would maintain my composure and think carefully.');await page.getByRole('button',{name:'提交初答'}).click();await page.getByRole('button',{name:/K/}).last().click();await page.getByRole('heading',{name:'本次修炼完成'}).waitFor({timeout:10000});
- const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2'))),report=stored.reports.at(-1);assert.equal(report.reading_analysis.immediate_recall.length,1);assert.equal(report.reading_analysis.immediate_recall[0].word,'composure');assert.equal(report.transfer_attempts[0].taskType,'exit_ticket');assert.equal(report.reading_analysis.articles[0].sectionId,'03');console.log('V1 FOUR-IN-ONE JOURNEY PASS');
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2'))),report=stored.reports.at(-1);assert.equal(report.reading_analysis.immediate_recall.length,1);assert.equal(report.reading_analysis.immediate_recall[0].word,'composure');assert.equal(report.transfer_attempts[0].taskType,'exit_ticket');assert.equal(report.reading_analysis.articles[0].sectionId,'03');
+ const actions=page.locator('.report-primary-actions');
+ assert.equal(await actions.locator('button').count(),2,'only two buttons visible by default');
+ assert.equal(await page.locator('.report-export-options').evaluate(node=>node.open),false);
+ assert.equal(await page.locator('.report-export-options button').first().isVisible(),false);
+ const saveBefore=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')).reports.length);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'下载完整交接包 ZIP'}).click()]);
+ assert.match(download.suggestedFilename(),/english-cultivation-central-handover-.*\.zip/);
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')).reports.length),saveBefore);
+ await page.locator('details.report-export-options summary').click();
+ assert.equal(await page.locator('.report-export-options').evaluate(node=>node.open),true);
+ assert.equal(await page.locator('.report-export-options button').count(),7);
+ assert.equal(await page.getByRole('button',{name:'交接包 ZIP（不含录音）'}).isVisible(),true);
+ assert.equal(await page.getByRole('button',{name:'复制文字战报'}).isVisible(),true);
+ await page.locator('details.report-export-options summary').click();
+ assert.equal(await page.locator('.report-export-options button').first().isVisible(),false);
+ console.log('SUMMARY TWO PRIMARY BUTTONS, HIDDEN ADVANCED EXPORTS, ZIP DOWNLOAD & DATA PRESERVATION PASS');
+ console.log('V1 FOUR-IN-ONE JOURNEY PASS');
 }finally{await browser.close();}
