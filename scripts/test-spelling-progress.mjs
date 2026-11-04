@@ -20,7 +20,7 @@ const state={version:4.3,items:[],attempts:[],sessions:[],reports:[],readings:[]
  dailyJourney:null,packHistory:[],activeSession:null,
  settings:{duration:5,speechRate:0.9,theme:'system',onboardingSeen:true,retryAfterError:true,newLimit:10,reviewLimit:20}};
 try{
- await page.addInitScript(({key,data})=>localStorage.setItem(key,JSON.stringify(data)),
+ await page.addInitScript(({key,data})=>{if(localStorage.getItem(key)===null)localStorage.setItem(key,JSON.stringify(data));},
  {key:'central-english-mastery.v2',data:state});
  await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
