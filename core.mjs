@@ -887,6 +887,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     const listening=attempt.promptType==='listening'||item.module==='listening';
     return {
       attempt_id: attempt.id,
+      correction_attempt: Boolean(attempt.correction_attempt),
+      correction_of: attempt.correction_of || null,
       session_id: attempt.sessionId || null,
       item_id: attempt.itemId,
       content_type: attempt.kind,
