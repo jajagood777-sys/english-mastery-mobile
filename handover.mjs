@@ -16,7 +16,10 @@ export function zipStore(entries=[]){
 }
 
 export function handoverEntries({report=null,feedback=null,pack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
+  const expected=Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[];
+  const abnormal=recordings.filter(row=>!row.bytes||row.bytes.length===0||row.error).map(row=>({recording_id:row.id||null,reason:row.error||'empty_bytes'}));
   const manifest={handover_schema_version:'1.0',generated_at:generatedAt,report_id:report?.report_id||null,session_id:report?.session_id||null,pack_id:report?.pack_id||pack?.packId||null,includes_recordings:recordings.length>0,recording_count:recordings.length,privacy:'local export only; no automatic upload',unknowns:['AI scoring and external sync are not performed by the website']};
+  if(recordings.length||expected.length)Object.assign(manifest,{expected_recording_count:expected.length||recordings.length,actual_packaged_count:recordings.filter(row=>row.bytes?.length>0&&!row.error).length,missing_recording_ids:expected.filter(id=>!recordings.some(row=>row.id===id)),abnormal_recordings:abnormal,total_recording_bytes:recordings.reduce((sum,row)=>sum+Number(row.bytes?.length||0),0),recording_task_ids:recordings.map(row=>({recording_id:row.id||null,task_id:row.taskId||null,attempt_id:row.attemptId||null}))});
   const entries=[
     {name:'manifest.json',bytes:encoder.encode(JSON.stringify(manifest,null,2)+'\n')},
     {name:'battle-report.json',bytes:encoder.encode(JSON.stringify(report||{},null,2)+'\n')},

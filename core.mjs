@@ -159,7 +159,63 @@ export function normalizeTransferAttempt(raw={}) {
   const taskId=pick(raw.taskId,raw.task_id,raw.contextId,raw.context_id)||null;
   const id=clean(raw.id)||`transfer-attempt:${stableHash([raw.weaknessId||raw.weakness_id||'',taskId||'',at,firstAnswer].join('|'))}`;
   const sourceSnapshot=raw.sourceSnapshot||raw.source_snapshot||null;
-  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),recordingIds:Array.isArray(raw.recordingIds)?raw.recordingIds.filter(Boolean):Array.isArray(raw.recording_ids)?raw.recording_ids.filter(Boolean):[],skipped:Boolean(raw.skipped)};
+  const status=normalizeTransferStatus(raw);
+  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,status,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),recordingIds:Array.isArray(raw.recordingIds)?raw.recordingIds.filter(Boolean):Array.isArray(raw.recording_ids)?raw.recording_ids.filter(Boolean):[],skipped:Boolean(raw.skipped)};
+}
+export function normalizeTransferStatus(raw={}) {
+  const explicit=clean(raw.status||raw.state).toLowerCase();
+  if(['not_started','draft','recording','saving','submitted','submitted_incomplete','skipped'].includes(explicit)) return explicit;
+  if(raw.skipped) return 'skipped';
+  if(raw.recordingOnly && !raw.recordingIds?.length) return 'submitted_incomplete';
+  if(raw.recordingOnly || raw.firstAnswer || raw.first_answer || raw.answer) return raw.recordingOnly?'submitted_incomplete':'submitted';
+  return 'not_started';
+}
+export function resolveTaskInputMode(task={}) {
+  const explicit=clean(task.response_mode||task.responseMode).toLowerCase();
+  if(['speaking','writing','both'].includes(explicit)) return explicit;
+  const type=clean(task.task_type||task.taskType).toLowerCase().replaceAll('-','_').replaceAll(' ','_');
+  if(type==='speaking'||type==='reading_to_speaking') return 'speaking';
+  if(type==='writing'||type==='grammar') return 'writing';
+  if(type==='exit_ticket') return 'writing';
+  if(type==='general_transfer') return 'both';
+  const tags=(Array.isArray(task.tags)?task.tags:[]).map(x=>normalized(x));
+  if(tags.some(x=>x.includes('speaking')||x.includes('oral')||x.includes('retell'))) return 'speaking';
+  if(tags.some(x=>x.includes('writing')||x.includes('essay'))) return 'writing';
+  return 'both';
+}
+export function normalizeReadingChoiceAnswer(answer, options=[]) {
+  const raw=clean(answer); if(!raw) return {valid:false,index:-1,key:null,text:''};
+  const list=Array.isArray(options)?options.map(x=>typeof x==='object'?clean(x.text||x.label||x.value):clean(x)).filter(Boolean):[];
+  const key=raw.toUpperCase().replace(/[.)、]$/,'');
+  if(/^[A-Z]$/.test(key)){const index=key.charCodeAt(0)-65;return index<list.length?{valid:true,index,key,text:list[index]}:{valid:false,index:-1,key,text:''};}
+  const index=list.findIndex(x=>normalized(x)===normalized(raw));
+  return index>=0?{valid:true,index,key:String.fromCharCode(65+index),text:list[index]}:{valid:false,index:-1,key:null,text:''};
+}
+export function compareReadingChoice(userAnswer, expectedAnswer, options=[]) {
+  const user=normalizeReadingChoiceAnswer(userAnswer,options), expected=normalizeReadingChoiceAnswer(expectedAnswer,options);
+  if(!user.valid||!expected.valid) return {status:'invalid',user,expected,message:'阅读选择题答案键或选项文本无效。'};
+  return {status:user.index===expected.index?'correct':'incorrect',user,expected};
+}
+export function compareSpellingAnswer(answer,target) {
+  const raw=clean(answer), expected=clean(target), normalize=s=>s.toLocaleLowerCase().replace(/[\u200B\s.,!?;:'"“”‘’_\-]+/g,'');
+  if(normalize(raw)===normalize(expected)) return {status:raw===expected?'correct':'case_or_punctuation',errorType:raw===expected?null:'case_or_punctuation',answer:raw,target:expected};
+  const a=normalize(raw), b=normalize(expected); let distance=0, i=0,j=0;
+  while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue;}distance++;if(a[i+1]===b[j])i++;else if(a[i]===b[j+1])j++;else{i++;j++;}}
+  distance+=a.length-i+b.length-j;
+  const transposed=a.length===b.length&&a.split('').some((ch,index)=>a[index]!==b[index]&&a[index+1]===b[index]&&a[index]===b[index+1]);
+  const errorType=transposed?'letter_order_or_substitution':distance===1?(a.length===b.length?'letter_order_or_substitution':a.length<b.length?'missing_letter':'extra_letter'):raw.split(/\s+/).length>1?'word_choice_or_form':'different_answer';
+  return {status:'incorrect',errorType,answer:raw,target:expected,distance};
+}
+export function normalizeSpellingTask(raw={}, index=0, packId='') {
+  const target=clean(raw.target||raw.answer); if(!target) return null;
+  const mode=clean(raw.prompt_mode||raw.promptMode).toLowerCase()||'meaning_to_spelling';
+  if(!['meaning_to_spelling','audio_to_spelling','sentence_cloze'].includes(mode)) return null;
+  return {id:clean(raw.id)||`spelling-${index+1}`,type:'spelling',target,promptMode:mode,cueZh:clean(raw.cue_zh||raw.cueZh||raw.hint_zh),example:clean(raw.example),ttsText:clean(raw.tts_text||raw.ttsText)||target,sourceItemId:clean(raw.source_item_id||raw.sourceItemId)||null,packId};
+}
+export function buildSpellingSummary(attempts=[]) {
+  const rows=Array.isArray(attempts)?attempts:[], first=rows.filter(r=>r.firstCheck?.status==='correct'||r.first_check?.status==='correct'), retry=rows.filter(r=>r.retryCheck?.status==='correct'||r.retry_check?.status==='correct'), errors={};
+  rows.forEach(r=>{const type=r.firstCheck?.errorType||r.first_check?.error_type;if(type)errors[type]=(errors[type]||0)+1;});
+  return {total:rows.length,firstCorrect:first.length,firstIncorrect:rows.filter(r=>r.firstAnswer!==undefined&&!first.includes(r)).length,retryCorrect:retry.length,errorTypes:Object.entries(errors).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count})),pendingDelayedReview:rows.filter(r=>r.firstCheck?.status==='incorrect'&&!r.retryCheck).map(r=>r.target).filter(Boolean)};
 }
 export function mergeTransferAttempts(existing=[],incoming=[]) {
   const out=[]; const byId=new Map();
@@ -499,6 +555,11 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const importedAt=new Date().toISOString();
   const errors=[],items=[],readings=[];
   const transferTasks=[];
+  const spellingTasks=[];
+  if(value.spelling_tasks!==undefined&&!Array.isArray(value.spelling_tasks)) errors.push('spelling_tasks 必须是数组；已跳过拼写强化。');
+  for(const [index,raw] of (Array.isArray(value.spelling_tasks)?value.spelling_tasks:[]).entries()){
+    const task=normalizeSpellingTask(raw,index,packId); if(!task){errors.push(`拼写任务第 ${index+1} 项缺少有效 target 或 prompt_mode。`);continue;} spellingTasks.push(task);
+  }
   const inferTaskType=(raw,tags)=>{const explicit=normalized(raw.task_type||raw.taskType||'').replaceAll('-','_').replaceAll(' ','_');if(['speaking','writing','grammar','reading_to_speaking','general_transfer','exit_ticket'].includes(explicit))return explicit;const joined=tags.map(tag=>normalized(tag).replaceAll('-','_').replaceAll(' ','_'));if(joined.some(tag=>tag.includes('exit_ticket')||tag.includes('exit')))return 'exit_ticket';if(joined.some(tag=>tag.includes('reading_to_speaking')||tag.includes('retell')))return 'reading_to_speaking';if(joined.some(tag=>tag.includes('speaking')||tag.includes('oral')))return 'speaking';if(joined.some(tag=>tag.includes('writing')||tag.includes('essay')))return 'writing';if(joined.some(tag=>tag.includes('grammar')||tag.includes('syntax')))return 'grammar';return 'general_transfer';};
   if(value.transfer_tasks!==undefined&&!Array.isArray(value.transfer_tasks)) errors.push('transfer_tasks 必须是数组；已跳过迁移挑战。');
   for(const [index,raw] of (Array.isArray(value.transfer_tasks)?value.transfer_tasks:[]).entries()){
@@ -559,7 +620,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     seenReading.add(key);uniqueReadings.push(reading);
   }
   if(!unique.length&&!uniqueReadings.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,readings:uniqueReadings,transferTasks,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks, schemaVersion:clean(value.schema_version)||'1'}};
+  return {items:unique,readings:uniqueReadings,transferTasks,spellingTasks,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks, schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -770,7 +831,7 @@ export function validateBackup(value){
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
   const transferAttempts=mergeTransferAttempts(value.transferAttempts||[],[]);
   const journey=value.dailyJourney;
-  const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','sentences','reading','listening','transfer'].includes(x))?{
+  const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','spelling','sentences','reading','listening','transfer'].includes(x))?{
     ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
     index:Math.max(0,Math.min(journey.steps.length,Number(journey.index)||0)),
     completed:Array.isArray(journey.completed)?journey.completed.filter(x=>x&&typeof x.stage==='string'):[],
@@ -782,13 +843,15 @@ export function validateBackup(value){
     readingRecallStep:journey.readingRecallStep==='revealed'?'revealed':journey.readingRecallStep==='input'?'input':null,
     readingRecallDraft:clean(journey.readingRecallDraft),
     transferAttempts:mergeTransferAttempts(journey.transferAttempts||[],[]),
+    spellingIndex:Math.max(0,Number(journey.spellingIndex)||0),
+    spellingAttempts:Array.isArray(journey.spellingAttempts)?journey.spellingAttempts:[],
     transferRecordingIds:journey.transferRecordingIds&&typeof journey.transferRecordingIds==='object'?journey.transferRecordingIds:{}
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[], spellingAttempts=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -881,6 +944,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     },
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
     transfer_evidence: buildTransferAnalytics({weaknesses,transferAttempts,now}),
+    spelling_evidence: {attempts:Array.isArray(spellingAttempts)?spellingAttempts:[],summary:buildSpellingSummary(spellingAttempts)},
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true},
     sync_status: 'NOT_SUBMITTED'
   };
@@ -928,6 +992,7 @@ export function battleReportMarkdown(report) {
     ...(readingExamLines.length?[``, `## IELTS reading source`, ``, ...readingExamLines]:[]),
     ...(readingChecks.length?[``, `## IELTS / reading comprehension checks`, ``, ...readingChecks]:[]),
     ...(report.transfer_attempts?.length?[``, `## Transfer challenge`, ``, ...transferLines]:[]),
+    ...(report.spelling_evidence?[``, `## Spelling Forge`, ``, `- Total: ${report.spelling_evidence.summary?.total||0}`, `- First correct: ${report.spelling_evidence.summary?.firstCorrect||0}`, `- First incorrect: ${report.spelling_evidence.summary?.firstIncorrect||0}`, `- Retry correct: ${report.spelling_evidence.summary?.retryCorrect||0}`]:[]),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,

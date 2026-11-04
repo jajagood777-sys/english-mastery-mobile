@@ -472,3 +472,13 @@ V3.5 batches
 - Fresh local evidence: `npm run check` **149/149**; focused audit **8/8**; learning-data-safety **4/4**; PWA bundle **pass**; mobile static baseline **11/11**; recovery/malformed-storage/offline browser probes and existing V1/V6/native browser smokes pass. Synthetic stress metrics are recorded in the audit report.
 - Security/dependency boundary: no secrets or dynamic HTML sinks found in production paths; `npm audit` could not run because the repository has no lockfile, so dependency CVE status is explicitly **unverified**. No lockfile was generated.
 - Commits `217cdd1b5883061bba4da21dfb5bc1492a692550` (implementation), `0c346bf`, `dbcbe5d`, and `f31dc8e` (documentation/checkpoint updates); unmerged PR #56: https://github.com/jajagood777-sys/english-mastery-mobile/pull/56. GitHub `test` run `41652383179` passed 149/149; the existing unrelated `Workers Builds: english-cultivation-gmini-v59-mobile` check is red and `Cloudflare Pages` staging check passed. No formal Pages deployment or merge was performed; physical iPhone checks remain manual.
+
+## V8.0 quality upgrade (implementation checkpoint, 2026-11-04)
+
+- Branch: `feature/v8-quality-upgrade`, based on the previous reliability checkpoint.
+- Added structured `resolveTaskInputMode()` routing for speaking, reading-to-speaking, writing, grammar, Exit Ticket and general transfer tasks.
+- Added normalized reading choice comparison for answer keys and full option text, preserving open questions as unassessed.
+- Added explicit transfer status normalization and persisted skipped transfer evidence.
+- Added optional schema 2.0 `spelling_tasks[]`, integrated as a vocabulary-adjacent Journey stage with first/retry answers, real spelling checks, error categories and independent Battle Report evidence.
+- Added live recording duration/short-recording warning UI and expanded local handover manifest evidence for expected, packaged, abnormal, missing and byte counts while retaining manifest v1.0 compatibility.
+- Synthetic V8 tests pass with the existing suite: **155/155**. No real localStorage, IndexedDB recordings or private material were touched. Browser/iPhone regression and CI/PR remain pending.
