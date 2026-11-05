@@ -14,6 +14,8 @@ test('V5.6 reading segmentation preserves order and text',()=>{const text='First
 import {mkdtemp,copyFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+const hasFfprobe=spawnSync('ffprobe',['-version']).status===0;
 import {validateCachedClip} from '../audio-tasks.mjs';
 
 test('validated cache rejects missing and mismatched MP3 files', async () => {
@@ -26,7 +28,7 @@ test('validated cache rejects missing and mismatched MP3 files', async () => {
  assert.equal(invalid.valid,false); assert.match(invalid.reason,/hash|decode|mp3/i);
 });
 
-test('validated cache accepts a real MP3 only for the exact voice and engine', async () => {
+test('validated cache accepts a real MP3 only for the exact voice and engine', {skip:!hasFfprobe}, async () => {
  const dir=await mkdtemp(join(tmpdir(),'audio-cache-test-'));
  const source='speech-assets/af_heart-27f576cafbb263ed44be8bd0.mp3';
  await copyFile(source,join(dir,'clip.mp3'));
