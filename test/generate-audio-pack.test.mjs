@@ -19,3 +19,4 @@ test('rerun replaces an existing ZIP instead of retaining stale audio members',{
  result=await run(['--pack',fixture,'--out',out,'--zip']); assert.equal(result.code,0,result.stderr);
  const listing=spawnSync('unzip',['-Z1',zip],{encoding:'utf8'}).stdout.split('\n').filter(Boolean); assert.equal(listing.filter(x=>x.startsWith('audio/')&&x!=='audio/').length,29); assert.equal(listing.includes('stale.mp3'),false); await remove(out,{recursive:true,force:true});
 });
+test('generator rejects non-schema-2.0 packs before synthesis',async()=>{const out=await mkdtemp(join(tmpdir(),'pack-schema-'));const bad=join(out,'bad.json');const pack=JSON.parse(await readFile(fixture,'utf8'));pack.schema_version='1.0';await writeFile(bad,JSON.stringify(pack));const result=await run(['--pack',bad,'--out',out,'--zip']);assert.notEqual(result.code,0);assert.equal(result.stdout.includes('ZIP '),false);await rm(out,{recursive:true,force:true});});
