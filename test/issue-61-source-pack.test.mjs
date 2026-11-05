@@ -28,8 +28,12 @@ test('ZIP readback rejects a corrupted source pack instead of treating it as ver
   const original=zipStore(entries).bytes;
   assert.equal(readZipStore(original).find(entry=>entry.name==='learning-pack.json')?.bytes.length,bytes.length);
   const broken=original.slice();
-  const first=entries[0],firstPayloadOffset=30+new TextEncoder().encode(first.name).length;
-  broken[firstPayloadOffset+5]^=0x01;
+  const sourceIndex=entries.findIndex(entry=>entry.name==='learning-pack.json');
+  assert.ok(sourceIndex>=0);
+  const enc=new TextEncoder();
+  const prefix=entries.slice(0,sourceIndex).reduce((sum,entry)=>sum+30+enc.encode(entry.name).length+entry.bytes.length,0);
+  const sourceOffset=prefix+30+enc.encode(entries[sourceIndex].name).length;
+  broken[sourceOffset+5]^=0x01;
   assert.throws(()=>readZipStore(broken),/integrity check failed \(CRC32\)/);
 });
 
