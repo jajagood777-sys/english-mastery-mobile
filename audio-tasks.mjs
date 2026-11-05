@@ -1,4 +1,7 @@
 import {createHash} from 'node:crypto';
+import {readFile,stat} from 'node:fs/promises';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
 import {recordsFromLearningPack} from './core.mjs';
 import {splitSpeechSegments} from './speech-clips.mjs';
 export {splitSpeechSegments};
@@ -18,4 +21,22 @@ export function extractAudioTasks(pack,{voice=DEFAULT_AUDIO_VOICE,engineVersion=
  const existing=new Set((existingManifest||[]).filter(x=>x.voice===voice&&x.engine===engineVersion).map(x=>x.sha256||x.textHash));for(const row of tasks){row.hasAudio=existing.has(row.textHash);row.needsGeneration=!row.hasAudio;}
  const byCategory={};for(const row of tasks){const c=byCategory[row.category]||{total:0,existing:0,missing:0};c.total++;if(row.hasAudio)c.existing++;else c.missing++;byCategory[row.category]=c;}
  return {packId,tasks,errors,summary:{total:tasks.length,existing:tasks.filter(x=>x.hasAudio).length,missing:tasks.filter(x=>x.needsGeneration).length},byCategory};
+}
+
+
+export async function validateCachedClip(row, outputDir, {voice = row?.voice, engine = row?.engine} = {}) {
+ try {
+  if (!row || row.voice !== voice) return {valid:false, reason:'voice mismatch'};
+  if (row.engine !== engine) return {valid:false, reason:'engine mismatch'};
+  if (!row.file || !/^[A-Za-z0-9._-]+\.mp3$/i.test(row.file)) return {valid:false, reason:'unsafe or missing file'};
+  const filePath=join(outputDir,row.file), bytes=await readFile(filePath), info=await stat(filePath);
+  if (!info.isFile() || bytes.length===0) return {valid:false, reason:'missing file'};
+  const fileSha256=createHash('sha256').update(bytes).digest('hex');
+  if (row.fileSha256 && row.fileSha256 !== fileSha256) return {valid:false, reason:'file hash mismatch'};
+  const probe=spawnSync('ffprobe',['-v','error','-show_entries','format=duration:stream=codec_name,codec_type','-of','json',filePath],{encoding:'utf8'});
+  if (probe.status!==0) return {valid:false, reason:'MP3 decode failed'};
+  const parsed=JSON.parse(probe.stdout||'{}'), stream=parsed.streams?.find(x=>x.codec_type==='audio'), duration=Number(parsed.format?.duration);
+  if (!stream || stream.codec_name !== 'mp3' || !(duration>0)) return {valid:false, reason:'MP3 codec or duration invalid'};
+  return {valid:true, fileSha256, bytes:bytes.length, duration};
+ } catch (error) { return {valid:false, reason:error.code==='ENOENT'?'missing file':error.message}; }
 }
