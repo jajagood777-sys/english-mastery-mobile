@@ -1,30 +1,10 @@
 /** Listening & Speaking Studio helpers. Pure utilities keep the Journey adapter small. */
+import {splitSpeechSegments} from './speech-clips.mjs';
 
 const clean = value => String(value ?? '').trim();
 
 /** Split English into sentence-safe segments without changing the source text. */
-export function splitStudioSegments(text, maxChars=180) {
-  const source=clean(text).replace(/\s+/g,' ');
-  if(!source)return [];
-  const sentences=source.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[source];
-  const segments=[];let current='';
-  for(const sentence of sentences){
-    const part=sentence.trim();
-    if(!part)continue;
-    if(part.length>maxChars){
-      if(current){segments.push(current);current='';}
-      let chunk='';
-      for(const word of part.split(/\s+/)){
-        const next=chunk?`${chunk} ${word}`:word;
-        if(chunk&&next.length>maxChars){segments.push(chunk);chunk=word;}else chunk=next;
-      }
-      if(chunk)segments.push(chunk);
-    }else if(current&&current.length+1+part.length>maxChars){segments.push(current);current=part;}
-    else current=current?`${current} ${part}`:part;
-  }
-  if(current)segments.push(current);
-  return segments;
-}
+export function splitStudioSegments(text, maxChars=260) { return splitSpeechSegments(text,maxChars); }
 
 /** Return stable recording IDs attached to a task attempt without duplicating them. */
 export function studioRecordingIds(row={}) {
