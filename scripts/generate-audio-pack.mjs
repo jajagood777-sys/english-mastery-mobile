@@ -1,11 +1,11 @@
 import {readFile,writeFile,mkdir,stat,rm,copyFile} from 'node:fs/promises';
-import {join,basename} from 'node:path';
+import {join,basename,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {extractAudioTasks,DEFAULT_AUDIO_ENGINE,DEFAULT_AUDIO_VOICE} from '../audio-tasks.mjs';
 const args=process.argv.slice(2).reduce((a,x,i,v)=>{if(x.startsWith('--'))a[x.slice(2)]=v[i+1]?.startsWith('--')?'true':v[i+1]??'true';return a;},{});
-const out=String(args.out||'speech-pack-output'),voice=String(args.voice||DEFAULT_AUDIO_VOICE),engine=String(args.engine||DEFAULT_AUDIO_ENGINE),packPath=args.pack;
+const out=resolve(String(args.out||'speech-pack-output')),voice=String(args.voice||DEFAULT_AUDIO_VOICE),engine=String(args.engine||DEFAULT_AUDIO_ENGINE),packPath=args.pack;
 if(!packPath){console.error('Usage: node scripts/generate-audio-pack.mjs --pack <json> --out <dir> [--dry-run] [--zip]');process.exitCode=2;}
 else {
  const pack=JSON.parse(await readFile(packPath,'utf8'));await mkdir(out,{recursive:true});let prior=[];try{prior=JSON.parse(await readFile(join(out,'speech-manifest.json'),'utf8')).clips||[]}catch{}
