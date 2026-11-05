@@ -20,7 +20,7 @@ import {validateCachedClip} from '../audio-tasks.mjs';
 
 test('validated cache rejects missing and mismatched MP3 files', async () => {
  const dir=await mkdtemp(join(tmpdir(),'audio-cache-test-'));
- const row={voice:'af_heart',engine:'kokoro-js@1.2.1-q8',text:'hello',sha256:'text-hash',file:'clip.mp3',fileSha256:'00'.repeat(32)};
+ const row={voice:'af_heart',engine:'kokoro-js@1.2.1-q8',text:'hello',sha256:speechTextHash('hello'),file:'clip.mp3',fileSha256:'00'.repeat(32)};
  const missing=await validateCachedClip(row,dir);
  assert.equal(missing.valid,false); assert.match(missing.reason,/missing/i);
  await writeFile(join(dir,'clip.mp3'),Buffer.from('not mp3'));
@@ -33,7 +33,16 @@ test('validated cache accepts a real MP3 only for the exact voice and engine', {
  const source='speech-assets/af_heart-27f576cafbb263ed44be8bd0.mp3';
  await copyFile(source,join(dir,'clip.mp3'));
  const {createHash}=await import('node:crypto'); const bytes=await (await import('node:fs/promises')).readFile(join(dir,'clip.mp3'));
- const row={voice:'af_heart',engine:'kokoro-js@1.2.1-q8',text:'hello',sha256:'text-hash',file:'clip.mp3',fileSha256:createHash('sha256').update(bytes).digest('hex')};
+ const row={voice:'af_heart',engine:'kokoro-js@1.2.1-q8',text:'hello',sha256:speechTextHash('hello'),file:'clip.mp3',fileSha256:createHash('sha256').update(bytes).digest('hex')};
  const good=await validateCachedClip(row,dir); assert.equal(good.valid,true); assert.equal(good.bytes,bytes.length); assert.ok(good.duration>0);
  const wrongVoice=await validateCachedClip({...row,voice:'af_bella'},dir,{voice:'af_heart',engine:row.engine}); assert.equal(wrongVoice.valid,false); assert.match(wrongVoice.reason,/voice/i);
+});
+
+test('validated cache rejects rows without trusted text and file hashes', {skip:!hasFfprobe}, async () => {
+ const dir=await mkdtemp(join(tmpdir(),'audio-cache-required-fields-'));
+ const source='speech-assets/af_heart-27f576cafbb263ed44be8bd0.mp3';
+ await copyFile(source,join(dir,'clip.mp3'));
+ const row={voice:'af_heart',engine:'kokoro-js@1.2.1-q8',text:'hello',sha256:speechTextHash('hello'),file:'clip.mp3'};
+ const result=await validateCachedClip(row,dir,{voice:'af_heart',engine:row.engine});
+ assert.equal(result.valid,false); assert.match(result.reason,/trusted|hash|sha/i);
 });

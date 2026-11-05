@@ -28,11 +28,14 @@ export async function validateCachedClip(row, outputDir, {voice = row?.voice, en
  try {
   if (!row || row.voice !== voice) return {valid:false, reason:'voice mismatch'};
   if (row.engine !== engine) return {valid:false, reason:'engine mismatch'};
+  if (typeof row.text !== 'string' || !row.text.trim() || !/^[a-f0-9]{64}$/i.test(String(row.sha256||'')) || speechTextHash(row.text) !== row.sha256) return {valid:false, reason:'untrusted text hash'};
+  if (!/^[a-f0-9]{64}$/i.test(String(row.fileSha256||''))) return {valid:false, reason:'missing file SHA-256'};
   if (!row.file || !/^[A-Za-z0-9._-]+\.mp3$/i.test(row.file)) return {valid:false, reason:'unsafe or missing file'};
   const filePath=join(outputDir,row.file), bytes=await readFile(filePath), info=await stat(filePath);
   if (!info.isFile() || bytes.length===0) return {valid:false, reason:'missing file'};
   const fileSha256=createHash('sha256').update(bytes).digest('hex');
-  if (row.fileSha256 && row.fileSha256 !== fileSha256) return {valid:false, reason:'file hash mismatch'};
+  if (row.fileSha256 !== fileSha256) return {valid:false, reason:'file hash mismatch'};
+  if (row.bytes != null && Number(row.bytes) !== bytes.length) return {valid:false, reason:'file size mismatch'};
   const probe=spawnSync('ffprobe',['-v','error','-show_entries','format=duration:stream=codec_name,codec_type','-of','json',filePath],{encoding:'utf8'});
   if (probe.status!==0) return {valid:false, reason:'MP3 decode failed'};
   const parsed=JSON.parse(probe.stdout||'{}'), stream=parsed.streams?.find(x=>x.codec_type==='audio'), duration=Number(parsed.format?.duration);
