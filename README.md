@@ -111,6 +111,14 @@ A lightweight English-first mobile learning PWA for vocabulary, phrases, complet
 - Adds transparent transfer evidence analytics to 7/30-day progress, with measured denominators and “尚未测量” for missing evidence. No IELTS or pronunciation score is fabricated.
 - Daily JSON `schema_version: "2.0"`, old backups, K/V/N and existing reports remain compatible; learning data `VERSION=4.3` is unchanged. No child classroom simulation or second numeric database was added.
 
+## V10.3 — one daily ZIP with pre-generated natural speech
+
+- `scripts/generate-audio-pack.mjs` reads one schema 2.0 pack, extracts English targets, definitions, examples, sentences, listening text, safe reading segments and transfer prompts, and de-duplicates exact text by voice and generator version.
+- With the pinned `kokoro-js@1.2.1` runtime available, the generator validates WAV/MP3 output, writes `speech-manifest.json`, `package-info.json` (including the manifest SHA-256), and produces one ZIP containing the byte-preserved `learning-pack.json` plus `audio/*.mp3`. A failed generation exits non-zero and records failures in `audio-report.json`; it never fabricates silent audio.
+- In the app, the existing “导入每日学习包 ZIP” control accepts that ZIP or a JSON-only ZIP. It validates package IDs, schema version, manifest hash, ZIP CRC/size/path safety, and clip text/file hashes before caching clips in the existing `english-cultivation-audio-v1` IndexedDB store. No learner localStorage, Journey, K/V/N, report or recording store is reset.
+- Existing English speech buttons prefer an imported Heart (`af_heart`) MP3 and fall back to the existing device voice when a clip is missing or playback is unavailable. Playback is not a learning attempt and generated audio is never treated as a user recording.
+- The public repository contains only synthetic demo audio. Private daily packs and generated audio remain local or in an authorized private workflow.
+
 ## V4.3.2 — ink-wash visual layer
 
 - The home page now has an optional mountain-and-crane hero slot, training-page calligraphy detail, progress-page growth portrait/quote slots, and a collapsible visual scroll in 我的.

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "authorized public demo and synthetic sample",
-  "generatedAt": "2026-11-01T08:15:54.092Z",
+  "generatedAt": "2026-11-05T11:32:50.986Z",
   "clips": [
     {
       "voice": "af_heart",
@@ -45,7 +45,7 @@
       "text": "Learners adapt their routines when a method stops working.",
       "sha256": "08727dc792539fffe17f3403ac2464574b472acea7b3eed1b7953221394fa8ae",
       "file": "af_heart-08727dc792539fffe17f3403.mp3",
-      "fileSha256": "9397c16b8c5f8e08c5bf48221436133cef8716fad113fc25330d93be73354f33",
+      "fileSha256": "adf811ebec6868ded51aab44af4176d92dbbca675184bcf441aac8a90b38e435",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -113,7 +113,7 @@
       "text": "Her explanation became coherent after she organized the evidence.",
       "sha256": "6c85f983e152b9e7aed53ec782817134dbe36a5bde9b7925b35295809947f4dc",
       "file": "af_heart-6c85f983e152b9e7aed53ec7.mp3",
-      "fileSha256": "0505761c6a7010f8a413b3e291f7c7a5aaad77298c365bc848f72caa4daf986c",
+      "fileSha256": "0205f27fb198c0d84f84a697827fc57b488a6eb1fdc85b7931188191559de713",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -147,7 +147,7 @@
       "text": "Many useful expressions derive from everyday conversations.",
       "sha256": "89acdc9213e4d964594ffbad9e82f6dcd7bbe4132727d826b79ec9f657865c90",
       "file": "af_heart-89acdc9213e4d964594ffbad.mp3",
-      "fileSha256": "9913c30d01cc96139804a472f140ebe6ee6dea2717ea15469176b1201bcc4b19",
+      "fileSha256": "83dc4328356ab9b331ceabcae8b08be6746d2695e716d06760f29f776c494618",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -156,8 +156,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 53612,
-      "duration": 4.375
+      "bytes": 54188,
+      "duration": 4.425
     },
     {
       "voice": "af_heart",
@@ -181,7 +181,7 @@
       "text": "A deliberate review habit makes progress easier to notice.",
       "sha256": "a0d26a58e3b34b405853c679cd977e25f66bf7dd84fd7cce5d50c9e955436efa",
       "file": "af_heart-a0d26a58e3b34b405853c679.mp3",
-      "fileSha256": "0a0ee0691b82672c34fb8df05d32e808a74ca4a4697f26f274ee2e1896e9ca49",
+      "fileSha256": "d8b5d437e5affabdc15820230f54b680157d369669dfa44654b681a6f450ccb7",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -190,8 +190,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 49580,
-      "duration": 4.05
+      "bytes": 49004,
+      "duration": 4
     },
     {
       "voice": "af_heart",
@@ -215,7 +215,7 @@
       "text": "Short retrieval sessions help learners retain new vocabulary.",
       "sha256": "95c2b56d7798915970b6666951f30865a03dfaf1739404e891b19b20ec46bde7",
       "file": "af_heart-95c2b56d7798915970b66669.mp3",
-      "fileSha256": "84699710d43b70816444330b76643293d42db79bbd77a6e781dd807339d5e219",
+      "fileSha256": "75048674d7e9c30da6ce50e4d6085d8a50cd38c5635c7204f7ddb46ef9b1b5e8",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -224,8 +224,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 55052,
-      "duration": 4.5
+      "bytes": 54476,
+      "duration": 4.45
     },
     {
       "voice": "af_heart",
@@ -300,7 +300,7 @@
       "text": "Focused practice creates better choices over time.",
       "sha256": "e45e5ff275d4dd76a371732ab68e865c8a2a282857193f542f0328c7e4384942",
       "file": "af_heart-e45e5ff275d4dd76a371732a.mp3",
-      "fileSha256": "9b59372eaa8a5f87595efd2679ca06a60da311498d2d7a3e0e7f43e9fef02107",
+      "fileSha256": "7395cd59f3c475aeca93920adec0e47e2990315bdf7dedad980c6060d40a6303",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -309,8 +309,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 42956,
-      "duration": 3.5
+      "bytes": 43820,
+      "duration": 3.575
     },
     {
       "voice": "af_heart",
@@ -368,7 +368,7 @@
       "text": "Clear notes help a learner return to difficult material.",
       "sha256": "23265990e096ce0364d46d7273d32ff63d2585d1a3534b9b0cd573befaecfe9e",
       "file": "af_heart-23265990e096ce0364d46d72.mp3",
-      "fileSha256": "634dde81c4367ea3b9c33970aafc41b0b550edbda9c1216d843b6de58e827741",
+      "fileSha256": "8cef7caa6fa8c57e5dd5e77f9672d74823ce92c721485727b1bb777b9f873858",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -377,15 +377,15 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 46412,
-      "duration": 3.775
+      "bytes": 46124,
+      "duration": 3.75
     },
     {
       "voice": "af_heart",
       "text": "Good questions turn passive reading into active learning.",
       "sha256": "3b74fad35fef249cb002bfe415510219e1bd24ce4bbb31da1973b9190681372a",
       "file": "af_heart-3b74fad35fef249cb002bfe4.mp3",
-      "fileSha256": "2e1f6d913e4691491e5d1c8bf61f0de1a0a0ecab80e2f326d2e76d89fc00f817",
+      "fileSha256": "006af6828d2b3a59c911ebb0039eb681292a8d6915279a59e93b17efd9812ae3",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -394,15 +394,15 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 48428,
-      "duration": 3.95
+      "bytes": 49004,
+      "duration": 4
     },
     {
       "voice": "af_heart",
       "text": "Listen for the main idea before you notice every detail.",
       "sha256": "0be7ee089e3312e5fb229cd9653b8758068d9ffe8b3eaa1cf6071f58f9ae0a81",
       "file": "af_heart-0be7ee089e3312e5fb229cd9.mp3",
-      "fileSha256": "68dccbd88bd4416919e91b64ce776048a4b964a029a5ca40ad338e8939403201",
+      "fileSha256": "949a0194be839536e35ad10b7057958027f2946ed116cb96d15c3fb60c8b43f1",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -411,8 +411,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 51308,
-      "duration": 4.2
+      "bytes": 51020,
+      "duration": 4.175
     },
     {
       "voice": "af_heart",
@@ -436,7 +436,7 @@
       "text": "The speaker pauses so the listener can follow the structure.",
       "sha256": "bb1d6798d18e7541e4460a27f10933d65b0766e17aef63890983f3bc2a3ce65a",
       "file": "af_heart-bb1d6798d18e7541e4460a27.mp3",
-      "fileSha256": "60f9b3717834755495307624aa9c325200acd3b3f56478286f5fbbc65feeb39d",
+      "fileSha256": "ce44cbb117255270b6bde20a6dbee623e9ec1d25eb337973ddb7d2c10b0dfc46",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -453,7 +453,7 @@
       "text": "A learner opened the notebook after a busy day. The first plan had been too ambitious, so she decided to refine it.",
       "sha256": "c2b44afa413458b1e4e9879947e7169047773661901ba9e4bf389c81e2a47647",
       "file": "af_heart-c2b44afa413458b1e4e98799.mp3",
-      "fileSha256": "eea633c8b585762c39435adb44ad60109e9c1cfc8575eb8148adb568fc13ff29",
+      "fileSha256": "facb4f42da719e9f67bc06b01d91e1cd7f8b194cf885d8b90609c5323a0a3680",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -462,15 +462,15 @@
       "readingId": "reading:pack:hb0swd",
       "segmentIndex": 0,
       "segmentCount": 2,
-      "bytes": 91628,
-      "duration": 7.55
+      "bytes": 92492,
+      "duration": 7.625
     },
     {
       "voice": "af_heart",
       "text": "She kept one short reading, one listening task, and one deliberate review. The smaller routine felt coherent, and she could finally retain what she practiced.",
       "sha256": "a35d0ab0a053b07465b85a354f710fbffa85f1b893d2a105f2c03fa94f9f3fc0",
       "file": "af_heart-a35d0ab0a053b07465b85a35.mp3",
-      "fileSha256": "b33ea6330bc65158b2a8fa82ea7789422e2352700c20683d907ff73e683473a4",
+      "fileSha256": "21af26a4f7d57b486cea21c912d0cf68c05513398c40c4855b6f15a1ddd0be2b",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -479,15 +479,15 @@
       "readingId": "reading:pack:hb0swd",
       "segmentIndex": 1,
       "segmentCount": 2,
-      "bytes": 124748,
-      "duration": 10.3
+      "bytes": 126188,
+      "duration": 10.425
     },
     {
       "voice": "af_heart",
       "text": "Explain how you would adapt a study routine.",
       "sha256": "3583fd140d28550e4e6f8097610e2c613b46984b9e658ebf86bafaba8df17cf5",
       "file": "af_heart-3583fd140d28550e4e6f8097.mp3",
-      "fileSha256": "4db886b01faa1e0a1d4776d13f84400c6af788842d63787e97e4265c83144407",
+      "fileSha256": "8af52272eda626f3e0956daa16c514c3a8c6ba091591b31c2bf2436655cd3d0d",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -504,7 +504,7 @@
       "text": "I would adapt it by shortening each session and reviewing more often.",
       "sha256": "8577736c578f4a9587b6948499ba18343419c4ccc7408e724f4238841c5463c8",
       "file": "af_heart-8577736c578f4a9587b69484.mp3",
-      "fileSha256": "87c86455be9e953ea6221ffcc4f7c9632c38435bd7071f2fc2d38ce426765c45",
+      "fileSha256": "822c2a1fb491ec79cf81b66cbb6635cd8689e299cab03351201311d68a036ecb",
       "format": "audio/mpeg",
       "engine": "kokoro-js@1.2.1-q8",
       "packId": "V56-PUBLIC-AUDIO-SAMPLE",
@@ -513,8 +513,8 @@
       "readingId": null,
       "segmentIndex": null,
       "segmentCount": null,
-      "bytes": 54188,
-      "duration": 4.425
+      "bytes": 53900,
+      "duration": 4.4
     }
   ]
 }
