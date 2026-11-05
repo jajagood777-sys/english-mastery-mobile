@@ -36,6 +36,7 @@ test('V10.3 generator and importer expose the single-ZIP contract without changi
   assert.match(generator,/learning-pack\.json/);
   assert.match(generator,/audio_directory:'audio\//);
   assert.match(generator,/zip.*-r/s);
+  assert.match(generator,/process\.exit\(0\)/);
   assert.match(app,/importSpeechClips/);
   assert.match(app,/createClipPlayer/);
   assert.match(app,/package-info\.json/);
