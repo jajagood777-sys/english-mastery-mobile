@@ -6,7 +6,7 @@ This record uses the public synthetic fixture `examples/v56-audio-sample-pack.js
 
 - Public branch: `codex/private-kokoro-pipeline-v1`; PR #70 is open for review.
 - Private branch: `codex/private-kokoro-actions-v1`; PR #10 is open for review.
-- `npm test`: 190 passed locally. The public PR check run `42128155746` passed. Codec-dependent tests skip when a bare Node check runner lacks `ffprobe`; the generator workflow installs ffmpeg/ffprobe before synthesis.
+- `npm test`: 191 passed locally. The public PR check run `42128155746` passed. Codec-dependent tests skip when a bare Node check runner lacks `ffprobe`; the generator workflow installs ffmpeg/ffprobe before synthesis.
 - Private `python scripts/validate_bundle.py`: passed. The private repository's existing unittest suite still has one unrelated baseline mirror-drift failure in `test_registry_and_mirrors`.
 
 ## Generator behavior
