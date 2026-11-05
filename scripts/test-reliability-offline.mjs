@@ -18,7 +18,7 @@ try {
     const cache = await caches.open(keys[0]);
     return {keys, hasApp: Boolean(await cache.match('./app.js')), hasCore: Boolean(await cache.match('./core.mjs'))};
   });
-  assert.deepEqual(cacheState.keys, ['english-cultivation-static-v10.0.1']);
+  assert.deepEqual(cacheState.keys, ['english-cultivation-static-v10.3.0']);
   assert.equal(cacheState.hasApp, true);
   assert.equal(cacheState.hasCore, true);
   await context.setOffline(true);

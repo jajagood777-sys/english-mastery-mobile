@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('native speech covers words, examples, sentences and stories',()=>{
+test('natural speech covers words, examples, sentences and stories with native fallback',()=>{
  const app=read('app.js');
  assert.match(app,/function speakEnglish\(/);
+ assert.match(app,/function speakNaturalOrDevice\(/);
+ assert.match(app,/createClipPlayer/);
+ assert.match(app,/result==='missing'/);
  assert.match(app,/speechButton\(item\.target\)/);
  assert.match(app,/speechButton\(item\.example\)/);
  assert.match(app,/speechControls\(reading\.text/);
