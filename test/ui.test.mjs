@@ -185,6 +185,9 @@ test('V4.4 transfer and optional reading comprehension paths preserve evidence',
 test('V10 reading completion keeps unfinished comprehension partial',()=>{
  assert.match(app,/readingPartialIds/);assert.match(app,/check\?\.status!=='completed'/);assert.match(app,/status:partial\?'partial':'completed'/);
 });
+test('V10 reading checks reject blank submissions and allow explicit skip/resume',()=>{
+ assert.match(app,/请填写答案，或明确点击跳过本题/);assert.match(app,/跳过本题/);assert.match(app,/status==='partial'/);assert.match(app,/prior&&prior.status==='partial'/);
+});
 test('V10 Journey schedules bounded delayed correction attempts and preserves linkage',()=>{
  assert.match(app,/baseQueueLength/);assert.match(app,/correctionIds/);assert.match(app,/Math\.min\(5/);assert.match(app,/correction_attempt/);assert.match(app,/correction_of/);
 });
