@@ -502,3 +502,13 @@ V3.5 batches
 - A post-deploy synthetic JSON import on the live URL entered the existing Journey and reached Spelling Forge; a 390×844 touch-mode probe exposed 26 letter controls, verified undo behavior and reported no page or console errors. This used only `/tmp/v9-production-pack.json` in an isolated browser context.
 - Local V8.1 evidence remains **158/158**. No localStorage, IndexedDB recordings, reports or private learning data were cleared, migrated destructively, or uploaded.
 - Final state: `PRODUCTION_DEPLOYED_MANUAL_DEVICE_TEST_PENDING`. Physical iPhone Safari microphone permission, system keyboard, touch spelling, audio replay, ZIP download and PWA cache refresh remain manual checks. Rollback is the normal GitHub Pages rollback to the previous main commit `25ae304` if a release regression is verified.
+
+
+## V10.0.2 — handover ZIP integrity hardening (PR candidate, 2026-11-05)
+
+- Starting point: main V10.0.1 (PR #66 already merged). No duplicate reimplementation of reading skip/resume or source learning-pack inclusion.
+- Risk addressed: \`readZipStore()\` previously accepted a store-only ZIP entry even when its data bytes or local CRC32 header had changed; a readback could therefore be mistaken for a verified export.
+- Minimal fix: compare computed CRC32 of each entry's stored payload against its local file-header CRC before accepting the entry. Corrupt entries now fail explicitly. Does not change ZIP contents, source provenance, K/V/N, original attempts, audio/recording IDs, localStorage or IndexedDB.
+- Regression tests: synthetic \`learning-pack.json\` payload byte flip and ZIP CRC header byte flip, plus the existing successful ZIP round trips. No private pack, audio or device history.
+- Candidate software version is 10.0.2 in package.json/core.mjs/sw.js; storage schema remains 4.3.
+- At the time of this checkpoint this is a **branch-only candidate**: CI, merge, Pages, live HTTPS, complete JSON→Journey→ZIP browser integration and physical iPhone Safari **not yet verified**. Do not call it deployed before those checks.

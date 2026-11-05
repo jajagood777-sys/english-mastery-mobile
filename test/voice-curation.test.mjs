@@ -10,7 +10,7 @@ test('native voice selection prefers actual en-US device voices without hardcode
   assert.doesNotMatch(app,/US_FEMALE_VOICE_NAMES/);
 });
 test('curation does not rewrite learner state and publishes fresh PWA cache',()=>{
- assert.match(core,/APP_VERSION = '10\.0\.1'/);
- assert.match(sw,/english-cultivation-static-v10\.0\.1/);
+ assert.match(core,/APP_VERSION = '10\.0\.2'/);
+ assert.match(sw,/english-cultivation-static-v10\.0\.2/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
 });
