@@ -9,6 +9,8 @@ test('natural speech covers words, examples, sentences and stories with native f
  assert.match(app,/function speakNaturalOrDevice\(/);
  assert.match(app,/createClipPlayer/);
  assert.match(app,/result==='missing'/);
+ assert.match(app,/naturalSpeechPlayer\?\.pause\(\)/);
+ assert.match(app,/naturalSpeechPlayer\?\.resume\(\)/);
  assert.match(app,/speechButton\(item\.target\)/);
  assert.match(app,/speechButton\(item\.example\)/);
  assert.match(app,/speechControls\(reading\.text/);

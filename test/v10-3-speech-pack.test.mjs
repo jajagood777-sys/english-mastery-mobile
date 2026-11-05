@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {extractAudioTasks} from '../audio-tasks.mjs';
+import {splitSpeechSegments as runtimeSplit} from '../speech-clips.mjs';
+import {splitStudioSegments} from '../studio.mjs';
 
 const pack={
   schema_version:'2.0',pack_id:'SYNTH-V10-3-AUDIO',title:'Synthetic natural speech pack',
@@ -41,6 +43,16 @@ test('V10.3 generator and importer expose the single-ZIP contract without changi
   assert.match(app,/createClipPlayer/);
   assert.match(app,/package-info\.json/);
   assert.match(app,/item\.name==='learning-pack\.json'/);
-  assert.match(app,/自然语音已缓存/);
+  assert.match(app,/自然语音 .*audioSummary\.imported/);
   assert.match(app,/central-english-mastery\.v2/);
+});
+
+test('V10.3 generation, reading playback and Listening Studio share exact segment identities',()=>{
+  const readingText='First paragraph has a stable sentence.\n\nSecond paragraph has another stable sentence.';
+  const listeningText='Listen to the first sentence.\n\nListen to the second sentence.';
+  const source={schema_version:'2.0',pack_id:'SEGMENT-CONSISTENCY',items:[{id:'l1',type:'listening',text:listeningText}],readings:[{id:'r1',title:'Reading',text:readingText}]};
+  const extracted=extractAudioTasks(source);
+  assert.deepEqual(extracted.tasks.filter(row=>row.category==='reading').map(row=>row.text),runtimeSplit(readingText));
+  assert.deepEqual(extracted.tasks.filter(row=>row.category==='listening').map(row=>row.text),runtimeSplit(listeningText));
+  assert.deepEqual(splitStudioSegments(listeningText),runtimeSplit(listeningText));
 });
