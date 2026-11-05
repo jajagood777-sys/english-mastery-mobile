@@ -21,3 +21,22 @@ test('Issue 61 refuses to attach a source pack with a different report ID',()=>{
   const {entries,manifest}=handoverEntries({report:{report_id:'report:mismatch',session_id:'mismatch',pack_id:'EN-SYNTH-61',transfer_attempts:[]},sourcePack:{bytes,packId:'other-pack',schemaVersion:'2.0'}});
   assert.equal(manifest.source_pack_included,false);assert.match(manifest.source_pack_unavailable_reason,/does not match/i);assert.equal(entries.some(entry=>entry.name==='learning-pack.json'),false);
 });
+
+test('ZIP readback rejects a corrupted source pack instead of treating it as verified',()=>{
+  const raw=JSON.stringify(source),bytes=new TextEncoder().encode(raw);
+  const {entries}=handoverEntries({report:{report_id:'synthetic',session_id:'synthetic',pack_id:'EN-SYNTH-61'},sourcePack:{bytes,packId:'EN-SYNTH-61'}});
+  const original=zipStore(entries).bytes;
+  assert.equal(readZipStore(original).find(entry=>entry.name==='learning-pack.json')?.bytes.length,bytes.length);
+  const broken=original.slice();
+  const first=entries[0],firstPayloadOffset=30+new TextEncoder().encode(first.name).length;
+  broken[firstPayloadOffset+5]^=0x01;
+  assert.throws(()=>readZipStore(broken),/integrity check failed \(CRC32\)/);
+});
+
+test('ZIP readback rejects a corrupted CRC header even when bytes are present',()=>{
+  const original=zipStore([{name:'test.txt',bytes:new TextEncoder().encode('safe synthetic content')}]).bytes;
+  assert.equal(new TextDecoder().decode(readZipStore(original)[0].bytes),'safe synthetic content');
+  const broken=original.slice();
+  broken[14]^=0x01;
+  assert.throws(()=>readZipStore(broken),/integrity check failed \(CRC32\)/);
+});
