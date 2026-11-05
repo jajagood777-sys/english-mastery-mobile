@@ -25,3 +25,12 @@ This record uses the public synthetic fixture `examples/v56-audio-sample-pack.js
 - Google Drive upload: not implemented or claimed.
 - Website import: not run in a browser for this fixture.
 - iPhone Safari playback: not tested; requires the user's device.
+
+## Final repair pass
+
+- Public HEAD after cache repair: `ee133bf`.
+- `npm test`: 193/193 passed; public PR check run `42130607503` passed.
+- Browser integration: `V10.3 BROWSER ZIP IMPORT + IDB CACHE + NATURAL PLAYBACK PASS`; `V10.3.1 LISTENING STUDIO NATURAL SEGMENTS PASS`; a synthetic two-reading browser run also played both articles through their final segments.
+- Three-run cache simulation: day 1 `added=2,reused=0,kept=2`; day 2 `added=1,reused=2,kept=3`; day 3 `added=0,reused=3,kept=3`. Invalid cache rows were not reused.
+- The new cache manager stores only validated MP3s and manifest rows in the long-lived library; every ZIP is built in a clean temporary directory and the Artifact glob resolves to one current-pack ZIP.
+- Private HEAD after workflow repair: `bf3a61b`. The private workflow now has a versioned run-ID key, restore-keys, bounded cache, repository-dispatch file input, and the no-token helper `scripts/submit-private-audio-pack.mjs`.
