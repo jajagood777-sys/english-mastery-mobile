@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,collectReadingMarkEvidence,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics} from '../core.mjs';
+import {VERSION,APP_VERSION,parseCSV, recordsFromCSV, sentencesFromText, mergeItems, wordPrompt, sentenceCloze, sentenceClozeParts, recordsFromLearningPack, dateKeyInTimeZone, nextDue, buildQueue, validateBackup,migrateBackupPayload,buildBattleReport,battleReportMarkdown,describeReferenceDifference,centralLearningHandoff,buildCentralLearningFeedback,compareAnswer,compareWordAnswer,scheduleReview,makeCSV,homeSummary,readingSelectionContext,readingCardId,persistState,mergeBackupState,isFullBackup,mergeReadingMarks,collectSavedReadingWords,collectReadingMarkEvidence,readingVocabularyHandoff,readingMarkId,safeSourceUrl,isValidAudioLoop,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeDailyPackItems,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics} from '../core.mjs';
 test('UTF8 BOM, quoted comma and escaped quotes, multiline CSV',()=>{
  const text='\uFEFFItem_ID,English_Target,Original_Example_EN\r\nA01,address,"We need to address the problem, not ignore it."\r\nA02,quote,"She said ""Hello"".\nThen she left."';
  const parsed=parseCSV(text); assert.equal(parsed.records.length,2);assert.equal(parsed.records[0].English_Target,'address');assert.match(parsed.records[1].Original_Example_EN,/"Hello"/);
@@ -23,6 +23,40 @@ test('cloze hides target and sentence cloze leaves readable context',()=>{
  assert.equal(wordPrompt({target:'account for',example:'Three factors account for the change.'}).question,'Three factors ________ the change.');
  assert.equal(wordPrompt({target:'address',example:'Please read this carefully.'}).fallback,true);
  const s=sentenceCloze('The best way to improve your English is to practise a little every day.');assert.ok(s.includes('________'));assert.ok(s.includes('improve'));
+});
+test('word prompt exposes an explicit semantic target without changing the legacy cloze',()=>{
+ const prompt=wordPrompt({target:'clarify',example:'Could you clarify your point?',definition_en:'to make something easier to understand',part_of_speech:'verb',collocations:['clarify a point']});
+ assert.equal(prompt.question,'Could you ________ your point?');
+ assert.equal(prompt.clueSource,'definition_en');
+ assert.equal(prompt.answerConfidence,'high');
+ assert.equal(prompt.partOfSpeech,'verb');
+ assert.deepEqual(prompt.collocations,['clarify a point']);
+});
+test('word comparison leaves plausible alternatives unassessed when the pack has no exhaustive basis',()=>{
+ const item={target:'clarify',example:'Could you clarify your point?',meaningZh:'澄清'};
+ assert.equal(compareWordAnswer('explain',item,{confidence:'medium'}).status,'unassessed');
+ assert.equal(compareWordAnswer('clarify',item,{confidence:'medium'}).status,'correct');
+ assert.equal(compareWordAnswer('explain', {...item,acceptedAnswers:['explain']},{confidence:'medium'}).status,'correct');
+ assert.equal(compareWordAnswer('explain', {...item,definitionEn:'to make something easier to understand'},{confidence:'high'}).status,'unassessed');
+});
+test('word prompt safely degrades when an imported pack has no definition or meaning',()=>{
+ const prompt=wordPrompt({target:'address',example:'Please address the problem.'});
+ assert.equal(prompt.clueSource,'context_only');
+ assert.equal(prompt.answerConfidence,'low');
+ assert.equal(prompt.definitionEn,'');
+ assert.equal(prompt.meaningZh,'');
+});
+test('battle report preserves vocabulary clue provenance and unassessed alternatives',()=>{
+ const report=buildBattleReport({
+  session:{id:'word-session',startedAt:'2026-11-06T00:00:00Z',endedAt:'2026-11-06T00:02:00Z',activeMs:120000,mode:'words'},
+  items:[{id:'w:clarify',kind:'word',target:'clarify',source:'Synthetic pack',dueAt:null}],
+  attempts:[{id:'word-attempt-1',sessionId:'word-session',itemId:'w:clarify',kind:'word',status:'V',answer:'explain',initial_check:{status:'unassessed'},answer_confidence:'medium',clue_source:'pack_meaning_zh',prompt_used:false,viewed_answer:false,reference_viewed:false,at:'2026-11-06T00:01:00Z'}],
+  now:new Date('2026-11-06T00:02:00Z')
+ });
+ assert.equal(report.attempts[0].initial_check.status,'unassessed');
+ assert.equal(report.attempts[0].answer_confidence,'medium');
+ assert.equal(report.attempts[0].clue_source,'pack_meaning_zh');
+ assert.equal(report.attempts[0].reference_viewed,false);
 });
 test('review order is due then untested, dates deterministic',()=>{
  const due='2026-10-29T12:00:00Z';const now=Date.parse('2026-10-30T12:00:00Z');
