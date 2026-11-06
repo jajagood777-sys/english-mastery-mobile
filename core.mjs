@@ -333,13 +333,19 @@ export function mergeDailyPackItems(existing=[], incoming=[]) {
   return {items:out,itemIds:[...new Set(ids)],added,skipped};
 }
 
-export function wordPrompt(item) {
+export function wordPrompt(item={}, {definitionEn=''} = {}) {
   const example=clean(item.example),target=clean(item.target);
+  const definition=clean(definitionEn||item.definitionEn||item.definition_en);
+  const meaningZh=clean(item.meaningZh||item.meaning_zh||item.cue||item.hint_zh);
+  const accepted=listValue(item.acceptedAnswers||item.accepted_answers);
+  const answerConfidence=definition||accepted.length?'high':meaningZh?'medium':target&&example?'low':'none';
+  const clueSource=definition?'definition_en':meaningZh?'pack_meaning_zh':target&&example?'context_only':'none';
+  const metadata={target,definitionEn:definition,meaningZh,partOfSpeech:clean(item.partOfSpeech||item.part_of_speech),collocations:listValue(item.collocations),acceptedAnswers:accepted,clueSource,answerConfidence};
   if(target){
     const p=new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRE(target)})(?=$|[^\\p{L}\\p{N}])`,'iu');
-    if(p.test(example)) return {question:example.replace(p,(all,prefix)=>`${prefix}________`),fallback:false};
+    if(p.test(example)) return {question:example.replace(p,(all,prefix)=>`${prefix}________`),fallback:false,...metadata};
   }
-  return {question:'Write a natural English word or expression that matches the meaning clue.',fallback:true};
+  return {question:'Write a natural English word or expression that matches the meaning clue.',fallback:true,...metadata};
 }
 export function sentenceCloze(sentence) {
   const words = String(sentence).match(/\b[A-Za-z][A-Za-z'-]*\b/g)||[];
@@ -659,6 +665,21 @@ export function compareAnswer(user, reference, {accepted=[]} = {}) {
   if(distance===1&&answerKey(rawReference).length>=4) return {status:'minor_spelling',user:rawUser,reference:rawReference,message:describeReferenceDifference(rawUser,rawReference)||'可能有一个拼写差异，请比较参考表达。'};
   return {status:'incorrect',user:rawUser,reference:rawReference,message:describeReferenceDifference(rawUser,rawReference)||'答案与参考表达不同，请自行比较。'};
 }
+/**
+ * Compare a vocabulary response without claiming that a free alternative is
+ * wrong when the imported pack does not provide an exhaustive answer basis.
+ * Exact target and explicit acceptedAnswers remain objectively checkable.
+ */
+export function compareWordAnswer(user, item={}, {definitionEn='', confidence=''} = {}) {
+  const rawItem=item||{};
+  const reference=clean(rawItem.target);
+  const accepted=listValue(rawItem.acceptedAnswers||rawItem.accepted_answers);
+  const check=compareAnswer(user,reference,{accepted});
+  if (check.status==='incorrect' && clean(user) && !accepted.length) {
+    return {...check,status:'unassessed',message:'The pack does not define an exhaustive answer set. Compare your expression with the context and rate it honestly; it is not automatically marked wrong.'};
+  }
+  return check;
+}
 /** Explain only a visible token difference; this is NOT a grammar or meaning judgement. */
 export function describeReferenceDifference(user, reference) {
   const userWords=normalizeAnswer(user).split(/\s+/).filter(Boolean);
@@ -901,6 +922,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       rating: ['K','V','N'].includes(attempt.status)?attempt.status:'UNRATED',
       skipped: Boolean(attempt.skipped),
       initial_check: attempt.initial_check || null,
+      answer_confidence: attempt.answer_confidence || null,
+      clue_source: attempt.clue_source || null,
       retry_answer: attempt.retry_answer || '',
       retry_check: attempt.retry_check || null,
       retried_after_error: Boolean(attempt.retried_after_error),
@@ -910,6 +933,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       prompt_events: Array.isArray(attempt.prompt_events)?attempt.prompt_events:[],
       viewed_chinese: Boolean(attempt.viewed_chinese),
       viewed_answer: Boolean(attempt.viewed_answer),
+      reference_viewed: Boolean(attempt.reference_viewed ?? attempt.viewed_answer),
       evidence_type: attempt.evidence_type || (attempt.viewed_answer?'viewed_answer':attempt.prompt_used?'prompted':'independent_retrieval'),
       learning_stage_before: attempt.learning_stage_before || null,
       learning_stage_after: attempt.learning_stage_after || null,

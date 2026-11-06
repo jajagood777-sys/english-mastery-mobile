@@ -78,7 +78,7 @@ test('V4.2 reading and card-management paths preserve context and history',()=>{
 
 test('V4.2 compact answer controls use a real single-line input',()=>{
   assert.match(app,/function textInput\(/);
-  assert.match(app,/const input=textInput\(s\.draft,'例如：address'\)/);
+  assert.match(app,/const input=textInput\(s\.draft,'Type the target word or expression in English…'\)/);
   assert.match(app,/const input=textInput\(s\.draft,'请输入缺少的英文单词/);
 });
 
