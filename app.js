@@ -530,6 +530,7 @@ function wordHintPanel(item,level){
   return box;
 }
 function focusForMobile(input){input.addEventListener('focus',()=>{setTimeout(()=>{if(!input.isConnected||document.activeElement!==input)return;const viewport=window.visualViewport;const top=viewport?.offsetTop||0;const bottom=top+(viewport?.height||window.innerHeight);const rect=input.getBoundingClientRect();if(rect.top<top+12||rect.bottom>bottom-12)input.scrollIntoView({block:'nearest',behavior:'instant'});},120);});}
+function recordWordPromptEvent(s,type){s.promptUsed=true;s.promptEvents=[...(s.promptEvents||[]),{type,at:new Date().toISOString()}];}
 function buildWordQuestion(container,item,s){
   const definition=englishDefinitionFor(item,data.dailyPack?.packId);
   const prompt=wordPrompt(item,{definitionEn:definition});
