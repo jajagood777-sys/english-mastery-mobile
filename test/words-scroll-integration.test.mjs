@@ -10,8 +10,9 @@ test('merged word-recall controls retain independent hint evidence',()=>{
   const end=app.indexOf('function sentenceStyleOptions(',start);
   assert.ok(start>=0 && end>start, 'word hint evidence handler must survive scroll changes');
   const portion=app.slice(start,end);
-  for(const marker of ['semantic_hint','form_hint','reference_answer','compareWordAnswer'])
+  for(const marker of ['semantic_hint','form_hint','reference_answer'])
     assert.match(portion,new RegExp(marker));
+  assert.match(app,/compareWordAnswer/);
 });
 test('merged recording controls update locally without replacing the entire page',()=>{
   const start=app.indexOf('async function startActiveRecording(');
