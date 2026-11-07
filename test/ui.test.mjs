@@ -308,6 +308,10 @@ test('paper-first story practice stays inside the existing training shell withou
  assert.match(app,/Practice this Section/);
  assert.match(app,/no_automatic_ielts_or_pronunciation_score:true/);
 });
+test('V20 dialogue and listening diagnostics reuse existing transfer and studio surfaces',()=>{
+ assert.match(core,/normalizeDialogueScenarios/);assert.match(core,/normalizeListeningDiagnostics/);
+ assert.match(app,/Scenario dialogue · Round/);assert.match(app,/听力盲区定位 · BLIND-SPOT DIAGNOSTICS/);assert.match(app,/listeningDiagnosticAttempts/);assert.match(app,/referenceViewed:false/);
+});
 
 test('transfer recording submission is idempotent after the first tap',()=>{
  const fn=app.match(/function submitTransferRecordingOnly\(\)\{([\s\S]*?)\n\}/)?.[1]||'';

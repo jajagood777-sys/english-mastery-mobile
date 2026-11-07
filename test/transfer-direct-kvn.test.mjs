@@ -39,7 +39,7 @@ test('first-answer evidence survives and the reference is marked displayed only 
   assert.match(app,/firstAnswer:j\.transferDraft/);
   assert.match(app,/firstAnswer:String\(answer\|\|''\)/);
   assert.match(app,/recordingIds:ids/);
-  assert.equal((app.match(/referenceViewed:true/g)||[]).length,4);
+  assert.equal((app.match(/referenceViewed:true/g)||[]).length,5);
   assert.equal((app.match(/referenceDisplayedAutomatically:true/g)||[]).length,4);
 });
 test('new app and PWA cache versions match',()=>{
