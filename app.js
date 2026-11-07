@@ -541,7 +541,7 @@ function pauseSession(){accrue();const s=data.activeSession;if(s){s.running=fals
 function resumeSession(){const s=data.activeSession;if(s){s.running=true;s.lastTick=Date.now();if(save())render();}}
 function fmtTime(ms){const min=Math.floor(ms/60000),sec=Math.floor(ms%60000/1000);return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
 function practiceTop(s){const head=div('practice-top');const info=div();info.append(el('div',`当前模式：${modeLabel(s.mode)} · ${scopeLabel(s.scope)}`,'eyebrow'),h('h2','专注修炼'),el('span',`${s.completed.length} 已完成 · ${s.queue.length-s.index} 题剩余`,'tiny'));const t=div();if(s.journeyStage)info.append(p(`今日综合学习 · ${JOURNEY_LABELS[s.journeyStage]} · 正向累计 ${fmtTime(journeyElapsedMs())}`,'tiny'));const timer=h('div',fmtTime(s.journeyStage?journeyElapsedMs():s.activeMs),'timer');timer.id='timer';t.append(timer,el('div',`正向计时 · 参考 ${s.dueGoal} 分钟，不强制结束`,'time-goal'));head.append(info,t);return head;}
-function renderPractice(){const s=data.activeSession;if(!s){setPage('home');return;}const item=currentItem();if(s.journeyStage==='listening')s.sentenceStyle='listening';const outer=section();outer.append(practiceTop(s));const progress=div('bar-track');const fill=div('bar-fill');fill.id='timer-bar';fill.style.width=`${Math.min(100,(s.journeyStage?journeyElapsedMs():s.activeMs)/(s.dueGoal*60000)*100)}%`;progress.append(fill);outer.append(progress,el('div','正向计时 · 参考目标不强制结束；实际完成以学习项目为准','tiny'));
+function renderPractice(){const s=data.activeSession;if(!s){setPage('home');return;}const item=currentItem();if(s.journeyStage==='listening'&&!s.sentenceStyle)s.sentenceStyle='listening';const outer=section();outer.append(practiceTop(s));const progress=div('bar-track');const fill=div('bar-fill');fill.id='timer-bar';fill.style.width=`${Math.min(100,(s.journeyStage?journeyElapsedMs():s.activeMs)/(s.dueGoal*60000)*100)}%`;progress.append(fill);outer.append(progress,el('div','正向计时 · 参考目标不强制结束；实际完成以学习项目为准','tiny'));
 const lastJourneyStage=Boolean(s.journeyStage&&data.dailyJourney?.index===data.dailyJourney.steps.length-1);outer.append(lines(btn(s.running?'暂停':'继续',()=>{if(s.running){pauseSession();render();}else resumeSession();},'btn'),btn(s.journeyStage?'提前结束本模块':'结束训练',()=>{if(s.journeyStage&&s.index<s.queue.length&&!confirm('本模块还有未完成题目。提前结束会记录为部分完成并进入下一模块，确定吗？'))return;finishSession();},'btn danger'),btn('返回首页',()=>setPage('home'),'btn ghost')));
 if(!s.running){outer.append(h('h3','训练已暂停'),p('计时已停止。准备好后点击“继续”。','subtle'));app.append(outer);return;}
 if(!item){outer.append(h('h3','当前范围已完成'),p(s.journeyStage?(lastJourneyStage?'全部模块已完成，可以查看综合战报。':'本模块已完成，可以继续下一模块。'):'可以结束训练并查看战报，也可以导入更多材料。','subtle'),lines(btn(s.journeyStage?(lastJourneyStage?'完成并查看综合战报':'保存并继续下一模块'):'完成并查看战报',finishSession,'btn primary')));app.append(outer);return;}
@@ -584,8 +584,11 @@ function wordHintPanel(item,level){
   const box=div('hint-stack');
   const definition=englishDefinitionFor(item,data.dailyPack?.packId);
   if(level===1){
-    const context=maskSpellingTarget(item.example,item.target);
+    const original=normalized(item.example||'');
+    const candidates=(item.additionalContexts||[]).map(value=>maskSpellingTarget(value,item.target)).filter(value=>value&&normalized(value)!==original);
+    const context=candidates[0]||'';
     if(context)box.append(p(`Extra context: ${context}`,'hint'));
+    else if(!(item.collocations||[]).some(value=>normalized(value)!==original))box.append(p('No additional context was supplied for this pack. Use the meaning and original context, then compare honestly.','hint'));
     const collocations=(item.collocations||[]).map(value=>maskSpellingTarget(value,item.target)).filter(Boolean);
     if(collocations.length)box.append(p(`Useful collocation: ${collocations.join(' / ')}`,'hint'));
     if(!context&&!collocations.length)box.append(p(englishWordHint(item,data.dailyPack?.packId),'hint'));
