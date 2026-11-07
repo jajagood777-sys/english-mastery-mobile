@@ -6,6 +6,10 @@ const sample=JSON.parse(readFileSync(new URL('../examples/v56-audio-sample-pack.
 test('V5.6 extractor covers words, examples, sentences, listening, reading segments and transfer',()=>{
  const out=extractAudioTasks(sample);assert.equal(out.summary.total,29);assert.equal(out.byCategory.words.total,8);assert.equal(out.byCategory.examples.total,8);assert.equal(out.byCategory.sentences.total,6);assert.equal(out.byCategory.listening.total,3);assert.equal(out.byCategory.reading.total,2);assert.equal(out.byCategory.transfer.total,2);assert.ok(out.tasks.every(row=>row.textHash===speechTextHash(row.text)));assert.ok(out.tasks.filter(row=>row.category==='reading').every(row=>row.segmentCount===2));
 });
+test('V20.1 extractor includes English spelling clues without target-word leakage',()=>{
+ const pack={schema_version:'2.0',pack_id:'spell-audio',items:[],spelling_tasks:[{id:'sp1',target:'clarify',cue_en:'to make an idea easier to understand',prompt_mode:'meaning_to_spelling'}]};
+ const out=extractAudioTasks(pack);assert.equal(out.byCategory.spelling_clues.total,1);assert.equal(out.tasks[0].text,'to make an idea easier to understand');assert.equal(out.tasks[0].sourceId,'sp1');
+});
 test('V5.6 extractor reuses exact text and rejects no content without inventing audio',()=>{
  const first=extractAudioTasks(sample);const existing=first.tasks.slice(0,3).map(row=>({voice:row.voice,engine:row.engineVersion,sha256:row.textHash}));const second=extractAudioTasks(sample,{existingManifest:existing});assert.equal(second.summary.existing,3);assert.equal(second.summary.missing,26);const bad=extractAudioTasks({pack_id:'bad',items:[]});assert.equal(bad.tasks.length,0);assert.ok(bad.errors.length);
 });
