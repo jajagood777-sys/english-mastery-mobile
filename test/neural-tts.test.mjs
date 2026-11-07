@@ -31,7 +31,7 @@ test('native speech preserves explicit stop, pause, resume and speed controls',(
 test('learner storage contract remains unchanged while speech is native',()=>{
  const core=load('core.mjs'),app=load('app.js');
  assert.match(core,/VERSION = 4\.3/);
- assert.match(core,/APP_VERSION = '10\.3\.5'/);
+ assert.match(core,/APP_VERSION = '10\.3\.6'/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
  assert.match(app,/function save\(\)/);
 });
