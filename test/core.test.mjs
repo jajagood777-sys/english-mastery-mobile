@@ -77,6 +77,10 @@ test('V20 listening diagnostic evidence merges by stable id without overwriting 
  const merged=mergeBackupState({items:[],attempts:[],sessions:[],reports:[],listeningDiagnosticAttempts:[{id:'ld-a',firstAnswer:'old'}]},{items:[],attempts:[],sessions:[],reports:[],listeningDiagnosticAttempts:[{id:'ld-a',firstAnswer:'new'},{id:'ld-b',firstAnswer:'second'}]});
  assert.deepEqual(merged.listeningDiagnosticAttempts,[{id:'ld-a',firstAnswer:'old'},{id:'ld-b',firstAnswer:'second'}]);
 });
+test('V20.1 extra context is preserved separately and spelling has no artificial cap',()=>{
+ const out=recordsFromLearningPack({schema_version:'2.0',pack_id:'v201',items:[{id:'w1',type:'word',target:'clarify',example:'Please clarify the point.',additional_contexts:['The teacher clarified the confusing instruction.']}],spelling_tasks:[1,2,3,4].map((n)=>({id:`sp${n}`,target:`word${n}`,cue_en:'an English meaning',prompt_mode:'meaning_to_spelling'}))});
+ assert.deepEqual(out.items[0].additionalContexts,['The teacher clarified the confusing instruction.']);assert.equal(out.spellingTasks.length,4);
+});
 test('review order is due then untested, dates deterministic',()=>{
  const due='2026-10-29T12:00:00Z';const now=Date.parse('2026-10-30T12:00:00Z');
  assert.deepEqual(buildQueue([{id:'a',kind:'word',status:'K',dueAt:null},{id:'b',kind:'word',status:'UNTESTED',dueAt:null},{id:'c',kind:'word',status:'N',dueAt:due}],'words',now),['c','b','a']);

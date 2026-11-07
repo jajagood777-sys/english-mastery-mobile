@@ -312,6 +312,9 @@ test('V20 dialogue and listening diagnostics reuse existing transfer and studio 
  assert.match(core,/normalizeDialogueScenarios/);assert.match(core,/normalizeListeningDiagnostics/);
  assert.match(app,/Scenario dialogue · Round/);assert.match(app,/听力盲区定位 · BLIND-SPOT DIAGNOSTICS/);assert.match(app,/listeningDiagnosticAttempts/);assert.match(app,/referenceViewed:false/);
 });
+test('V20.1 word hints avoid repeating the main context and sentence mode remains selectable',()=>{
+ assert.match(app,/additionalContexts/);assert.match(app,/No additional context was supplied/);assert.match(app,/s\.sentenceStyle=value/);assert.doesNotMatch(app,/if\(s\.journeyStage==='listening'\)s\.sentenceStyle='listening'/);
+});
 
 test('transfer recording submission is idempotent after the first tap',()=>{
  const fn=app.match(/function submitTransferRecordingOnly\(\)\{([\s\S]*?)\n\}/)?.[1]||'';
