@@ -558,7 +558,7 @@ function speechControls(text,segments=null){return lines(speechButton(text,segme
 function renderListeningStudio(item){
   const panel=section('listening-speaking-studio');const segments=splitStudioSegments(item.text);const text=el('div','', 'studio-source-text');text.hidden=true;text.textContent=item.text;
   const actions=lines(btn('显示原文',()=>{text.hidden=!text.hidden;actions.querySelector('button').textContent=text.hidden?'显示原文':'隐藏原文';},'btn ghost'));
-  const segmentBox=div('studio-segments');segments.forEach((segment,index)=>segmentBox.append(btn(`片段 ${index+1} · 朗读`,()=>speakEnglish(segment),'btn secondary')));
+    const segmentBox=div('studio-segments');segments.forEach((segment,index)=>segmentBox.append(btn(`片段 ${index+1} · 朗读`,()=>{const row=(data.listeningDiagnosticAttempts||[]).find(x=>x.diagnosticId===item.listeningDiagnostic?.id&&x.itemId===item.id);if(row){row.replayCount=Number(row.replayCount||0)+1;save();}speakEnglish(segment);},'btn secondary')));
   panel.append(el('div','听说实战 · LISTENING & SPEAKING STUDIO','question-label'),p('先盲听，再定位困难；录音只保存在本机，不进行未经验证的机器语音分析。','subtle'),actions,text,segmentBox);
   const diagnostic=item.listeningDiagnostic;
   if(diagnostic){
@@ -568,7 +568,7 @@ function renderListeningStudio(item){
     const options=div('setup-options');for(const value of diagnostic.difficultyOptions||[]){const label=el('label');const check=el('input');check.type='checkbox';check.value=value;check.checked=(attempt.difficulty||[]).includes(value);label.append(check,el('span',value));options.append(label);}
     const submit=btn('保存首次理解',()=>{const row={...attempt,id:attempt.id||`listening-diagnostic:${item.id}`,diagnosticId:diagnostic.id,itemId:item.id,packId:item.packId,firstAnswer:answer.value,firstSubmittedAt:new Date().toISOString(),difficulty:[...options.querySelectorAll('input:checked')].map(x=>x.value),referenceViewed:false,replayCount:Number(attempt.replayCount||0),retestAnswer:attempt.retestAnswer||'',status:'submitted'};data.listeningDiagnosticAttempts=[...(data.listeningDiagnosticAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();},'btn primary');
     diag.append(field('你的首次理解',answer),options,submit);
-    if(attempt.firstSubmittedAt){diag.append(btn('显示原文',()=>{const row={...attempt,referenceViewed:true,referenceViewedAt:new Date().toISOString()};data.listeningDiagnosticAttempts=[...(data.listeningDiagnosticAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();},'btn ghost'));if(attempt.referenceViewed)diag.append(p(item.text,'studio-source-text'),p(`回放次数：${attempt.replayCount||0}`,'tiny'));}
+    if(attempt.firstSubmittedAt){diag.append(btn('显示原文',()=>{const row={...attempt,referenceViewed:true,referenceViewedAt:new Date().toISOString()};data.listeningDiagnosticAttempts=[...(data.listeningDiagnosticAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();},'btn ghost'));if(attempt.referenceViewed){const retest=textarea(attempt.retestAnswer||'','After replay, what did you understand?');const saveRetest=btn('保存再次理解',()=>{const row={...attempt,retestAnswer:retest.value,retestSubmittedAt:new Date().toISOString(),status:'retested'};data.listeningDiagnosticAttempts=[...(data.listeningDiagnosticAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();},'btn secondary');diag.append(p(item.text,'studio-source-text'),p(`回放次数：${attempt.replayCount||0}`,'tiny'),field('再次独立理解',retest),saveRetest);}}
     panel.append(diag);
   }
   return panel;
