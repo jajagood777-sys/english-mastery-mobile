@@ -550,3 +550,10 @@ V3.5 batches
 - Added a lightweight Story/Section selector and `Practice this Section` flow. It skips digital rereading, records paper acknowledgement as self-reported only, preserves first answers before post-submit reference display, records hint/reference provenance, supports existing local recording controls, keeps open responses `unassessed`, and emits a story-specific Battle Report without IELTS or pronunciation scores.
 - Existing storage, backup and report data are preserved. Story sessions live in the existing local state and are idempotent by pack/story/section IDs; no cloud sync, OAuth, Notion/Drive API or second SRS was added. Feature 17 remains deferred.
 - Synthetic evidence: `npm run check` **215/215**; `node scripts/test-paper-story-browser.mjs` passes at 390×844; existing delayed-correction, recovery/mobile and spelling browser smokes pass; learning-data-safety **4/4**; mobile baseline **11/11**; public daily-pack validator valid. WebKit executable and physical iPhone Safari remain **NOT_VERIFIED**. No production merge or deployment performed.
+
+## Paper-First Story Practice V1.0 — production verification (2026-11-07)
+
+- PR #74 merged as `d91b3921920b38927303254c683378f13b3cc8ab` into `main`. GitHub Pages deployment run `42339530004` reached `built`; production URL is `https://jajagood777-sys.github.io/english-mastery-mobile/`.
+- Live resources expose `normalizeStoryPractice`, `renderPaperStoryEntry`, `paperStoryPractice` and the existing `english-cultivation-static-v10.3.3` Service Worker marker. A disposable Chromium 390×844 live smoke entered `Practice this Section`, displayed the English semantic clue and did not display the story text.
+- The private G0336 source was not accessed, imported, uploaded or committed. Feature 17 Google Drive/Notion synchronization remains deferred. No real learner storage, recording, report or copyrighted story content was modified.
+- Automated evidence remains **215/215** plus the synthetic paper-story browser pass, safety fixture **4/4**, mobile static baseline **11/11**, and existing recovery/spelling browser smokes. Physical iPhone Safari and WebKit remain **NOT_VERIFIED**.
