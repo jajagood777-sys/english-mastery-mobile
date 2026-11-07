@@ -40,8 +40,10 @@ test('first-answer evidence survives and the reference is marked displayed only 
   assert.match(app,/firstAnswer:String\(answer\|\|''\)/);
   assert.match(app,/recordingIds:ids/);
   assert.equal((app.match(/referenceViewed:true/g)||[]).length,4);
+  assert.equal((app.match(/referenceDisplayedAutomatically:true/g)||[]).length,4);
 });
 test('new app and PWA cache versions match',()=>{
   assert.match(core,/APP_VERSION = '10\.3\.3'/);
+  assert.match(core,/referencePrompted=Boolean\(attempt.referenceViewed&&!attempt.referenceDisplayedAutomatically\)/);
   assert.match(sw,/english-cultivation-static-v10\.3\.3/);
 });
