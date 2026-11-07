@@ -299,6 +299,15 @@ test('V1.0 Journey includes reading recall, Exit Ticket and story Section interf
  assert.match(core,/storyId/);
  assert.match(core,/exit_ticket/);
 });
+test('paper-first story practice stays inside the existing training shell without forcing digital rereading',()=>{
+ assert.match(app,/storyPractice/);
+ assert.match(app,/function renderPaperStoryEntry/);
+ assert.match(app,/function renderPaperStoryPractice/);
+ assert.match(app,/paper_reading_time_measured:false/);
+ assert.match(app,/spoken_phrase_limit:10/);
+ assert.match(app,/Practice this Section/);
+ assert.match(app,/no_automatic_ielts_or_pronunciation_score:true/);
+});
 
 test('transfer recording submission is idempotent after the first tap',()=>{
  const fn=app.match(/function submitTransferRecordingOnly\(\)\{([\s\S]*?)\n\}/)?.[1]||'';
