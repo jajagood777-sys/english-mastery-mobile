@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '10.3.2';
+export const APP_VERSION = '10.3.3';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -244,17 +244,19 @@ export function mergeTransferAttempts(existing=[],incoming=[]) {
 }
 export function transferEvidenceStatus(attempt={}) {
   if(!attempt||!attempt.firstAnswer&&!attempt.retryAnswer)return 'UNTESTED';
-  if(attempt.delayed&&!attempt.hintUsed&&!attempt.referenceViewed&&attempt.rating==='K')return 'TRANSFER_VERIFIED';
-  if(attempt.rating==='K'&&!attempt.hintUsed&&!attempt.referenceViewed)return 'INDEPENDENT_RECALL';
-  if(attempt.hintUsed||attempt.referenceViewed)return 'PROMPTED';
+  // A reference revealed only AFTER the first answer cannot have prompted that answer.
+  const referencePrompted=Boolean(attempt.referenceViewed&&!attempt.referenceDisplayedAutomatically);
+  if(attempt.delayed&&!attempt.hintUsed&&!referencePrompted&&attempt.rating==='K')return 'TRANSFER_VERIFIED';
+  if(attempt.rating==='K'&&!attempt.hintUsed&&!referencePrompted)return 'INDEPENDENT_RECALL';
+  if(attempt.hintUsed||referencePrompted)return 'PROMPTED';
   return attempt.rating?'LEARNING':'UNTESTED';
 }
 export function buildTransferAnalytics({weaknesses=[],transferAttempts=[],now=Date.now()}={}) {
   const rows=mergeTransferAttempts([],transferAttempts), due=mergeWeaknesses([],weaknesses).filter(item=>item.nextReviewAt&&new Date(item.nextReviewAt).getTime()<=new Date(now).getTime()).length;
   const measured=rows.filter(row=>row.firstAnswer||row.retryAnswer); const categories={}; const sources={};
   for(const row of rows){const weakness=(Array.isArray(weaknesses)?weaknesses:[]).find(item=>item.id===row.weaknessId)||{};const category=weakness.skillType||'Unclassified',source=weakness.sourceType||'unknown';categories[category]=(categories[category]||0)+1;sources[source]=(sources[source]||0)+1;}
-  const independentRows=rows.filter(row=>!row.hintUsed&&!row.referenceViewed&&(row.firstAnswer||row.retryAnswer));
-  const promptedRows=rows.filter(row=>(row.hintUsed||row.referenceViewed)&&(row.firstAnswer||row.retryAnswer));
+  const independentRows=rows.filter(row=>!row.hintUsed&&!(row.referenceViewed&&!row.referenceDisplayedAutomatically)&&(row.firstAnswer||row.retryAnswer));
+  const promptedRows=rows.filter(row=>(row.hintUsed||(row.referenceViewed&&!row.referenceDisplayedAutomatically))&&(row.firstAnswer||row.retryAnswer));
   const retryRows=rows.filter(row=>row.retryAnswer);
   const delayedRows=rows.filter(row=>row.delayed);
   return {counts:{total:rows.length,measured:measured.length,unmeasured:rows.length-measured.length,independent:independentRows.filter(row=>row.rating==='K').length,prompted:promptedRows.filter(row=>row.rating==='K').length,retry:retryRows.filter(row=>row.rating==='K').length,delayed:delayedRows.filter(row=>row.rating==='K').length},denominators:{independent:independentRows.length,prompted:promptedRows.length,retry:retryRows.length,delayed:delayedRows.length},due,byCategory:categories,bySource:sources};
@@ -744,7 +746,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
   const p1=attempts.filter(attempt=>attempt.rating==='V'||attempt.prompt_used||attempt.retried_after_error).map(attempt=>candidate(attempt,'P1',attempt.rating==='V'?'V · 模糊，需要独立复测':'使用提示或经历重练，掌握程度仍待核验'));
   const p2=attempts.filter(attempt=>attempt.rating==='K').map(attempt=>candidate(attempt,'P2','已记录 K，可安排保持性复测而非历史错题'));
   const unmeasured=attempts.filter(attempt=>attempt.rating==='UNRATED'||!attempt.rating).map(attempt=>candidate(attempt,'UNKNOWN','没有 K/V/N 或自动判定证据，不能推断掌握状态'));
-  const transferEvidence=transfers.map(attempt=>({attempt_id:attempt.id||null,task_id:attempt.taskId||attempt.contextId||null,task_type:attempt.taskType||'general_transfer',prompt:attempt.prompt||null,first_answer:attempt.firstAnswer||'',retry_answer:attempt.retryAnswer||'',first_submitted_at:attempt.firstSubmittedAt||null,retry_submitted_at:attempt.retrySubmittedAt||null,hint_used:Boolean(attempt.hintUsed),reference_viewed:Boolean(attempt.referenceViewed),rating:attempt.rating||'UNRATED',recording_only:Boolean(attempt.recordingOnly),recording_ids:Array.isArray(attempt.recordingIds)?attempt.recordingIds:[],evidence_type:attempt.evidenceType||null,review_of:attempt.reviewOf||null,previous_report_id:attempt.previousReportId||null}));
+  const transferEvidence=transfers.map(attempt=>({attempt_id:attempt.id||null,task_id:attempt.taskId||attempt.contextId||null,task_type:attempt.taskType||'general_transfer',prompt:attempt.prompt||null,first_answer:attempt.firstAnswer||'',retry_answer:attempt.retryAnswer||'',first_submitted_at:attempt.firstSubmittedAt||null,retry_submitted_at:attempt.retrySubmittedAt||null,hint_used:Boolean(attempt.hintUsed),reference_viewed:Boolean(attempt.referenceViewed),reference_displayed_after_submit:Boolean(attempt.referenceDisplayedAutomatically),rating:attempt.rating||'UNRATED',recording_only:Boolean(attempt.recordingOnly),recording_ids:Array.isArray(attempt.recordingIds)?attempt.recordingIds:[],evidence_type:attempt.evidenceType||null,review_of:attempt.reviewOf||null,previous_report_id:attempt.previousReportId||null}));
   return {
     feedback_schema_version:'1.0',
     is_learning_pack:false,
@@ -1010,7 +1012,7 @@ export function battleReportMarkdown(report) {
     ...(attempt.examSource?[`- IELTS来源：${inline(attempt.examSource)} · ${inline(attempt.examType||'')} · ${inline(attempt.testNumber||'')} · ${inline(attempt.skill||'')} · 题目ID：${inline(attempt.questionId||attempt.taskId||'未记录')} · ${attempt.isAuthenticIelts?'原版真题':'练习材料'}`]:[]),
     ...(attempt.practiceRole==='review'?[`- 回炉来源：${inline(attempt.reviewOf||'历史证据待核验')} · 历史报告：${inline(attempt.previousReportId||'未记录')} · 历史作答：${inline(attempt.previousAttemptId||'未记录')} · 日期：${inline(attempt.previousDate||'未记录')} · 状态：${inline(attempt.previousStatus||'待核验')} · 证据：${inline(attempt.evidenceType||'未记录')} · 第 ${inline(attempt.reviewRound||'未记录')} 轮`]:[]),
     `- 原始英文初稿（${attempt.firstSubmittedAt||'未记录'}）：`, block(attempt.firstAnswer || (attempt.recordingOnly?'录音未转写':'')),
-    `- 使用提示：${attempt.hintUsed?'是':'否'} · 查看参考答案：${attempt.referenceViewed?'是':'否'}${attempt.referenceViewedAt?`（${attempt.referenceViewedAt}）`:''}`,
+    `- 使用提示：${attempt.hintUsed?'是':'否'} · 参考表达：${attempt.referenceDisplayedAutomatically?'初答提交后自动显示':attempt.referenceViewed?'已手动查看':'未查看'}${attempt.referenceViewedAt?`（${attempt.referenceViewedAt}）`:''}`,
     `- 参考答案：${inline(attempt.referenceAnswer||'未记录')}`,
     `- 修改稿：${attempt.retryAnswer?`已提交（${attempt.retrySubmittedAt||'时间未记录'}）`:'未提交'}`, ...(attempt.retryAnswer?[block(attempt.retryAnswer)]:[]),
     `- K/V/N 自评：${attempt.rating||'未自评'} · AI 评分：未评分，待中央仙窍批改`,

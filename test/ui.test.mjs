@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v10\.3\.2/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.3/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -165,7 +165,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v10\.3\.2/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.3/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V6.2 visual polish keeps the existing asset layer and mobile-safe rhythm',()=>{
@@ -206,7 +206,7 @@ test('V5 journey report recovery passes transfer evidence locally',()=>{
  assert.match(block,/transferAttempts:journeyTransferAttempts/);
  assert.match(block,/recovered_without_overwriting_original/);
  assert.match(app,/firstAnswer:j\.transferDraft/);
- assert.match(app,/暂不修改，保留初稿/);
+ assert.doesNotMatch(app,/暂不修改，保留初稿/);
 });
 
 test('VNext hides manual weak-room navigation while retaining the daily journey route',()=>{
@@ -294,7 +294,7 @@ test('V1.0 Journey includes reading recall, Exit Ticket and story Section interf
  assert.match(app,/function renderReadingRecall/);
  assert.match(app,/readingRecallAttempts/);
  assert.match(app,/Exit Ticket/);
- assert.match(app,/responseStructure/);
+ assert.match(app,/参考表达：/);
  assert.match(app,/sectionTitle/);
  assert.match(core,/storyId/);
  assert.match(core,/exit_ticket/);
