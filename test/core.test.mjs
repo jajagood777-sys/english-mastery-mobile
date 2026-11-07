@@ -73,6 +73,10 @@ test('V20 scenario dialogue and listening diagnostics stay in one schema 2.0 pac
  const pack=recordsFromLearningPack({schema_version:'2.0',pack_id:'v20-synth',items:[{id:'listen-1',type:'listening',text:'The quick brown fox listens carefully.'}],dialogue_scenarios:[{id:'job',title:'Teacher interview',nodes:[{id:'r1',prompt:'Why teach?',reference_answer:'I enjoy helping learners.'},{id:'r2',prompt:'Give an example.',reference_answer:'For example, I adapt the lesson.',next_node_id:'r3'},{id:'r3',prompt:'What if a learner is confused?',reference_answer:'I would explain it another way.'}]}],listening_diagnostics:[{id:'ld1',item_id:'listen-1',prompt:'What did you understand?',retest_prompt:'What changed after replay?'}]});
  assert.equal(pack.transferTasks.length,3);assert.deepEqual(pack.transferTasks.map(x=>x.dialogueRound),[1,2,3]);assert.equal(pack.transferTasks[1].dialogueScenarioId,'job');assert.equal(pack.items[0].listeningDiagnostic.id,'ld1');assert.equal(pack.pack.dialogueScenarios.length,1);assert.equal(pack.pack.listeningDiagnostics.length,1);
 });
+test('V20 listening diagnostic evidence merges by stable id without overwriting history',()=>{
+ const merged=mergeBackupState({items:[],attempts:[],sessions:[],reports:[],listeningDiagnosticAttempts:[{id:'ld-a',firstAnswer:'old'}]},{items:[],attempts:[],sessions:[],reports:[],listeningDiagnosticAttempts:[{id:'ld-a',firstAnswer:'new'},{id:'ld-b',firstAnswer:'second'}]});
+ assert.deepEqual(merged.listeningDiagnosticAttempts,[{id:'ld-a',firstAnswer:'old'},{id:'ld-b',firstAnswer:'second'}]);
+});
 test('review order is due then untested, dates deterministic',()=>{
  const due='2026-10-29T12:00:00Z';const now=Date.parse('2026-10-30T12:00:00Z');
  assert.deepEqual(buildQueue([{id:'a',kind:'word',status:'K',dueAt:null},{id:'b',kind:'word',status:'UNTESTED',dueAt:null},{id:'c',kind:'word',status:'N',dueAt:due}],'words',now),['c','b','a']);

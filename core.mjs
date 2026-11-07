@@ -507,6 +507,7 @@ export function mergeBackupState(current={}, restored={}) {
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
   const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
   const transferAttempts = mergeTransferAttempts(current.transferAttempts, restored.transferAttempts);
+  const listeningDiagnosticAttempts = uniqueBy([...(current.listeningDiagnosticAttempts||[]), ...(restored.listeningDiagnosticAttempts||[])], 'id');
   const packHistory = uniqueBy([...(Array.isArray(current.packHistory) ? current.packHistory : []), ...(Array.isArray(restored.packHistory) ? restored.packHistory : []), current.dailyPack, restored.dailyPack], 'packId');
   return {
     ...current,
@@ -519,6 +520,7 @@ export function mergeBackupState(current={}, restored={}) {
     readingChecks,
     weaknesses,
     transferAttempts,
+    listeningDiagnosticAttempts,
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
