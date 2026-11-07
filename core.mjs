@@ -114,6 +114,46 @@ function normalizeStoryMeta(raw={}) {
     sourceReference:clean(raw.sourceReference||raw.source_reference)||null
   };
 }
+function storyList(raw,...keys){for(const key of keys){const value=raw?.[key];if(Array.isArray(value))return value;}return []}
+function normalizeStoryTask(raw={},type,storyId,sectionId,index){
+  const source=typeof raw==='string'?{prompt:raw}:raw||{};
+  const prompt=clean(source.prompt||source.question||source.text||source.sentence||source.example);
+  const target=clean(source.target||source.answer||source.cloze_answer||source.clozeAnswer);
+  if(!prompt&&!target)return null;
+  const id=clean(source.id)||`story:${storyId}:${sectionId}:${type}-${index+1}`;
+  return {id,type,prompt,target,referenceAnswer:clean(source.reference_answer||source.referenceAnswer||source.model_answer||source.modelAnswer||target),definitionEn:clean(source.definition_en||source.definitionEn||source.meaning_en||source.meaningEn),partOfSpeech:clean(source.part_of_speech||source.partOfSpeech),example:clean(source.example||source.context||source.sentence),acceptedAnswers:listValue(source.accepted_answers||source.acceptedAnswers),hints:listValue(source.hints||source.hint).slice(0,3),collocations:listValue(source.collocations),storyBeats:listValue(source.story_beats||source.storyBeats),answerConstraints:clean(source.answer_constraints||source.answerConstraints),sourceReference:clean(source.source_reference||source.sourceReference),audioUrl:safeAudioUrl(source.audio_url||source.audioUrl),sourceItemId:clean(source.source_item_id||source.sourceItemId)||null,storyId,sectionId,source:clean(source.source)||null};
+}
+export function normalizeStoryPractice(value={},packId=''){
+  const rawStories=Array.isArray(value)?value:Array.isArray(value?.stories)?value.stories:(value&&typeof value==='object'&&(value.story_id||value.storyId)?[value]:[]);
+  const stories=[];
+  for(const [storyIndex,rawStory] of rawStories.entries()){
+    if(!rawStory||typeof rawStory!=='object')continue;
+    const storyId=clean(rawStory.story_id||rawStory.storyId||rawStory.id)||`story-${storyIndex+1}`;
+    const sections=Array.isArray(rawStory.sections)?rawStory.sections:[];
+    const normalizedSections=[];
+    for(const [sectionIndex,rawSection] of sections.entries()){
+      if(!rawSection||typeof rawSection!=='object')continue;
+      const sectionId=clean(rawSection.section_id||rawSection.sectionId||rawSection.id)||`${storyId}:section-${sectionIndex+1}`;
+      const sectionTitle=clean(rawSection.title||rawSection.section_title||rawSection.sectionTitle)||`Section ${sectionIndex+1}`;
+      const vocabulary=storyList(rawSection,'vocabulary','words','target_words').map((x,i)=>normalizeStoryTask(x,'vocabulary',storyId,sectionId,i)).filter(Boolean);
+      const cloze=storyList(rawSection,'cloze_questions','cloze','clozeQuestions').map((x,i)=>normalizeStoryTask(x,'cloze',storyId,sectionId,i)).filter(Boolean);
+      const grammar=storyList(rawSection,'grammar_questions','grammar','grammarQuestions').map((x,i)=>normalizeStoryTask(x,'grammar',storyId,sectionId,i)).filter(Boolean);
+      const comprehension=storyList(rawSection,'comprehension_questions','comprehension','comprehensionQuestions').map((x,i)=>normalizeStoryTask(x,'comprehension',storyId,sectionId,i)).filter(Boolean);
+      const phrases=storyList(rawSection,'spoken_phrases','phrases','spokenPhrases').map((x,i)=>normalizeStoryTask(x,'spoken_phrase',storyId,sectionId,i)).filter(Boolean).map((x,i)=>({...x,practiceEligible:i<10,archiveStatus:i<10?'AVAILABLE':'ARCHIVED_NOT_STUDIED'}));
+      const golden=storyList(rawSection,'golden_sentences','goldenSentences').map((x,i)=>normalizeStoryTask(x,'golden_sentence',storyId,sectionId,i)).filter(Boolean);
+      const speaking=storyList(rawSection,'ielts_part3_questions','speaking_questions','speakingQuestions').map((x,i)=>normalizeStoryTask(x,'speaking',storyId,sectionId,i)).filter(Boolean);
+      const audioSegments=storyList(rawSection,'audio_segments','audioSegments').map((x,i)=>normalizeStoryTask(x,'audio_segment',storyId,sectionId,i)).filter(Boolean);
+      const writingRaw=rawSection.writing_prompt||rawSection.writingPrompt||rawSection.writing;
+      const writing=writingRaw?(Array.isArray(writingRaw)?writingRaw:[writingRaw]).map((x,i)=>normalizeStoryTask(x,'writing',storyId,sectionId,i)).filter(Boolean):[];
+      const retellingRaw=rawSection.retelling||rawSection.story_retelling||rawSection.storyRetelling;
+      const retelling=retellingRaw?normalizeStoryTask(typeof retellingRaw==='string'?{prompt:retellingRaw}:retellingRaw,'retelling',storyId,sectionId,0):null;
+      normalizedSections.push({id:sectionId,title:sectionTitle,order:Number.isFinite(Number(rawSection.order??rawSection.section_order))?Number(rawSection.order??rawSection.section_order):sectionIndex+1,paperFirst:rawSection.paper_first!==false&&rawSection.paperFirst!==false,storyId,source:clean(rawSection.source||rawStory.source)||null,sourceReference:clean(rawSection.source_reference||rawSection.sourceReference||rawStory.source_reference||rawStory.sourceReference)||null,availability:{vocabulary:vocabulary.length,cloze:cloze.length,grammar:grammar.length,comprehension:comprehension.length,spokenPhrases:phrases.filter(x=>x.practiceEligible).length,deferredPhrases:phrases.filter(x=>!x.practiceEligible).length,goldenSentences:golden.length,speaking:speaking.length,writing:writing.length,retelling:retelling?1:0,audioSegments:audioSegments.length},vocabulary,cloze,grammar,comprehension,spokenPhrases:phrases,goldenSentences:golden,speakingQuestions:speaking,writing,retelling,audioSegments,storyBeats:listValue(rawSection.story_beats||rawSection.storyBeats)});
+    }
+    normalizedSections.sort((a,b)=>a.order-b.order);
+    if(normalizedSections.length)stories.push({id:storyId,title:clean(rawStory.title||rawStory.story_title||rawStory.storyTitle)||storyId,source:clean(rawStory.source)||null,sourceReference:clean(rawStory.source_reference||rawStory.sourceReference)||null,packId,sections:normalizedSections});
+  }
+  return stories.length?{version:1,packId,stories}:null;
+}
 function normalizeReviewMeta(raw={}) {
   const role=clean(raw.practiceRole||raw.practice_role);
   return {
@@ -574,14 +614,18 @@ export function readingVocabularyHandoff(rows = [], {exportedAt = ''} = {}) {
 }
 
 export function recordsFromLearningPack(value, {source='Central Immortal Aperture'} = {}) {
-  if(!value||typeof value!=='object'||!Array.isArray(value.items)) throw Error('学习包 JSON 缺少 items 列表。');
-  if(value.items.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
+  if(!value||typeof value!=='object') throw Error('学习包 JSON 必须是对象。');
+  const hasStoryPayload=Boolean(value.story_practice||value.storyPractice||(Array.isArray(value.stories)&&value.stories.length));
+  if(!Array.isArray(value.items)&&!hasStoryPayload) throw Error('学习包 JSON 缺少 items 列表。');
+  const rawItems=Array.isArray(value.items)?value.items:[];
+  if(rawItems.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
   if(value.readings!==undefined&&!Array.isArray(value.readings))throw Error('readings 必须是阅读文章数组。');
   if((value.readings||[]).length>20)throw Error('单份学习包最多包含 20 篇阅读文章。');
   const packId=clean(value.pack_id)||`pack:${stableHash(JSON.stringify(value.items)+'|'+JSON.stringify(value.readings||[]))}`;
   const title=clean(value.title)||'今日综合英语学习包';
   const importedAt=new Date().toISOString();
   const errors=[],items=[],readings=[];
+  const storyPractice=normalizeStoryPractice(value.story_practice||value.storyPractice||value.stories,packId);
   const transferTasks=[];
   const spellingTasks=[];
   if(value.spelling_tasks!==undefined&&!Array.isArray(value.spelling_tasks)) errors.push('spelling_tasks 必须是数组；已跳过拼写强化。');
@@ -604,7 +648,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   }
   const planned=Number(value.recommended_minutes??value.target_minutes??0);
   const recommendedMinutes=Number.isFinite(planned)&&planned>0?Math.max(5,Math.min(180,Math.round(planned))):null;
-  value.items.forEach((raw,index)=>{
+  rawItems.forEach((raw,index)=>{
     try{
       if(!raw||typeof raw!=='object')throw Error('学习项目必须是对象。');
       const type=clean(raw.type||raw.kind).toLowerCase();
@@ -647,8 +691,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     if(seenReading.has(key)){errors.push(`重复阅读：${reading.title}`);continue;}
     seenReading.add(key);uniqueReadings.push(reading);
   }
-  if(!unique.length&&!uniqueReadings.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,readings:uniqueReadings,transferTasks,spellingTasks,errors,sourceType:'pack',sourceRows:value.items.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks, schemaVersion:clean(value.schema_version)||'1'}};
+  if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items:unique,readings:uniqueReadings,transferTasks,spellingTasks,storyPractice,errors,sourceType:'pack',sourceRows:rawItems.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,storyPractice, schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -870,6 +914,7 @@ export function validateBackup(value){
   if(value.readingMarks!==undefined&&!Array.isArray(value.readingMarks)) throw Error('Backup has invalid reading-mark data.');
   if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
   if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
+  if(value.paperStoryPractice!==undefined&&value.paperStoryPractice!==null&&typeof value.paperStoryPractice!=='object') throw Error('Backup has invalid paper-story practice data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
   const transferAttempts=mergeTransferAttempts(value.transferAttempts||[],[]);
@@ -892,7 +937,8 @@ export function validateBackup(value){
     transferRecordingIds:journey.transferRecordingIds&&typeof journey.transferRecordingIds==='object'?journey.transferRecordingIds:{}
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[], spellingAttempts=[]}) {
