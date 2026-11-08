@@ -4,6 +4,7 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {recordsFromLearningPack} from './core.mjs';
 import {splitSpeechSegments} from './speech-clips.mjs';
+import {englishSpellingCue} from './english-first.mjs';
 export {splitSpeechSegments};
 export const DEFAULT_AUDIO_ENGINE='kokoro-js@1.2.1-q8';
 export const DEFAULT_AUDIO_VOICE='af_heart';
@@ -16,7 +17,14 @@ export function extractAudioTasks(pack,{voice=DEFAULT_AUDIO_VOICE,engineVersion=
  const packId=normalized.pack.packId,tasks=[],seen=new Map();
  const add=(input)=>{const normalizedText=normalizeSpeechText(input.text);if(!normalizedText)return;const row=task({...input,packId,voice,engineVersion,text:normalizedText});const key=`${row.voice}|${row.engineVersion}|${row.textHash}`;const prior=seen.get(key);if(prior){prior.sourceRefs.push(...(input.refs||[]));return;}seen.set(key,row);tasks.push(row);};
  for(const item of normalized.items){if(item.kind==='word'){add({sourceId:item.sourceItemId||item.id,category:'words',text:item.target,refs:[`${item.id}:target`]});add({sourceId:item.sourceItemId||item.id,category:'examples',text:item.example,refs:[`${item.id}:example`]});if(item.definitionEn)add({sourceId:item.sourceItemId||item.id,category:'definitions',text:item.definitionEn,refs:[`${item.id}:definition_en`]});}else if(item.kind==='sentence'){const category=item.module==='listening'?'listening':'sentences';const segments=category==='listening'?splitSpeechSegments(item.text):[item.text];segments.forEach((text,index)=>add({sourceId:item.sourceItemId||item.id,category,text,segmentIndex:category==='listening'?index:null,segmentCount:category==='listening'?segments.length:null,refs:[`${item.id}${category==='listening'?`:segment:${index}`:''}`]}));}}
- for(const spelling of normalized.spellingTasks||[]){if(spelling.cueEn)add({sourceId:spelling.id,category:'spelling_clues',text:spelling.cueEn,refs:[`${spelling.id}:cue_en`]});}
+ // The website plays englishSpellingCue(task).audioText, NOT the raw cue_en.
+ // Share this exact construction (including mode prefixes and masked cloze)
+ // with the app to keep manifest SHA-256 and the real audio button in sync.
+ for(const spelling of normalized.spellingTasks||[]){
+  const cue=englishSpellingCue(spelling);
+  if(cue.audioText)add({sourceId:spelling.id,category:'spelling_clues',text:cue.audioText,refs:[`${spelling.id}:audio_text`]});
+  else errors.push(`拼写任务 ${spelling.id} 缺少可朗读英文提示；请补充可验证的 cue_en 或含目标词的例句。`);
+ }
  for(const reading of normalized.readings){const segments=splitSpeechSegments(reading.text);segments.forEach((text,index)=>add({sourceId:reading.sourceId||reading.id,category:'reading',text,readingId:reading.id,segmentIndex:index,segmentCount:segments.length,refs:[`${reading.id}:segment:${index}`]}));if(!segments.length)errors.push(`阅读 ${reading.id} 没有可朗读段落。`);}
  for(const transfer of normalized.transferTasks){add({sourceId:transfer.id,category:'transfer',text:transfer.prompt,refs:[`${transfer.id}:prompt`]});if(transfer.referenceAnswer)add({sourceId:transfer.id,category:'transfer',text:transfer.referenceAnswer,refs:[`${transfer.id}:reference`]});for(const context of transfer.contexts||[]){add({sourceId:transfer.id,category:'transfer',text:context.prompt,refs:[`${transfer.id}:${context.id}:prompt`]});if(context.referenceAnswer)add({sourceId:transfer.id,category:'transfer',text:context.referenceAnswer,refs:[`${transfer.id}:${context.id}:reference`]});}}
  const existing=new Set((existingManifest||[]).filter(x=>x.voice===voice&&x.engine===engineVersion).map(x=>x.sha256||x.textHash));for(const row of tasks){row.hasAudio=existing.has(row.textHash);row.needsGeneration=!row.hasAudio;}
