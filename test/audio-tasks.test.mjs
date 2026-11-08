@@ -6,9 +6,34 @@ const sample=JSON.parse(readFileSync(new URL('../examples/v56-audio-sample-pack.
 test('V5.6 extractor covers words, examples, sentences, listening, reading segments and transfer',()=>{
  const out=extractAudioTasks(sample);assert.equal(out.summary.total,29);assert.equal(out.byCategory.words.total,8);assert.equal(out.byCategory.examples.total,8);assert.equal(out.byCategory.sentences.total,6);assert.equal(out.byCategory.listening.total,3);assert.equal(out.byCategory.reading.total,2);assert.equal(out.byCategory.transfer.total,2);assert.ok(out.tasks.every(row=>row.textHash===speechTextHash(row.text)));assert.ok(out.tasks.filter(row=>row.category==='reading').every(row=>row.segmentCount===2));
 });
-test('V20.1 extractor includes English spelling clues without target-word leakage',()=>{
- const pack={schema_version:'2.0',pack_id:'spell-audio',items:[],spelling_tasks:[{id:'sp1',target:'clarify',cue_en:'to make an idea easier to understand',prompt_mode:'meaning_to_spelling'}]};
- const out=extractAudioTasks(pack);assert.equal(out.byCategory.spelling_clues.total,1);assert.equal(out.tasks[0].text,'to make an idea easier to understand');assert.equal(out.tasks[0].sourceId,'sp1');
+test('V20.1 extractor hashes exactly what the website plays for all spelling modes',()=>{
+ const pack={schema_version:'2.0',pack_id:'spell-audio',items:[],spelling_tasks:[
+  {id:'sp1',target:'clarify',cue_en:'to clarify something means to make it clear',prompt_mode:'meaning_to_spelling'},
+  {id:'sp2',target:'harbor',tts_text:'harbor',prompt_mode:'audio_to_spelling'},
+  {id:'sp3',target:'demolish',example:'Workers will demolish the old building.',prompt_mode:'sentence_cloze'},
+  {id:'sp4',target:'toddler',example:'The toddler walked across the room.',prompt_mode:'meaning_to_spelling'}
+ ]};
+ const out=extractAudioTasks(pack);
+ assert.deepEqual(out.errors,[]);
+ const spelling=out.tasks.filter(x=>x.category==='spelling_clues');
+ assert.equal(spelling.length,4);
+ assert.deepEqual(spelling.map(x=>x.text),[
+  'Spell the word that means: to _____ something means to make it clear',
+  'harbor',
+  'Complete the missing word: Workers will blank the old building.',
+  'Complete the missing word in this sentence: The blank walked across the room.'
+ ]);
+ assert.deepEqual(spelling.map(x=>x.sourceId),['sp1','sp2','sp3','sp4']);
+ assert.ok(spelling.every(x=>x.textHash===speechTextHash(x.text)));
+ assert.ok(spelling.every(x=>x.sourceRefs.some(ref=>ref.endsWith(':audio_text'))));
+ assert.equal(spelling[0].text.includes('clarify'),false);
+ assert.equal(spelling[2].text.includes('demolish'),false);
+});
+test('spelling generation reports unusable English clues instead of silently dropping audio',()=>{
+ const pack={schema_version:'2.0',pack_id:'spell-no-clue',items:[],spelling_tasks:[{id:'sp-empty',target:'ridge',cue_zh:'山脊',prompt_mode:'meaning_to_spelling'}]};
+ const out=extractAudioTasks(pack);
+ assert.equal(out.tasks.filter(x=>x.category==='spelling_clues').length,0);
+ assert.ok(out.errors.some(x=>x.includes('sp-empty')&&x.includes('英文提示')));
 });
 test('V5.6 extractor reuses exact text and rejects no content without inventing audio',()=>{
  const first=extractAudioTasks(sample);const existing=first.tasks.slice(0,3).map(row=>({voice:row.voice,engine:row.engineVersion,sha256:row.textHash}));const second=extractAudioTasks(sample,{existingManifest:existing});assert.equal(second.summary.existing,3);assert.equal(second.summary.missing,26);const bad=extractAudioTasks({pack_id:'bad',items:[]});assert.equal(bad.tasks.length,0);assert.ok(bad.errors.length);
