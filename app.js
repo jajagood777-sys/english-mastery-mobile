@@ -1043,6 +1043,103 @@ function renderReadingVocabulary(){
   updateList();
 }
 
+/** Speech practice uses the existing private Kokoro blob cache, never an invented stream. */
+function currentSpeech(){const j=journeyStage()==='speech'?data.dailyJourney:null;const pool=j?journeySpeeches():(data.speeches||[]);return pool.find(s=>s.id===selectedSpeechId)||pool.find(s=>!j||!(j.speechDoneIds||[]).includes(s.id))||pool[0]||null;}
+function speechProgressKey(speech){const j=journeyStage()==='speech'?data.dailyJourney:null;return `${j?.id||'standalone'}:${speech.id}`;}
+function accrueJourneySpeech(){
+ const j=data.dailyJourney;if(!j||journeyStage()!=='speech'||!j.speechRunning)return;
+ const now=Date.now();
+ if(!document.hidden&&page==='speech')j.speechMs=Math.max(0,Number(j.speechMs||0))+Math.max(0,Math.min(1800,now-(j.speechLastTick||now)));
+ j.speechLastTick=now;
+}
+function pauseJourneySpeech(){
+ const j=data.dailyJourney;
+ if(j&&j.speechRunning){accrueJourneySpeech();j.speechRunning=false;j.speechLastTick=null;save();}
+ if(page==='speech'&&activeAudio&&!activeAudio.paused)activeAudio.pause();
+}
+function completeSpeech(speech,skipped=false){
+ pauseJourneySpeech();stopActiveAudio();
+ const key=speechProgressKey(speech),flags=data.speechProgress?.[key]||{};
+ const status=skipped?'skipped':flags.shadowed||flags.delivered?'completed':'partial';
+ const record={id:`speech-attempt:${Date.now()}:${speech.id}`,speechId:speech.id,sourceId:speech.sourceId,
+  packId:speech.packId,title:speech.title,at:new Date().toISOString(),status,
+  shadowed:Boolean(flags.shadowed),delivered:Boolean(flags.delivered),source:'USER_SELF_REPORT',pronunciationScore:null};
+ const j=journeyStage()==='speech'?data.dailyJourney:null;
+ if(j){
+  j.speechAttempts=[...(j.speechAttempts||[]),record];
+  j.speechDoneIds=[...new Set([...(j.speechDoneIds||[]),speech.id])];
+  const next=journeySpeeches().find(x=>!j.speechDoneIds.includes(x.id));
+  if(next){selectedSpeechId=next.id;if(save())render();return;}
+  const outcomes=j.speechAttempts.filter(x=>j.speechDoneIds.includes(x.speechId));
+  const allDone=outcomes.length&&outcomes.every(x=>x.status==='completed');
+  const allSkipped=outcomes.length&&outcomes.every(x=>x.status==='skipped');
+  j.completed.push({stage:'speech',status:allDone?'completed':allSkipped?'skipped':'partial',count:j.speechDoneIds.length});
+  j.index++;if(save())beginJourneyStage();return;
+ }
+ data.speechAttempts=[...(data.speechAttempts||[]),record];
+ if(save()){notify(skipped?'已记为跳过，未计入演讲能力。':'已保存本人自报的演讲练习，未进行发音自动评分。');render();}
+}
+function renderSpeechChamber(){
+ stopActiveAudio();
+ app.append(el('div','言道演讲 · SPEECH CHAMBER','eyebrow'),h('h1','英语演讲与影子跟读'),
+   p('同一原稿：听读 → 模仿跟读 → 隐藏文本尝试脱稿。这里只记录实际音频活动和你的自报，不自动给发音打分。','lead'));
+ const speech=currentSpeech();
+ if(!speech){const empty=section();empty.append(h('h2','尚无演讲稿'),p('先从知识宝库导入含 speeches 的每日学习 ZIP；原有 R02 包无需替换。','subtle'),btn('打开学习包导入',()=>setPage('library'),'btn primary'));app.append(empty);return;}
+ selectedSpeechId=speech.id;
+ const j=journeyStage()==='speech'?data.dailyJourney:null;
+ if(j){const card=section('daily-journey-card');card.append(h('h2','今日 Journey · 演讲阶段'),p(`已练习 ${(j.speechDoneIds||[]).length} / ${journeySpeeches().length} 篇 · 有证据的音频播放时长 ${fmtTime(j.speechMs||0)} · 不自动标记背会`,'subtle'));app.append(card);}
+ const pool=j?journeySpeeches():(data.speeches||[]);
+ const box=section('reading-page speech-chamber');
+ if(pool.length>1){const select=el('select','','select');for(const item of pool){const opt=el('option',item.title);opt.value=item.id;select.append(opt);}select.value=speech.id;
+ select.addEventListener('change',()=>{pauseJourneySpeech();selectedSpeechId=select.value;render();});box.append(field('选择演讲',select));}
+ box.append(h('h2',speech.title),p(`来源：${speech.authorOrSpeaker||speech.sourceType||'用户稿件'} · ${speech.sourceId}`,'tiny'));
+ const text=div('speech-script');text.textContent=speech.scriptEn;text.style.whiteSpace='pre-wrap';text.style.lineHeight='1.85';text.style.fontSize='1.05rem';
+ const toggle=btn('隐藏演讲稿，尝试脱稿',()=>{text.hidden=!text.hidden;toggle.textContent=text.hidden?'显示演讲稿':'隐藏演讲稿，尝试脱稿';},'btn secondary');
+ const playerPanel=section('audio-study-controls');playerPanel.append(el('div','真实整篇音频 · KOKORO','eyebrow'));
+ const status=p('正在检查本机的整篇音频……','tiny');
+ const audio=el('audio');audio.preload='metadata';audio.controls=true;audio.setAttribute('aria-label','英语演讲完整音频');
+ activeAudio=audio;
+ const back=btn('后退 5 秒',()=>{const at=clampSpeechSeek(audio.currentTime,-5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary',true);
+ const play=btn('播放',()=>{if(audio.paused)audio.play().catch(()=>{status.textContent='请先点击音频播放器的播放键。';});else audio.pause();},'btn primary',true);
+ const forward=btn('前进 5 秒',()=>{const at=clampSpeechSeek(audio.currentTime,5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary',true);
+ const seek=el('input','','input');seek.type='range';seek.min='0';seek.max='1';seek.step='.1';seek.value='0';seek.disabled=true;seek.setAttribute('aria-label','演讲音频进度');
+ const time=p('0:00 / --:--','tiny');
+ const rate=el('select','','select');for(const speed of [.75,1,1.25]){const option=el('option',speed+'×');option.value=String(speed);rate.append(option);}rate.value='1';rate.setAttribute('aria-label','演讲音频播放速度');rate.addEventListener('change',()=>{audio.playbackRate=Number(rate.value);});
+ let a=null,b=null,loop=false;
+ const btnA=btn('设 A',()=>{if(Number.isFinite(audio.duration)){a=audio.currentTime;loop=false;status.textContent='已设置循环起点 A';}},'btn ghost');
+ const btnB=btn('设 B',()=>{if(isValidAudioLoop(a,audio.currentTime,audio.duration)){b=audio.currentTime;status.textContent='已设置循环终点 B';}else status.textContent='需要先设置A，再设置更晚的B。';},'btn ghost');
+ const btnLoop=btn('A–B 循环',()=>{loop=!loop;if(!isValidAudioLoop(a,b,audio.duration)){loop=false;status.textContent='请先设置有效A/B。';return;}btnLoop.textContent=loop?'停止 A–B 循环':'A–B 循环';if(loop){audio.currentTime=a;audio.play().catch(()=>status.textContent='请点击播放键启动循环。');}},'btn ghost');
+ const sync=()=>{const duration=audio.duration,ok=Number.isFinite(duration)&&duration>0;
+  back.disabled=!ok;forward.disabled=!ok;seek.disabled=!ok;seek.max=String(ok?duration:1);seek.value=String(Math.min(ok?duration:0,audio.currentTime||0));
+  time.textContent=`${audioTime(audio.currentTime)} / ${audioTime(duration)}`;play.textContent=audio.paused?'播放':'暂停';};
+ audio.addEventListener('loadedmetadata',sync);
+ audio.addEventListener('timeupdate',()=>{if(activeAudio!==audio)return;sync();accrueJourneySpeech();if(j?.speechRunning&&Date.now()-(window.__speechLastSaveAt||0)>15000){window.__speechLastSaveAt=Date.now();save();}
+  if(loop&&isValidAudioLoop(a,b,audio.duration)&&audio.currentTime>=b-.02)audio.currentTime=a;});
+ audio.addEventListener('play',()=>{if(j){j.speechRunning=true;j.speechLastTick=Date.now();}sync();});
+ audio.addEventListener('pause',()=>{pauseJourneySpeech();sync();});
+ audio.addEventListener('ended',()=>{pauseJourneySpeech();sync();status.textContent='播放结束。听完并不等于已完成跟读或背诵。';});
+ audio.addEventListener('error',()=>{pauseJourneySpeech();status.textContent='音频解码或加载失败；请检查原 ZIP 与 MP3 完整性。';});
+ seek.addEventListener('input',()=>{const at=clampSpeechSeek(Number(seek.value),0,audio.duration);if(at!==null)audio.currentTime=at;});
+ playerPanel.append(audio,seek,time,lines(back,play,forward),lines(rate,btnA,btnB,btnLoop),status);
+ box.append(playerPanel,lines(toggle),text);
+ const progressKey=speechProgressKey(speech);
+ const flags=data.speechProgress?.[progressKey]||{};
+ const shadow=btn(flags.shadowed?'已自报跟读':'我已尝试影子跟读',()=>{data.speechProgress??={};data.speechProgress[progressKey]={...data.speechProgress[progressKey],shadowed:true};if(save())shadow.textContent='已自报跟读';},'btn secondary');
+ const deliver=btn(flags.delivered?'已自报脱稿':'我已尝试脱稿演讲',()=>{data.speechProgress??={};data.speechProgress[progressKey]={...data.speechProgress[progressKey],delivered:true};if(save())deliver.textContent='已自报脱稿';},'btn secondary');
+ box.append(h('h3','练习反馈（由你确认）'),p('打勾是个人自报，不代表客观发音评分或独立测试结果。','tiny'),lines(shadow,deliver));
+ box.append(lines(btn('完成本篇／继续',()=>completeSpeech(speech),'btn primary'),btn('跳过本篇',()=>completeSpeech(speech,true),'btn ghost')));
+ app.append(box);
+ // Only a verified cached speech Blob enables the seekable player; no fake audio.
+ void (async()=>{try{
+  const hash=await speechTextHash(speech.scriptEn);
+  if(speech.scriptSha256&&speech.scriptSha256!==hash)throw Error('演讲稿 SHA-256 与规范化后的原稿不匹配');
+  const blob=await getSpeechClip(speech.scriptEn,speech.audioVoice||'af_heart');
+  if(!blob){status.textContent='本机没有该演讲的完整 MP3；请在下份私人 ZIP 中加入 speeches 音频。';return;}
+  if(activeAudio!==audio||!audio.isConnected)return;
+  speechObjectUrl=URL.createObjectURL(blob);audio.src=speechObjectUrl;audio.load();play.disabled=false;
+  status.textContent='真实整篇音频已就绪；手动点击播放以兼容 iPhone Safari。';
+ }catch(error){if(activeAudio===audio)status.textContent='演讲音频不可用：'+error.message;}})();
+}
 function renderReading(){app.append(el('div','英语阅读 · READING CHAMBER','eyebrow'),h('h1','阅读英语材料'),p('文章只保存在本机。双击或长按选中英文词语后，可以标记并批量保存为复习卡片。原生复制、Look Up 和滚动仍然可用。','lead'),lines(btn('打开阅读生词本',()=>setPage('readingVocabulary'),'btn secondary')));
 const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('阅读正文、必要时标记生词。读完后主动点击确认；计时正向累计，达到建议分钟数不会自动结束。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));const recallActive=Boolean(readingJourney.readingRecallQueue?.length);box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(recallActive?'完成即时回忆后继续':remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning||recallActive)));app.append(box);}
