@@ -26,6 +26,11 @@ export function extractAudioTasks(pack,{voice=DEFAULT_AUDIO_VOICE,engineVersion=
   else errors.push(`拼写任务 ${spelling.id} 缺少可朗读英文提示；请补充可验证的 cue_en 或含目标词的例句。`);
  }
  for(const reading of normalized.readings){const segments=splitSpeechSegments(reading.text);segments.forEach((text,index)=>add({sourceId:reading.sourceId||reading.id,category:'reading',text,readingId:reading.id,segmentIndex:index,segmentCount:segments.length,refs:[`${reading.id}:segment:${index}`]}));if(!segments.length)errors.push(`阅读 ${reading.id} 没有可朗读段落。`);}
+ // Full-speech MP3 is a single seekable asset, not a set of separate sentence clips.
+ // The website requests the exact same text through getSpeechClip(scriptEn, voice).
+ for(const speech of normalized.speeches||[]){
+  add({sourceId:speech.sourceId,category:'speeches',text:speech.scriptEn,refs:[`${speech.id}:script_en`]});
+ }
  for(const transfer of normalized.transferTasks){add({sourceId:transfer.id,category:'transfer',text:transfer.prompt,refs:[`${transfer.id}:prompt`]});if(transfer.referenceAnswer)add({sourceId:transfer.id,category:'transfer',text:transfer.referenceAnswer,refs:[`${transfer.id}:reference`]});for(const context of transfer.contexts||[]){add({sourceId:transfer.id,category:'transfer',text:context.prompt,refs:[`${transfer.id}:${context.id}:prompt`]});if(context.referenceAnswer)add({sourceId:transfer.id,category:'transfer',text:context.referenceAnswer,refs:[`${transfer.id}:${context.id}:reference`]});}}
  const existing=new Set((existingManifest||[]).filter(x=>x.voice===voice&&x.engine===engineVersion).map(x=>x.sha256||x.textHash));for(const row of tasks){row.hasAudio=existing.has(row.textHash);row.needsGeneration=!row.hasAudio;}
  const byCategory={};for(const row of tasks){const c=byCategory[row.category]||{total:0,existing:0,missing:0};c.total++;if(row.hasAudio)c.existing++;else c.missing++;byCategory[row.category]=c;}
