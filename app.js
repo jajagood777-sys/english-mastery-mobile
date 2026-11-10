@@ -1095,7 +1095,7 @@ function renderSpeechChamber(){
  box.append(h('h2',speech.title),p(`来源：${speech.authorOrSpeaker||speech.sourceType||'用户稿件'} · ${speech.sourceId}`,'tiny'));
  const text=div('speech-script');text.textContent=speech.scriptEn;text.style.whiteSpace='pre-wrap';text.style.lineHeight='1.85';text.style.fontSize='1.05rem';
  const toggle=btn('隐藏演讲稿，尝试脱稿',()=>{text.hidden=!text.hidden;toggle.textContent=text.hidden?'显示演讲稿':'隐藏演讲稿，尝试脱稿';},'btn secondary');
- const playerPanel=section('audio-study-controls');playerPanel.append(el('div','真实整篇音频 · KOKORO','eyebrow'));
+ const playerPanel=section('audio-study-controls');playerPanel.append(el('div','真实整篇音频 · af_heart','eyebrow'));
  const status=p('正在检查本机的整篇音频……','tiny');
  const audio=el('audio');audio.preload='metadata';audio.controls=true;audio.setAttribute('aria-label','英语演讲完整音频');
  activeAudio=audio;
