@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v10\.3\.8/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.9/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -165,7 +165,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v10\.3\.8/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.9/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V6.2 visual polish keeps the existing asset layer and mobile-safe rhythm',()=>{
@@ -353,4 +353,30 @@ test('V5.8 offers explicit local-only handoff and separates JSON from IndexedDB 
 test('new-content card retains recall but removes mastered direct-test shortcut',()=>{
   assert.match(app,/btn\('开始回忆',\(\)=>\{item\.learningStage='learning'/);
   assert.doesNotMatch(app,/我已经掌握，直接测试/);
+});
+
+test('V10.3.9 multi-paragraph listening stays segmented but does not force verbatim writing or recording',()=>{
+  assert.match(app,/if\(s\.sentenceStyle==='listening'&&isExtendedListening\(item\.text\)\)\{renderExtendedListeningQuestion\(container,item,s\);return;\}/);
+  const start=app.indexOf('function renderExtendedListeningQuestion(');
+  const end=app.indexOf('function buildSentenceQuestion(',start);
+  assert.ok(start>=0&&end>start);
+  const compact=app.slice(start,end);
+  assert.match(compact,/renderListeningStudio\(item,\{/);
+  assert.match(compact,/记录理解并进入下一题/);
+  assert.match(compact,/一句话概括（可选）/);
+  assert.match(compact,/跳过，进入下一题/);
+  assert.doesNotMatch(compact,/followAlongRecordingControls|开始听写|请写出完整英文句子|rateControls\(/);
+  assert.match(app,/if\(diagnostic&&!compact\)/);
+  assert.match(app,/splitStudioSegments\(item\.text\)/);
+});
+test('V10.3.9 passage-level self-report advances without assigning false K/V/N due schedule',()=>{
+  const from=app.indexOf('function finishExtendedListening(');
+  const to=app.indexOf('function renderExtendedListeningQuestion(',from);
+  assert.ok(from>=0&&to>from);
+  const finish=app.slice(from,to);
+  assert.match(finish,/status:null/);
+  assert.match(finish,/evidence_type:skipped\?'skipped':'user_self_reported_comprehension'/);
+  assert.match(finish,/comprehensionSelfReport/);
+  assert.match(finish,/s\.index\+\+/);
+  assert.doesNotMatch(finish,/scheduleReview|item\.dueAt=|item\.status=|grade\(item/);
 });

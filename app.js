@@ -4,7 +4,7 @@ import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRec
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,speechTextHash} from './speech-clips.mjs';
-import {splitStudioSegments} from './studio.mjs';
+import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex} from './handover.mjs';
 
 const STORE='central-english-mastery.v2';
@@ -565,13 +565,13 @@ function buildLearnCard(container,item,s){const card=section('learn-card');card.
 function firstLetterPrompt(prompt,target){const first=String(target||'').trim()[0]||'';return prompt.replace(/_{3,}/,`${first}${'_'.repeat(Math.max(3,String(target||'').trim().length-1))}`);}
 function speechButton(text,segments=null){return btn('▶ 朗读英文',()=>speakEnglish(text,null,segments),'btn secondary');}
 function speechControls(text,segments=null){return lines(speechButton(text,segments),btn('暂停朗读',pauseSpeech,'btn ghost'),btn('继续朗读',resumeSpeech,'btn ghost'),btn('停止朗读',stopSpeech,'btn ghost'));}
-function renderListeningStudio(item){
+function renderListeningStudio(item,{compact=false,onSourceViewed=null}={}){
   const panel=section('listening-speaking-studio');const segments=splitStudioSegments(item.text);const text=el('div','', 'studio-source-text');text.hidden=true;text.textContent=item.text;
-  const actions=lines(btn('显示原文',()=>{text.hidden=!text.hidden;actions.querySelector('button').textContent=text.hidden?'显示原文':'隐藏原文';},'btn ghost'));
+  const actions=lines(btn('显示原文',()=>{text.hidden=!text.hidden;if(!text.hidden)onSourceViewed?.();actions.querySelector('button').textContent=text.hidden?'显示原文':'隐藏原文';},'btn ghost'));
     const segmentBox=div('studio-segments');segments.forEach((segment,index)=>segmentBox.append(btn(`片段 ${index+1} · 朗读`,()=>{const row=(data.listeningDiagnosticAttempts||[]).find(x=>x.diagnosticId===item.listeningDiagnostic?.id&&x.itemId===item.id);if(row){row.replayCount=Number(row.replayCount||0)+1;save();}speakEnglish(segment);},'btn secondary')));
-  panel.append(el('div','听说实战 · LISTENING & SPEAKING STUDIO','question-label'),p('先盲听，再定位困难；录音只保存在本机，不进行未经验证的机器语音分析。','subtle'),actions,text,segmentBox);
+  panel.append(el('div','听说实战 · LISTENING & SPEAKING STUDIO','question-label'),p(compact?'按片段精听；听完选择真实理解程度即可。片段按钮采用设备朗读，并非真人原声；不必抄写整段或强制跟读。':'先盲听，再定位困难；录音只保存在本机，不进行未经验证的机器语音分析。','subtle'),segmentBox,actions,text);
   const diagnostic=item.listeningDiagnostic;
-  if(diagnostic){
+  if(diagnostic&&!compact){
     const attempt=(data.listeningDiagnosticAttempts||[]).find(row=>row.diagnosticId===diagnostic.id&&row.itemId===item.id)||{};
     const diag=section('listening-diagnostic');diag.append(h('h3','听力盲区定位 · BLIND-SPOT DIAGNOSTICS'),p('首次回答前不显示原文；困难类别是你的自我诊断，不是自动语音分析。','tiny'));
     const answer=textarea(attempt.firstAnswer||'','What did you understand?');answer.classList.add('answer-input');
@@ -668,7 +668,79 @@ function audioControls(url){
   box.append(el('div','真实音频精听 · AUDIO LISTENING','question-label'),audio,range,status,lines(setA,setB,toggle,clear,rate));return box;
 }
 function followAlongRecordingControls(item,s,role='original'){const idsKey=role==='retry'?'retryRecordingIds':'recordingIds';return renderRecordingControls({followAlong:true,audioUrl:item.audioUrl,text:item.text,weaknessId:`follow-along:${item.id}`,taskId:item.id,attemptId:s.id,role,onSaved:row=>{s[idsKey]=[...(s[idsKey]||[]),row.id].filter((id,index,array)=>array.indexOf(id)===index);save();}});}
-function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening'){const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';if(read){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','先听英文，再写出你听到的内容。'),p('浏览器朗读不是真人录音，也不提供发音评分。','subtle'),lines(speechButton(item.text),btn('开始听写',()=>{s.step='recall';s.promptUsed=true;if(save())render();},'btn primary')));}else if(!reveal){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','请写出完整英文句子。'));const input=textarea(s.draft,'请输入你听到的英文句子……');input.rows=4;input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>s.draft=input.value);container.append(field('听写答案',input),lines(speechButton(item.text),btn('查看原文并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary')));}else{const card=section('answer-card');card.append(el('div','原始英文句子','eyebrow'),p(item.text,'question'),p(s.draft?`你的听写：${s.draft}`:'本题已跳过。','small-block'),speechButton(item.text));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card,renderListeningStudio(item),followAlongRecordingControls(item,s,'retry'));retryBox(container,item,s,item.text);rateControls(container,item,s);}return;}const parts=sentenceClozeParts(item.text,item.clozeTarget||item.clozeAnswer||item.target||'');if(s.sentenceStyle==='cloze'&&!parts)s.sentenceStyle='recall';const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';const question=div('question');
+/**
+ * A multi-paragraph listening item needs a quick comprehension check, not
+ * word-for-word transcription plus a second mandatory shadowing recording.
+ * Keep it UNRATED: never schedule a long passage as a K/V/N sentence card.
+ */
+function finishExtendedListening(item,s,{skipped=false,level='',summary=''}={}){
+  if(!data.activeSession||data.activeSession.id!==s.id)return;
+  if(!skipped&&!['understood','partial','unclear'].includes(level))return notify('请选择实际理解程度；一句话概括可以不填写。');
+  accrue();
+  const at=new Date().toISOString();
+  const answer=String(summary||'').trim();
+  const diagnostic=item.listeningDiagnostic;
+  if(diagnostic){
+    const current=(data.listeningDiagnosticAttempts||[]).find(row=>row.diagnosticId===diagnostic.id&&row.itemId===item.id)||{};
+    const updated={...current,id:current.id||`listening-diagnostic:${item.id}`,
+      diagnosticId:diagnostic.id,itemId:item.id,packId:item.packId,
+      firstAnswer:current.firstSubmittedAt?current.firstAnswer:answer,
+      firstSubmittedAt:current.firstSubmittedAt||(skipped?null:at),
+      comprehensionSelfReport:skipped?null:level,
+      referenceViewed:Boolean(current.referenceViewed||s.viewedAnswer),
+      status:skipped?'skipped':'brief_comprehension_self_report',
+      updatedAt:at};
+    data.listeningDiagnosticAttempts=[...(data.listeningDiagnosticAttempts||[]).filter(row=>row.id!==updated.id),updated];
+  }
+  const row={id:`a-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+    sessionId:s.id,itemId:item.id,kind:item.kind,status:null,
+    answer:answer||'',referenceAnswer:item.text,
+    promptType:'listening',listeningVariant:'brief_comprehension',
+    comprehensionSelfReport:skipped?null:level,
+    initial_check:{status:'unassessed',message:'用户自报理解程度；不进行逐字核对或自动口语评分。'},
+    skipped:Boolean(skipped),prompt_used:Boolean(s.promptUsed),
+    viewed_answer:Boolean(s.viewedAnswer),reference_viewed:Boolean(s.viewedAnswer),
+    evidence_type:skipped?'skipped':'user_self_reported_comprehension',
+    recording_ids:[],recording_status:'not_recorded',
+    learning_stage_before:item.learningStage||'review',
+    learning_stage_after:item.learningStage||'review',at};
+  data.attempts.push(row);
+  s.completed.push(row.id);s.index++;s.step=null;s.draft='';s.referenceAnswer=null;
+  s.hint=false;s.hintLevel=0;s.skipped=false;s.retryCompleted=false;s.retryDraft='';
+  s.answerCheck=null;s.retryCheck=null;s.recordingIds=[];s.retryRecordingIds=[];
+  s.promptUsed=false;s.promptEvents=[];s.viewedChinese=false;s.meaningShown=false;
+  s.viewedAnswer=false;s.lastTick=Date.now();s.updatedAt=at;
+  if(save())render();
+}
+function renderExtendedListeningQuestion(container,item,s){
+  // This call reuses existing three-section playback; deliberately no second
+  // full-text dictation, duplicated native TTS or compulsory recording widget.
+  if(safeAudioUrl(item.audioUrl))container.append(audioControls(item.audioUrl));
+  container.append(renderListeningStudio(item,{
+    compact:true,
+    onSourceViewed:()=>{s.viewedAnswer=true;save();}
+  }));
+  const group=section('brief-listening-check');
+  group.append(el('div','分段精听 · QUICK CHECK','question-label'),
+    h('h2','听完后，只判断自己是否听懂。'),
+    p('不需要把三段全部听写，也不要求整段跟读。需要训练口语时，可单独进入 Speech Chamber。','subtle'));
+  const prior=(data.listeningDiagnosticAttempts||[]).find(row=>row.diagnosticId===item.listeningDiagnostic?.id&&row.itemId===item.id);
+  const summary=textarea(s.draft||prior?.firstAnswer||'','可选：用一句英语或中文概括主要意思……');
+  summary.rows=2;summary.classList.add('answer-input');
+  summary.addEventListener('input',()=>{s.draft=summary.value;});
+  const select=el('select','','select');
+  for(const [value,label] of [['','请选择理解情况'],['understood','能概括主要意思'],['partial','只理解一部分'],['unclear','暂时没听懂']]){
+    const option=el('option',label);option.value=value;select.append(option);
+  }
+  const submit=btn('记录理解并进入下一题',()=>finishExtendedListening(item,s,{level:select.value,summary:summary.value}),'btn primary');
+  submit.disabled=true;
+  select.addEventListener('change',()=>{submit.disabled=!select.value;});
+  group.append(field('理解程度（本人自评）',select),field('一句话概括（可选）',summary),
+    lines(submit,btn('跳过，进入下一题',()=>finishExtendedListening(item,s,{skipped:true,summary:summary.value}),'btn ghost')),
+    p('这条记录不计K/V/N，也不产生FSRS到期或自动发音分数。','tiny'));
+  container.append(group);
+}
+function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening'&&isExtendedListening(item.text)){renderExtendedListeningQuestion(container,item,s);return;}if(s.sentenceStyle==='listening'){const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';if(read){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','先听英文，再写出你听到的内容。'),p('浏览器朗读不是真人录音，也不提供发音评分。','subtle'),lines(speechButton(item.text),btn('开始听写',()=>{s.step='recall';s.promptUsed=true;if(save())render();},'btn primary')));}else if(!reveal){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','请写出完整英文句子。'));const input=textarea(s.draft,'请输入你听到的英文句子……');input.rows=4;input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>s.draft=input.value);container.append(field('听写答案',input),lines(speechButton(item.text),btn('查看原文并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary')));}else{const card=section('answer-card');card.append(el('div','原始英文句子','eyebrow'),p(item.text,'question'),p(s.draft?`你的听写：${s.draft}`:'本题已跳过。','small-block'),speechButton(item.text));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card,renderListeningStudio(item),followAlongRecordingControls(item,s,'retry'));retryBox(container,item,s,item.text);rateControls(container,item,s);}return;}const parts=sentenceClozeParts(item.text,item.clozeTarget||item.clozeAnswer||item.target||'');if(s.sentenceStyle==='cloze'&&!parts)s.sentenceStyle='recall';const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';const question=div('question');
 if(s.sentenceStyle==='cloze'&&parts){container.append(el('div','句子填空 · Missing Words','question-label'),h('h2','只填写缺少的英文单词。'),sentenceStyleOptions(s));question.textContent=s.hintLevel===2?firstLetterPrompt(parts.question,parts.answer):parts.question;question.classList.add('cloze-question');container.append(question,p('不需要重新输入整句话。','subtle'));if(s.hintLevel&&s.hintLevel<3)container.append(btn(s.hintLevel===2?'取消首字母提示':'给我一点提示',()=>{s.hintLevel=s.hintLevel===2?3:2;s.promptUsed=true;if(save())render();},'btn ghost'));if(s.step!=='revealed'){const input=textInput(s.draft,'请输入缺少的英文单词……');input.classList.add('answer-input','compact-answer-input');focusForMobile(input);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();revealAnswer(s,input.value,parts.answer,false);}});input.addEventListener('input',()=>s.draft=input.value);container.append(field('缺少的英文单词',input));question.addEventListener('click',()=>input.focus());container.append(lines(btn('检查答案',()=>revealAnswer(s,input.value,parts.answer,false),'btn primary'),btn('跳过并揭晓',()=>revealAnswer(s,'',parts.answer,true),'btn')));}else{const card=section('answer-card');card.append(el('div','原句','eyebrow'),p(item.text,'question'),el('div','参考缺失词','eyebrow'),h('strong',parts.answer));if(s.draft.trim())card.append(p(`你的答案：${s.draft}`,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card);retryBox(container,item,s,parts.answer);rateControls(container,item,s);}return;}
 if(read){container.append(el('div','整句回忆 · Full Sentence Recall','question-label'),h('h2','先阅读完整句子，再隐藏并回忆。'),sentenceStyleOptions(s));question.textContent=item.text;container.append(question,lines(speechButton(item.text),btn('我已阅读，隐藏句子',()=>{s.step='recall';if(save())render();},'btn primary')));}else if(!reveal){container.append(el('div','整句回忆 · Full Sentence Recall','question-label'),h('h2','请写出完整英文句子。'),p('原句已隐藏，请根据记忆输入整句话。','subtle'));const input=textarea(s.draft,'请输入完整英文句子……');input.rows=4;focusForMobile(input);input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.metaKey){e.preventDefault();revealAnswer(s,input.value,item.text,false);}});input.addEventListener('input',()=>s.draft=input.value);container.append(field('你的整句回忆',input));container.append(lines(btn('查看原句并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary'),btn('跳过并查看原句',()=>revealAnswer(s,'',item.text,true),'btn')));}else{const card=section('answer-card');card.append(el('div','原始句子','eyebrow'),p(item.text,'question'));if(s.draft.trim())card.append(el('div','你的回忆','eyebrow'),p(s.draft,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));card.append(speechButton(item.text));container.append(card);retryBox(container,item,s,item.text);rateControls(container,item,s);}}
 function rateControls(container,item,s){container.append(h('h3','请根据真实回忆自评'));

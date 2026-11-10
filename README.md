@@ -178,3 +178,7 @@ A daily journey stores actual word/sentence/listening attempts in their original
 - The complete journey now archives one combined `journey` report after the four stages. Module session records remain available for accurate timing and history.
 
 **Timer**: elapsed time starts at 00:00 and counts upward. Recommended 30/40/60 or a custom goal (5–180 minutes in a pack; 1–180 minutes in settings) is a *soft target*, never an automatic finish. Pausing, hiding or exiting the reading page pauses reading time. User may continue after goal; results only count actual recorded learning.
+
+
+### V10.3.9 · Multi-paragraph listening closeout (2026-11-10)
+For long multi-segment Listening material, the three original "片段 1/2/3" device-speech controls remain. The old duplicate whole-passage dictation and mandatory shadowing recorder are replaced with a compact comprehension self-report: optional one-sentence gist, understanding choice, then next card (or explicit skip). Such a task is recorded as `UNRATED`, with `listening_variant=brief_comprehension`, never a new K/V/N or FSRS due. Short listening sentences keep the existing full sentence-dictation practice and optional follow-along recording. Existing unfinished Safari R02 sessions and diagnostic source records are not deleted; long items already at `recall` or `revealed` are shown in the new compact closeout without resetting the session. Segments are device voice, not claimed to be original human recordings. No additional package requirements or printing features.
