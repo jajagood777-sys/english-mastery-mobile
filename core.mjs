@@ -1044,6 +1044,8 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       target: item.target || item.text || '',
       source: item.source || 'Unknown source',
       prompt_type: attempt.promptType || (attempt.kind === 'word' ? 'cloze' : 'recall'),
+      listening_variant: attempt.listeningVariant || null,
+      comprehension_self_report: attempt.comprehensionSelfReport || null,
       user_answer: attempt.answer || '',
       reference_answer: attempt.referenceAnswer || item.target || item.text || '',
       rating: ['K','V','N'].includes(attempt.status)?attempt.status:'UNRATED',
