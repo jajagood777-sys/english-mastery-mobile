@@ -4,6 +4,19 @@
 
 A lightweight English-first mobile learning PWA for vocabulary, phrases, complete sentences, and honest self-assessment. The cultivation theme is a calm interface layer; the learning record remains grounded in real actions.
 
+## 10.3.8 Speech Chamber — single-ZIP shadowing (2026-11-10)
+- An optional `speeches` array in the existing `schema_version: "2.0"` JSON imports the user-supplied English manuscript once. **No printing, PDF, DOCX or paper editor is part of this website.**
+- Speech Chamber uses one private **full-length** `af_heart` MP3 per manuscript from the existing ZIP `speech-manifest.json` / IndexedDB cache; no on-device model download, no unknown paid service and no public user-script uploads. The offline audio generator exports the single `speeches` category task; if a synthesis engine needs short chunks, the *offline pack maker* must concatenate those into a seekable final MP3 before import. Merely collecting unjoined segment clips is insufficient.
+- Player: native HTML audio, play/pause, seek ±5 seconds, draggable timeline, 0.75/1/1.25 speed, optional A–B segment loop. Shadowing and hide/show original script use user-controlled buttons, **not AI pronunciation scoring**.
+- The learning Journey adds Speech after Listening and before Transfer if the pack has speeches. No `speeches` field means legacy behavior remains unchanged. Unfinished speech stage and verified audio-active seconds survive the normal local backup path. Self-reported shadowing/delivery is stored separately from audio playback and never upgrades K/V/N or claims independent pronunciation success.
+- Minimal example:
+  ```json
+  {"schema_version":"2.0","pack_id":"sample-speech","items":[],"speeches":[{"speech_id":"opening","title":"An Original Speech","script_en":"Good morning, everyone. ...","audio_voice":"af_heart","source_type":"user_supplied"}]}
+  ```
+- If `script_sha256` is provided, it MUST be SHA-256 of the NFKC, whitespace-collapsed script (UTF-8), matching `speechTextHash`. Imported audio manifest also verifies text and file hashes. The demo snippet above is illustrative only; it does not ship a real speech asset.
+- iPhone Safari physical audio seeking/offline acceptance remains a **separate device test**, not implied by Node CI. Never clear Safari/IndexedDB, replace an in-progress R02 study ZIP, or claim generated MP3s were imported before actual evidence.
+
+
 ## V4.0 upgrade
 
 - V4.0 consolidates the dashboard with due/new/difficult queues, actual training minutes, 7-day and 30-day trend summaries, reading, listening, daily packs, and provenance-rich battle reports.
