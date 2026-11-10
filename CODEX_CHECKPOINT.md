@@ -1,5 +1,14 @@
 # English Cultivation checkpoint
 
+## 2026-11-10 | Speech Chamber emergency handoff (PR #85; verify before deployment)
+- Context: Codex Cloud user session stopped due to usage limit while showing `4 files +12/-0`, but **no remote PR or recent speech branch existed**. Uncommitted Cloud session edits were not accessible; resumed safely from verified `main` commit `a379f044` on branch `codex/rescue-speech-chamber-20261110`.
+- PR: https://github.com/jajagood777-sys/english-mastery-mobile/pull/85
+- Implementation: optional `speeches` in existing schema2 JSON; stable manuscripts, duplicate-safe local speech library; full-length seekable `af_heart` speech manifests, no fabricated MP3; home Speech Chamber entry, play/pause, ±5s, native time seek, speed, AB loop, hide/show manuscript, follow-along and delivery self-reports; Daily Journey Speech stage after listening and separate `speech_practice` in Battle Report. Speech attempt and progress survive existing safe backup/merge; old report records remain unchanged.
+- Out of scope: A4/Word/PDF printing, new audio model/backend, pronunciation AI, copying third-party app code, public private user data.
+- Release: Node CI, browser simulation, GitHub Pages deployment, SW version and physical iPhone Safari remain separate acceptance gates. Any failed test must be fixed rather than silently suppressed. Do not re-import/erase current user R02 ZIP. The user's later personal speech manuscript and Kokoro MP3 are **not generated in this repository**.
+- If work is interrupted again: inspect PR #85 current head, CI jobs and last checkpoint first; continue remaining failures only. Never re-run completed archive migration.
+
+
 ## V5.3.0 — Continuous long-text speech and Kokoro feasibility gate (implementation ready)
 
 - Baseline: main `9275f9f700965bb751224e027ca6c4c229c4f30c` / V5.2.0. Branch: `codex/v5-3-kokoro-continuous-speech`.
