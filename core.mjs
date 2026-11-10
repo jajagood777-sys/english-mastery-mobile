@@ -504,6 +504,7 @@ export function mergeBackupState(current={}, restored={}) {
   };
   const readings = uniqueBy([...(Array.isArray(current.readings) ? current.readings : []), ...(Array.isArray(restored.readings) ? restored.readings : [])], 'id');
   const speeches = uniqueBy([...(current.speeches||[]),...(restored.speeches||[])], 'id');
+  const speechAttempts=uniqueBy([...(current.speechAttempts||[]),...(restored.speechAttempts||[])], 'id');
   const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
   const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
@@ -518,6 +519,8 @@ export function mergeBackupState(current={}, restored={}) {
     reports:uniqueBy([...(current.reports||[]), ...(restored.reports||[])], 'report_id'),
     readings,
     speeches,
+    speechAttempts,
+    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},
     readingMarks,
     readingChecks,
     weaknesses,
@@ -648,7 +651,7 @@ export function normalizeSpeechEntries(raw=[],packId='') {
     if(seenIds.has(sourceId)||seenTexts.has(textKey)){errors.push(`重复演讲：${sourceId}`);continue;}
     seenIds.add(sourceId);seenTexts.add(textKey);
     const voice=clean(row.audio_voice||row.audioVoice)||'af_heart';
-    if(!['af_heart','af_bella'].includes(voice)){errors.push(`演讲 ${sourceId} 使用未知配音音色。`);continue;}
+    if(voice!=='af_heart'){errors.push(`演讲 ${sourceId} 当前仅支持已有 af_heart 整篇配音工序。`);continue;}
     const expectedHash=clean(row.script_sha256||row.scriptSha256).toLowerCase();
     if(expectedHash&&!/^[a-f0-9]{64}$/.test(expectedHash)){errors.push(`演讲 ${sourceId} 文稿 SHA-256 格式无效。`);continue;}
     const sourceReference=clean(row.source_reference||row.sourceReference);
@@ -970,6 +973,7 @@ export function validateBackup(value){
   }
   if(value.readings!==undefined&&!Array.isArray(value.readings)) throw Error('Backup has invalid reading data.');
   if(value.speeches!==undefined&&!Array.isArray(value.speeches)) throw Error('Backup has invalid speech data.');
+  if(value.speechAttempts!==undefined&&!Array.isArray(value.speechAttempts)) throw Error('Backup has invalid speech attempts.');
   const speeches=(value.speeches||[]).map(row=>{
     if(!row||typeof row!=='object'||typeof row.id!=='string'||typeof row.scriptEn!=='string'||typeof row.title!=='string')throw Error('Backup has invalid speech data.');
     return {...row};
@@ -1011,7 +1015,9 @@ export function validateBackup(value){
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
+    speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {
