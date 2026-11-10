@@ -277,3 +277,25 @@ p,.lead,.question,.subtle,.tiny{ text-wrap:pretty }
  .report-export-options .actions{display:grid;grid-template-columns:1fr}
  .report-export-options .actions .btn{width:100%}
 }
+
+
+/* Speech Chamber 10.3.8 — native iPhone controls, no new framework. */
+.speech-chamber .speech-script {
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: var(--surface-2, rgba(130,130,130,.07));
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.speech-chamber .audio-study-controls audio,
+.speech-chamber .audio-study-controls input[type="range"] {
+  width: 100%;
+  max-width: 100%;
+}
+.speech-chamber .audio-study-controls .actions { flex-wrap: wrap; }
+.speech-chamber .audio-study-controls .actions button { min-height: 44px; }
+@media (max-width: 480px) {
+  .speech-chamber .audio-study-controls .actions button { flex: 1 1 auto; }
+  .speech-chamber .speech-script { padding: .85rem; }
+}
