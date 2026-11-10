@@ -354,3 +354,29 @@ test('new-content card retains recall but removes mastered direct-test shortcut'
   assert.match(app,/btn\('开始回忆',\(\)=>\{item\.learningStage='learning'/);
   assert.doesNotMatch(app,/我已经掌握，直接测试/);
 });
+
+test('V10.3.9 multi-paragraph listening stays segmented but does not force verbatim writing or recording',()=>{
+  assert.match(app,/if\(s\.sentenceStyle==='listening'&&isExtendedListening\(item\.text\)\)\{renderExtendedListeningQuestion\(container,item,s\);return;\}/);
+  const start=app.indexOf('function renderExtendedListeningQuestion(');
+  const end=app.indexOf('function buildSentenceQuestion(',start);
+  assert.ok(start>=0&&end>start);
+  const compact=app.slice(start,end);
+  assert.match(compact,/renderListeningStudio\(item,\{/);
+  assert.match(compact,/记录理解并进入下一题/);
+  assert.match(compact,/一句话概括（可选）/);
+  assert.match(compact,/跳过，进入下一题/);
+  assert.doesNotMatch(compact,/followAlongRecordingControls|开始听写|请写出完整英文句子|rateControls\(/);
+  assert.match(app,/if\(diagnostic&&!compact\)/);
+  assert.match(app,/splitStudioSegments\(item\.text\)/);
+});
+test('V10.3.9 passage-level self-report advances without assigning false K/V/N due schedule',()=>{
+  const from=app.indexOf('function finishExtendedListening(');
+  const to=app.indexOf('function renderExtendedListeningQuestion(',from);
+  assert.ok(from>=0&&to>from);
+  const finish=app.slice(from,to);
+  assert.match(finish,/status:null/);
+  assert.match(finish,/evidence_type:skipped\?'skipped':'user_self_reported_comprehension'/);
+  assert.match(finish,/comprehensionSelfReport/);
+  assert.match(finish,/s\.index\+\+/);
+  assert.doesNotMatch(finish,/scheduleReview|item\.dueAt=|item\.status=|grade\(item/);
+});
