@@ -541,7 +541,7 @@ export function mergeBackupState(current={}, restored={}) {
     readings,
     speeches,
     speechAttempts,
-    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferAttempts:[...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],
+    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferHints:{...(restored.speechTransferHints||{}),...(current.speechTransferHints||{})},speechTransferAttempts:[...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],
     readingMarks,
     readingChecks,
     weaknesses,
@@ -1039,7 +1039,7 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {
