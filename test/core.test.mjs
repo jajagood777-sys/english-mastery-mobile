@@ -128,9 +128,9 @@ test('battle report markdown exposes learning-stage and prompt provenance',()=>{
 test('explicit sentence target is required for cloze and Beijing date keys cross UTC boundaries correctly',()=>{assert.equal(sentenceClozeParts('We need to address the problem.','address').answer,'address');assert.equal(sentenceClozeParts('We need to address the problem.','solve'),null);assert.equal(dateKeyInTimeZone('2026-10-29T16:30:00.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T15:59:59.000Z'),'2026-10-30');assert.equal(dateKeyInTimeZone('2026-10-30T16:00:00.000Z'),'2026-10-31');});
 
 test('V4.3 release markers and honest home summary are available',()=>{
- const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'10.3.9');
- assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,packItems:1});
+ const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{startedAt:'2026-10-30T04:50:00Z',endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'10.3.10');
+ assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,unallocatedActiveMs:0,packItems:1});
 });
 
 test('V4.3 distinguishes a complete backup from a daily learning pack',()=>{
@@ -285,7 +285,7 @@ test('V7 mastery analytics separates independent, prompted, corrected and unmeas
   {itemId:'independent',status:'K',answer:'yes',prompt_used:false,viewed_answer:false},
   {itemId:'prompted',status:'K',answer:'yes',prompt_used:true,viewed_answer:false},
   {itemId:'unmeasured',answer:'draft',status:null,skipped:false}
- ],sessions:[{endedAt:'2026-11-02T00:00:00Z',activeMs:120000,count:3,K:1,V:1,N:0}],now:new Date('2026-11-02T12:00:00Z')});
+ ],sessions:[{startedAt:'2026-11-01T23:58:00Z',endedAt:'2026-11-02T00:00:00Z',activeMs:120000,count:3,K:1,V:1,N:0}],now:new Date('2026-11-02T12:00:00Z')});
  assert.equal(analytics.evidence.UNTESTED,1);assert.equal(analytics.evidence.independentCorrect,1);assert.equal(analytics.evidence.promptedCorrect,1);assert.equal(analytics.evidence.unmeasured,1);assert.equal(analytics.windows.days7.tasks,3);assert.equal(analytics.windows.days7.activeSeconds,120);
 });
 

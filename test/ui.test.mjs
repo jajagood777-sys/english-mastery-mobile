@@ -90,7 +90,7 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v10\.3\.9/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.10/);
 });
 
 test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
@@ -165,7 +165,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v10\.3\.9/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v10\.3\.10/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V6.2 visual polish keeps the existing asset layer and mobile-safe rhythm',()=>{
@@ -314,6 +314,9 @@ test('V20 dialogue and listening diagnostics reuse existing transfer and studio 
 });
 test('V20.1 word hints avoid repeating the main context and sentence mode remains selectable',()=>{
  assert.match(app,/additionalContexts/);assert.match(app,/No additional context was supplied/);assert.match(app,/s\.sentenceStyle=value/);assert.doesNotMatch(app,/if\(s\.journeyStage==='listening'\)s\.sentenceStyle='listening'/);
+});
+test('V10.3.9 adds one-question retrieval and paper-safe reading retelling without scoring speech',()=>{
+ assert.match(app,/Quick Retrieval/);assert.match(app,/INDEPENDENT RETELLING/);assert.match(app,/readingRetellingAttempts/);assert.match(core,/retelling_attempts/);assert.match(app,/speech_transfer/);assert.doesNotMatch(app,/IELTS.*pronunciation.*score/);
 });
 
 test('transfer recording submission is idempotent after the first tap',()=>{
