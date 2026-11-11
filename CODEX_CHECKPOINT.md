@@ -577,3 +577,11 @@ User iPhone screenshots showed long three-paragraph synthetic listening text in 
 - Reading overview now counts submitted comprehension questions, skipped questions and unassessed answers separately. Transfer overview distinguishes NOT_STARTED, SKIPPED, PARTIAL, UNASSESSED and COMPLETED; recording-only output cannot count as language mastery.
 - Added Reading Chamber Independent Retelling with immutable first answer, optional local recording, explicit reference/prompt state and optional no-prompt retry; added source-bound Speech Transfer with separate first/revised evidence. Existing Quick Retrieval routes to Transfer & Mastery rather than a second review engine.
 - Synthetic evidence: `npm run check` **240/240**; learning-data-safety **4/4**; Chromium 390×844 reading skip matrix **3/5/14/40 PASS**, recovery/mobile PASS, cross-day/skip state PASS, retelling evidence PASS. Physical iPhone Safari remains **PENDING_DEVICE**; private EN-DAILY-20261111 ZIP was not accessed.
+
+## 2026-11-11 | V10.3.11 modern oriental jade visual system
+
+- Branch: `feat/apple-oriental-visual-system`, based on `origin/main` `ae46c31` / V10.3.10.
+- Added a focused final visual token layer in `styles.css`: ivory/jade/gold surfaces, calm card hierarchy, consistent controls and focus rings, readable Reading typography, mobile safe-area spacing, night-theme contrast and reduced-motion behavior. Existing app logic, Journey order, reports, recordings and storage schema are unchanged.
+- Software/PWA marker advanced to `10.3.11` / `english-cultivation-static-v10.3.11` so installed PWAs receive the new CSS and theme metadata without clearing learner storage.
+- Local evidence: `npm run check` **240/240**; learning-data-safety **4/4**; mobile static baseline **11/11**; PWA bundle audit pass; Chromium visual acceptance at 320/375/390/430/768/1024/1280px with no horizontal overflow; day/night screenshots and Reading screenshot captured under `output/playwright/`; existing recovery, cross-day, retelling, paper-story, spelling, audio ZIP, Listening Studio, native speech, follow-along and delayed-correction browser smokes pass.
+- WebKit executable and physical iPhone Safari remain **NOT_VERIFIED**. No real localStorage, IndexedDB recording, Battle Report or private pack was read or modified.

@@ -182,3 +182,9 @@ A daily journey stores actual word/sentence/listening attempts in their original
 
 ### V10.3.9 · Multi-paragraph listening closeout (2026-11-10)
 For long multi-segment Listening material, the three original "片段 1/2/3" device-speech controls remain. The old duplicate whole-passage dictation and mandatory shadowing recorder are replaced with a compact comprehension self-report: optional one-sentence gist, understanding choice, then next card (or explicit skip). Such a task is recorded as `UNRATED`, with `listening_variant=brief_comprehension`, never a new K/V/N or FSRS due. Short listening sentences keep the existing full sentence-dictation practice and optional follow-along recording. Existing unfinished Safari R02 sessions and diagnostic source records are not deleted; long items already at `recall` or `revealed` are shown in the new compact closeout without resetting the session. Segments are device voice, not claimed to be original human recordings. No additional package requirements or printing features.
+
+## 10.3.11 · Modern oriental jade visual system
+
+- Refined the existing shell with a restrained ivory/jade/gold token layer, consistent surfaces, focus states, touch-safe controls, and quieter hierarchy across Home, practice, Reading Chamber, Listening Studio, Speech Chamber, Transfer, Progress, Reports and Settings.
+- Day and night themes now share the same spacing, typography and action hierarchy. Reading keeps a comfortable measure and line-height; fixed mobile navigation and audio trays reserve the iPhone safe area.
+- This is a presentation-only release: the learning data schema remains `4.3`, localStorage/IndexedDB recordings and reports are untouched, and no private learning material is bundled.
