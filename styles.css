@@ -299,3 +299,75 @@ p,.lead,.question,.subtle,.tiny{ text-wrap:pretty }
   .speech-chamber .audio-study-controls .actions button { flex: 1 1 auto; }
   .speech-chamber .speech-script { padding: .85rem; }
 }
+
+/* V10.3.11 — modern oriental jade system: quiet surfaces, clear action hierarchy. */
+:root{
+  --system-ivory:#f7f8f6;
+  --system-surface:#ffffff;
+  --system-jade:#155c4d;
+  --system-jade-deep:#123f35;
+  --system-ink:#1c2420;
+  --system-muted:#59655e;
+  --system-line:#e1e7e2;
+  --system-gold:#b99657;
+  --system-radius:18px;
+  --system-shadow:0 14px 34px rgba(21,52,43,.075);
+}
+html[data-theme="day"]{
+  --theme-bg:var(--system-ivory);
+  --theme-card:var(--system-surface);
+  --theme-text:var(--system-ink);
+  --theme-muted:var(--system-muted);
+  --theme-border:var(--system-line);
+  --dark-jade:var(--system-jade-deep);
+  --quiet-jade:var(--system-jade);
+  --quiet-jade-deep:var(--system-jade-deep);
+  --antique-gold:var(--system-gold);
+}
+html[data-theme="night"]{
+  --theme-bg:#111816;
+  --theme-card:#1b2420;
+  --theme-text:#f2f5f1;
+  --theme-muted:#b5c3ba;
+  --theme-border:#34483e;
+  --dark-jade:#2c6756;
+  --quiet-jade:#86c4aa;
+  --quiet-jade-deep:#1e4a3d;
+  --antique-gold:#d7bc79;
+}
+body{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--theme-text);background:var(--theme-bg)}
+body::before{opacity:.025}
+.site-wrap{max-width:1160px;padding-inline:clamp(16px,4vw,48px)}
+.site-header{padding-block:18px 14px;align-items:center}
+.brand-mark{background:var(--dark-jade);border-color:color-mix(in srgb,var(--antique-gold) 45%,transparent);box-shadow:0 7px 18px rgba(21,52,43,.12)}
+.brand-name{font-weight:760}.brand-tag{letter-spacing:1.1px}
+.panel,.stat,.mode-card,.daily-journey-card,.daily-overview,.transfer-group,.transfer-practice,.transfer-analytics,.recording-panel,.source-trace,.progress-strip,.resume-card,.training-queue,.settings-card,.reading-article,.mastery-evidence-panel{border-color:var(--theme-border);box-shadow:var(--system-shadow)}
+.panel,.mode-card,.daily-journey-card,.daily-overview,.transfer-group,.transfer-practice,.transfer-analytics,.recording-panel,.source-trace,.progress-strip,.resume-card,.training-queue,.settings-card,.reading-article,.mastery-evidence-panel{border-radius:var(--system-radius)}
+.btn{min-height:48px;border-radius:13px;transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}
+.btn.primary{background:var(--system-jade);border-color:var(--system-jade);box-shadow:0 5px 14px rgba(21,92,77,.16)}
+.btn.primary:hover{background:var(--system-jade-deep);box-shadow:0 8px 18px rgba(21,92,77,.2)}
+.btn.secondary{background:color-mix(in srgb,var(--system-jade) 10%,var(--theme-card));border-color:color-mix(in srgb,var(--system-jade) 20%,var(--theme-border))}
+.btn.ghost{background:transparent}
+.btn:focus-visible,.input:focus-visible,.textarea:focus-visible,.select:focus-visible{outline:3px solid color-mix(in srgb,var(--antique-gold) 72%,transparent);outline-offset:3px}
+.input,.textarea,.select{min-height:50px;border-radius:13px}
+.question{font-weight:650;max-width:68ch}
+.reading-article{max-width:760px;margin-inline:auto;background:var(--theme-card)}
+.reading-paragraph{max-width:68ch;margin-inline:auto;line-height:1.92}
+.reading-toolbar{border-color:var(--theme-border);box-shadow:0 10px 28px rgba(21,52,43,.1)}
+.feature-card{background:var(--theme-card);border-color:var(--theme-border);box-shadow:0 8px 22px rgba(21,52,43,.055)}
+.feature-card::before{background:linear-gradient(90deg,var(--antique-gold),transparent 65%)}
+.home-hero{border-color:color-mix(in srgb,var(--system-jade) 35%,var(--theme-border));box-shadow:0 20px 54px rgba(21,52,43,.14)}
+.home-hero .home-hero-copy{max-width:620px}
+.neural-audio-tray{border-color:var(--theme-border);background:var(--theme-card);color:var(--theme-text);box-shadow:0 14px 36px rgba(21,52,43,.18)}
+@media(max-width:640px){
+  .site-header{padding-block:14px 10px}
+  .site-wrap{padding-inline:14px;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  main{padding-top:18px}
+  .panel,.daily-overview,.daily-journey-card,.transfer-group,.transfer-practice,.transfer-analytics,.recording-panel{padding:16px}
+  .feature-grid{gap:10px}
+  .feature-card{min-height:138px;padding:15px 13px}
+  .question{font-size:clamp(21px,6vw,25px)}
+  .btn{min-height:50px}
+}
+@media(min-width:860px){main{padding-top:32px}.reading-article{padding:42px 48px}}
+@media(prefers-reduced-motion:reduce){.btn,.feature-card,.mobile-nav button{transition:none!important}.feature-card:hover{transform:none}}
