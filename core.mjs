@@ -1,6 +1,6 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '10.3.9';
+export const APP_VERSION = '10.3.10';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
@@ -324,7 +324,7 @@ export function buildMasteryAnalytics({items=[],attempts=[],sessions=[],transfer
     if(independent)evidence.independentCorrect++;else if(prompted)evidence.promptedCorrect++;if(corrected)evidence.correctedAfterError++;if(!answered.length){if(history.some(row=>row.skipped))evidence.skipped++;else{evidence.unmeasured++;unmeasured.push(item.id);}}else if(!answered.some(row=>['K','V','N'].includes(row.status))){evidence.unmeasured++;unmeasured.push(item.id);}
   }
   for(const row of (Array.isArray(transferAttempts)?transferAttempts:[])){if(row.delayed&&row.rating==='K')evidence.delayedReviewSuccess++;else if(row.firstAnswer||row.retryAnswer){const delayedDate=row.nextReviewAt||row.delayedAt;if(delayedDate&&!row.delayed)evidence.delayedReviewPending++;}}
-  const current=new Date(now).getTime();const windowStats=days=>{const cutoff=current-days*86400000;const recent=(Array.isArray(sessions)?sessions:[]).filter(row=>{const at=new Date(row.endedAt||row.startedAt||0).getTime();return Number.isFinite(at)&&at>=cutoff&&at<=current;});return {sessions:recent.length,activeSeconds:Math.round(recent.reduce((sum,row)=>sum+Number(row.activeMs||0),0)/1000),tasks:recent.reduce((sum,row)=>sum+Number(row.count||0),0),rated:recent.reduce((sum,row)=>sum+Number(row.K||0)+Number(row.V||0)+Number(row.N||0),0)};};
+  const current=new Date(now).getTime();const windowStats=days=>{const cutoff=current-days*86400000;const recent=(Array.isArray(sessions)?sessions:[]).filter(row=>{const at=new Date(row.endedAt||row.startedAt||0).getTime();return Number.isFinite(at)&&at>=cutoff&&at<=current;});return {sessions:recent.length,activeSeconds:Math.round(summarizeSessionTime(sessions,dateKeyInTimeZone(new Date(cutoff)),dateKeyInTimeZone(new Date(current))).knownMs/1000),tasks:recent.reduce((sum,row)=>sum+Number(row.count||0),0),rated:recent.reduce((sum,row)=>sum+Number(row.K||0)+Number(row.V||0)+Number(row.N||0),0)};};
   const errors={};for(const row of rows){if(row.status==='N'||row.initial_check?.status==='incorrect'||row.retry_check?.status==='incorrect'){const key=clean(row.errorType||row.error_type||row.taskType||row.kind||'unclassified');errors[key]=(errors[key]||0)+1;}}for(const row of (Array.isArray(transferAttempts)?transferAttempts:[])){if(row.rating==='N'||row.autoCheck?.status==='incorrect'){const key=clean(row.weaknessType||row.taskType||'transfer');errors[key]=(errors[key]||0)+1;}}
   return {evidence,windows:{days7:windowStats(7),days30:windowStats(30)},errors:Object.entries(errors).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count})),unmeasured,notes:['这些指标只由本机真实作答、提示、重答和延迟复测字段推导。','UNTESTED、阅读接触和自评不会自动变成掌握。']};
 }
@@ -426,17 +426,38 @@ export function dateKeyInTimeZone(value, timeZone='Asia/Shanghai') {
   if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
+/** Allocate only observed, bounded foreground intervals to actual Beijing dates. */
+export function addActiveInterval(buckets, start, end, maxMs=1800) {
+  const result={...(buckets&&typeof buckets==='object'?buckets:{})};
+  const stop=Number(end),previous=Number(start);
+  if(!Number.isFinite(stop)||!Number.isFinite(previous)||stop<=previous)return result;
+  let cursor=Math.max(previous,stop-Math.max(0,maxMs));
+  while(cursor<stop){const nextMidnight=(Math.floor((cursor+28800000)/86400000)+1)*86400000-28800000;const next=Math.min(stop,nextMidnight);const key=dateKeyInTimeZone(cursor);if(!key)break;result[key]=(Number(result[key])||0)+(next-cursor);cursor=next;}
+  return result;
+}
+export function summarizeSessionTime(sessions=[],startDay,endDay=startDay){
+  let knownMs=0,unknownMs=0;
+  for(const session of Array.isArray(sessions)?sessions:[]){const total=Math.max(0,Number(session?.activeMs)||0);const buckets=session?.activeByDay;
+    if(buckets&&typeof buckets==='object'&&!Array.isArray(buckets)){let allocated=0;for(const [day,value] of Object.entries(buckets)){const ms=Math.max(0,Number(value)||0);allocated+=ms;if(day>=startDay&&day<=endDay)knownMs+=ms;}unknownMs+=Math.max(0,total-allocated);}
+    else {const start=dateKeyInTimeZone(session?.startedAt),end=dateKeyInTimeZone(session?.endedAt);if(start&&start===end){if(start>=startDay&&start<=endDay)knownMs+=total;}else unknownMs+=total;}
+  }
+  return {knownMs,unknownMs};
+}
+export function readingQuestionProgress(readings=[],checks=[]){let total=0,answered=0,skipped=0,unassessed=0;for(const reading of readings){const rows=(checks||[]).find(x=>x.readingId===reading.id)?.answers||[];for(const question of reading.questions||[]){total++;const row=rows.find(x=>x.questionId===question.id);if(!row)continue;if(row.skipped){skipped++;continue;}if(String(row.answer??'').trim()){answered++;if(row.autoCheck?.status==='unassessed')unassessed++;}}}return {total,answered,skipped,unassessed,remaining:Math.max(0,total-answered-skipped)};}
+export function transferTaskProgressState(task,rows=[]){const matching=rows.filter(row=>(!task.packId||!row.packId||row.packId===task.packId)&&(row.taskId===task.id||row.weaknessId===`weakness:transfer:${task.id}`));if(!matching.length)return 'NOT_STARTED';const active=matching.filter(row=>!row.skipped);if(!active.length)return 'SKIPPED';const row=active.at(-1);if(row.status==='recording'||row.status==='saving'||row.status==='draft')return 'IN_PROGRESS';if(row.recordingOnly&&!(row.recordingIds||[]).length&&!row.firstAnswer)return 'PARTIAL';if(row.recordingOnly||(row.recordingIds||[]).length&&!row.firstAnswer)return 'UNASSESSED';if(row.firstAnswer||row.retryAnswer)return row.autoCheck?.status==='unassessed'?'UNASSESSED':'COMPLETED';return 'PARTIAL';}
 export function homeSummary(state, now = new Date()) {
   const items = (Array.isArray(state?.items) ? state.items : []).filter(item => !item.archived && !item.paused);
-  const sessions = Array.isArray(state?.sessions) ? state.sessions : [];
+  const sessions = [...(Array.isArray(state?.sessions) ? state.sessions : [])];
+  if(state?.activeSession?.running)sessions.push(state.activeSession);
+  const journey=state?.dailyJourney;if(journey&&!journey.finishedAt)for(const prefix of ['reading','speech','transfer'])sessions.push({startedAt:journey.startedAt,activeMs:journey[`${prefix}Ms`],activeByDay:journey[`${prefix}ActiveByDay`]});
   const todayKey = dateKeyInTimeZone(now);
-  const todayMinutes = Math.round(sessions.filter(session => dateKeyInTimeZone(session.endedAt) === todayKey).reduce((sum, session) => sum + Number(session.activeMs || 0), 0) / 60000);
+  const time=summarizeSessionTime(sessions,todayKey);const todayMinutes=Math.round(time.knownMs/60000);
   const packIds = new Set(Array.isArray(state?.dailyPack?.itemIds) ? state.dailyPack.itemIds : []);
   return {
     due: items.filter(item => isDue(item, now)).length,
     newItems: items.filter(item => item.status === 'UNTESTED' || item.learningStage === 'new').length,
     weak: items.filter(item => item.status === 'N' || item.status === 'V').length,
-    todayMinutes,
+    todayMinutes,unallocatedActiveMs:time.unknownMs,
     packItems: packIds.size ? items.filter(item => packIds.has(item.id)).length : 0
   };
 }
@@ -520,7 +541,7 @@ export function mergeBackupState(current={}, restored={}) {
     readings,
     speeches,
     speechAttempts,
-    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},
+    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferAttempts:[...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],
     readingMarks,
     readingChecks,
     weaknesses,
@@ -988,6 +1009,7 @@ export function validateBackup(value){
   if(value.readingMarks!==undefined&&!Array.isArray(value.readingMarks)) throw Error('Backup has invalid reading-mark data.');
   if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
   if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
+  if(value.readingRetellingAttempts!==undefined&&!Array.isArray(value.readingRetellingAttempts)) throw Error('Backup has invalid reading-retelling data.');
   if(value.paperStoryPractice!==undefined&&value.paperStoryPractice!==null&&typeof value.paperStoryPractice!=='object') throw Error('Backup has invalid paper-story practice data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
@@ -1017,10 +1039,10 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1116,6 +1138,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       mark_count:readingMarkEvidence.length,
       marks: readingMarkEvidence,
       immediate_recall: immediateRecall,
+      retelling_attempts: Array.isArray(readingRetellingAttempts)?readingRetellingAttempts:[],
       comprehension_checks: Array.isArray(readingChecks)?readingChecks:[]
     },
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
