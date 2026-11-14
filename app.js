@@ -1,5 +1,5 @@
 import {captureStableViewport,restoreStableViewport} from './scroll-stability.mjs';
-import {VERSION,APP_VERSION,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
+import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmission,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
@@ -461,7 +461,17 @@ function finishReadingArticle(j,article){
 function renderReadingRecall(j,article){
   const row=j.readingRecallQueue?.[Number(j.readingRecallIndex)||0];if(!row)return null;const box=section('reading-recall-panel');box.append(el('div','阅读标记即时回忆 · READING RECALL','question-label'),h('h2',`回忆：${row.sourceTitle||article.title}`),p(`第 ${(Number(j.readingRecallIndex)||0)+1} / ${j.readingRecallQueue.length} · 原文：${row.prompt}`,'question'));
   if(j.readingRecallStep!=='revealed'){const input=textInput(j.readingRecallDraft,'请回忆英文单词或短语');input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>{j.readingRecallDraft=input.value;save();});box.append(field('你的回忆',input),btn('提交即时回忆',()=>{j.readingRecallDraft=input.value.trim();j.readingRecallStep='revealed';if(save())render();},'btn primary'));}
-  else{box.append(p(`你的回答：${j.readingRecallDraft||'（空）'}`,'small-block'),p('参考答案将在提交后显示；标记本身不等于 N。','hint'),h('h3','根据真实回忆自评'),lines(...[['K','会用','k'],['V','模糊','v'],['N','不会','n']].map(([rating,label,cls])=>btn(`${rating} · ${label}`,()=>{j.readingRecallAttempts=[...(j.readingRecallAttempts||[]),{id:`reading-recall:${row.markId}:${Date.now()}`,markId:row.markId,readingId:row.readingId,word:row.word,originalSentence:row.originalSentence,sourceTitle:row.sourceTitle,packId:row.packId,userAnswer:j.readingRecallDraft,rating,at:new Date().toISOString(),independent:true}];j.readingRecallIndex++;j.readingRecallDraft='';j.readingRecallStep=null;if(j.readingRecallIndex>=j.readingRecallQueue.length)finishReadingArticle(j,article);else if(save())render();},`btn ${cls}`))),p(`参考答案：${row.word}`,'tiny'))}
+  else{
+    const revealed=revealedReadingRecall(row);
+    box.append(
+      p(`你的回答：${j.readingRecallDraft||'（空）'}`,'small-block'),
+      p(`原句补全：${revealed.sentence}`,'question'),
+      p(`参考答案：${revealed.word}`,'small-block'),
+      p('参考答案已显示；请根据实际回忆自评。标记本身不等于 N。','hint'),
+      h('h3','根据真实回忆自评'),
+      lines(...[['K','会用','k'],['V','模糊','v'],['N','不会','n']].map(([rating,label,cls])=>btn(`${rating} · ${label}`,()=>{j.readingRecallAttempts=[...(j.readingRecallAttempts||[]),{id:`reading-recall:${row.markId}:${Date.now()}`,markId:row.markId,readingId:row.readingId,word:row.word,originalSentence:row.originalSentence,sourceTitle:row.sourceTitle,packId:row.packId,userAnswer:j.readingRecallDraft,rating,at:new Date().toISOString(),independent:true}];j.readingRecallIndex++;j.readingRecallDraft='';j.readingRecallStep=null;if(j.readingRecallIndex>=j.readingRecallQueue.length)finishReadingArticle(j,article);else if(save())render();},`btn ${cls}`)))
+    );
+  }
   return box;
 }
 function completeJourneyReading(){
@@ -1228,8 +1238,19 @@ function renderSpeechTransfer(speech){
 function renderReadingRetelling(reading){
  const prior=(data.readingRetellingAttempts||[]).filter(x=>x.readingId===reading.id),last=prior.at(-1)||null;const box=section('reading-retelling-panel');box.append(el('div','独立英文复述 · INDEPENDENT RETELLING','question-label'),h('h3','用自己的话复述这篇文章'),p('说明主旨、两个关键细节，以及一个个人观点或应用。原文默认隐藏；录音不会自动得到发音或雅思评分。','subtle'));
  const draft=el('textarea','','textarea');draft.placeholder='Describe the main idea, two key details, and one application in English…';draft.rows=5;draft.value=last?.firstAnswer||'';draft.classList.add('answer-input');
- const ids=last?.recordingIds||[];const submit=()=>{const value=draft.value.trim();if(!value&&!ids.length){notify('请先输入复述，或开始并保存一段录音。');return;}const at={id:last?.id||`retelling:${reading.id}:${Date.now()}`,readingId:reading.id,packId:reading.packId||data.dailyPack?.packId||null,firstAnswer:value,firstSubmittedAt:last?.firstSubmittedAt||new Date().toISOString(),promptUsed:Boolean(last?.promptUsed),referenceViewed:Boolean(last?.referenceViewed),recordingIds:ids,status:value?'UNASSESSED':'VOICE_UNASSESSED',retryAnswer:last?.retryAnswer||'',retrySubmittedAt:last?.retrySubmittedAt||null};data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==at.id),at];if(save())render();};
- box.append(field('Independent first response',draft),lines(btn('提交独立复述',submit,'btn primary'),btn('显示原文/提示',()=>{const row=last||{id:`retelling:${reading.id}:${Date.now()}`,readingId:reading.id,packId:data.dailyPack?.packId||null,firstAnswer:draft.value,firstSubmittedAt:new Date().toISOString(),recordingIds:ids};row.referenceViewed=true;row.promptUsed=true;data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();},'btn ghost')));
+ const latestRetelling=()=>(data.readingRetellingAttempts||[]).filter(x=>x.readingId===reading.id).at(-1)||null;
+ const submit=()=>{
+   const at=composeReadingRetellingSubmission({reading,packId:data.dailyPack?.packId||null,current:latestRetelling(),answer:draft.value});
+   if(!at){notify('请先输入复述，或开始并保存一段录音。');return;}
+   data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==at.id),at];
+   if(save())render();
+ };
+ box.append(field('Independent first response',draft),lines(btn('提交独立复述',submit,'btn primary'),btn('显示原文/提示',()=>{
+   const row=latestRetelling()||{id:`retelling:${reading.id}:${Date.now()}`,readingId:reading.id,packId:data.dailyPack?.packId||null,firstAnswer:draft.value,firstSubmittedAt:new Date().toISOString(),recordingIds:[]};
+   row.referenceViewed=true;row.promptUsed=true;
+   data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==row.id),row];
+   if(save())render();
+ },'btn ghost')));
  const attempt=last||{id:`retelling:${reading.id}:draft`,readingId:reading.id,packId:data.dailyPack?.packId||null,recordingIds:[]};box.append(renderRecordingControls({weaknessId:`reading-retelling:${reading.id}`,taskId:reading.id,attemptId:attempt.id,role:'original',onSaved:row=>{const current=(data.readingRetellingAttempts||[]).find(x=>x.id===attempt.id)||attempt;current.recordingIds=[...new Set([...(current.recordingIds||[]),row.id])];data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==current.id),current];save();}}));
  if(last?.referenceViewed){box.append(p(`原文：${reading.text}`,'hint'));const retry=textarea(last.retryAnswer||'','After checking the reference, write a fresh retelling without looking at it…');box.append(field('Optional no-prompt retry',retry),btn('保存复述重答',()=>{last.retryAnswer=retry.value;last.retrySubmittedAt=new Date().toISOString();if(save())render();},'btn secondary'));}
  return box;

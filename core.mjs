@@ -1,8 +1,37 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 export const VERSION = 4.3;
-export const APP_VERSION = '10.3.11';
+export const APP_VERSION = '10.3.12';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
+export function revealedReadingRecall(row = {}) {
+  const word = String(row.word || '').trim();
+  const original = String(row.originalSentence || '').trim();
+  const prompt = String(row.prompt || '');
+  return {word, sentence: original || prompt.replace(/_{3,}/g, word)};
+}
+/** Resolve the live saved recording state at submission time, not a stale rendered closure. */
+export function composeReadingRetellingSubmission({reading, packId = null, current = null, answer = '', at = new Date().toISOString()} = {}) {
+  const readingId = reading?.id;
+  if (!readingId) return null;
+  const firstAnswer = String(answer || '').trim();
+  const recordingIds = [...new Set((Array.isArray(current?.recordingIds) ? current.recordingIds : []).filter(id => typeof id === 'string' && id.trim()))];
+  if (!firstAnswer && recordingIds.length === 0) return null;
+  return {
+    ...(current || {}),
+    id: current?.id || `retelling:${readingId}:${Date.now()}`,
+    readingId,
+    packId: reading.packId || packId,
+    firstAnswer,
+    firstSubmittedAt: current?.firstSubmittedAt || at,
+    promptUsed: Boolean(current?.promptUsed),
+    referenceViewed: Boolean(current?.referenceViewed),
+    recordingIds,
+    status: firstAnswer ? 'UNASSESSED' : 'VOICE_UNASSESSED',
+    retryAnswer: current?.retryAnswer || '',
+    retrySubmittedAt: current?.retrySubmittedAt || null
+  };
+}
+
 export const REQUIRED_WORD_COLUMNS = ['Item_ID','English_Target','Original_Example_EN'];
 export function isFullBackup(value) {
   return Boolean(value && typeof value === 'object' && Array.isArray(value.items) && Array.isArray(value.attempts) && Array.isArray(value.sessions));
