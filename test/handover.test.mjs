@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handoverEntries,zipStore,crc32} from '../handover.mjs';
+import {handoverEntries,zipStore,readZipStore,crc32} from '../handover.mjs';
 
 test('Central handover ZIP keeps reports separate and excludes recordings by default',()=>{
  const pack=handoverEntries({report:{report_id:'r1',session_id:'s1',pack_id:'p1'},feedback:{feedback_schema_version:'1.0'}});const zip=zipStore(pack.entries);
@@ -11,4 +11,11 @@ test('Central handover ZIP keeps reports separate and excludes recordings by def
 test('Central handover includes explicitly selected recordings and manifest metadata',()=>{
  const pack=handoverEntries({report:{report_id:'r2'},recordings:[{id:'recording:two',mimeType:'audio/webm',bytes:new Uint8Array([7,8])}]});const zip=zipStore(pack.entries);const row=zip.entries.find(item=>item.name.startsWith('recordings/'));
  assert.equal(pack.manifest.includes_recordings,true);assert.equal(pack.manifest.recording_count,1);assert.equal(row.size,2);assert.match(row.name,/recording_two\.webm/);
+});
+
+test('handover finds reading retelling and ordinary recordings and reports missing bytes',async()=>{
+ const report={attempts:[{recording_ids:['a']}],transfer_attempts:[{recordingIds:['b']}],reading_analysis:{retelling_attempts:[{recordingIds:['c','d']}]}};
+ const {manifest,entries}=handoverEntries({report,recordings:[{id:'c',bytes:new Uint8Array([1,2])}]});
+ assert.deepEqual(manifest.missing_recording_ids,['a','b','d']);
+ assert.equal(readZipStore(zipStore(entries).bytes).find(x=>x.name==='recordings/c.webm').size,2);
 });
