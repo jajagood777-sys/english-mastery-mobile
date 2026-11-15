@@ -23,7 +23,7 @@ export function readZipStore(input){
 export async function sha256Hex(input){const bytes=input instanceof Uint8Array?input:new Uint8Array(input||[]);if(globalThis.crypto?.subtle){const hash=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}return null;}
 
 export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
-  const expected=Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[];
+  const expected=[...(Array.isArray(report?.attempts)?report.attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[]),...(Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[]),...(Array.isArray(report?.reading_analysis?.retelling_attempts)?report.reading_analysis.retelling_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[])];
   const abnormal=recordings.filter(row=>!row.bytes||row.bytes.length===0||row.error).map(row=>({recording_id:row.id||null,reason:row.error||'empty_bytes'}));
   const fallbackSource=sourcePack||pack?.sourcePack||null;
   const sourceBytes=fallbackSource?.bytes instanceof Uint8Array?fallbackSource.bytes:(typeof fallbackSource?.raw==='string'?encoder.encode(fallbackSource.raw):null);
