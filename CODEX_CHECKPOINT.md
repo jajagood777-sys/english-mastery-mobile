@@ -585,3 +585,15 @@ User iPhone screenshots showed long three-paragraph synthetic listening text in 
 - Software/PWA marker advanced to `10.3.11` / `english-cultivation-static-v10.3.11` so installed PWAs receive the new CSS and theme metadata without clearing learner storage.
 - Local evidence: `npm run check` **240/240**; learning-data-safety **4/4**; mobile static baseline **11/11**; PWA bundle audit pass; Chromium visual acceptance at 320/375/390/430/768/1024/1280px with no horizontal overflow; day/night screenshots and Reading screenshot captured under `output/playwright/`; existing recovery, cross-day, retelling, paper-story, spelling, audio ZIP, Listening Studio, native speech, follow-along and delayed-correction browser smokes pass.
 - WebKit executable and physical iPhone Safari remain **NOT_VERIFIED**. No real localStorage, IndexedDB recording, Battle Report or private pack was read or modified.
+
+## 2026-11-17 | YANDAO-V11-FINAL-LEARNING-UPGRADE audit and core candidate
+- Task: YANDAO-V11-FINAL-LEARNING-UPGRADE.
+- Baseline main: `e79b74e69c903d1067c44881133c29959546f59f`; working branch: `feat/cdtl-contextual-discrimination-20261117` (continued PR #92 head).
+- Verified PR #92 remains open/mergeable, head `e5f90ba3b6021274d1d388afb6c9017031f7ef64`; original CI was failing because `cdtl.mjs` was absent. No merge/deploy performed.
+- Production code added: `cdtl.mjs` deterministic CDTL normalization/comparison/attempt evidence; `vocab.mjs` 14-type vocabulary engine with quality gates and recognition-vs-production evidence; schema-2 pack parsing exposes optional `vocabularyPractice`; home displays a touch-choice vocabulary panel without converting recognition into K/V/N; reading open-answer grading is conservative; backup merge preserves reading retelling attempts; transfer writing no longer imposes a generic 80–100 word limit.
+- Tests added/updated: CDTL, vocabulary engine, reading answer safety, retelling backup merge. `npm run check` passed 264/264 locally after these changes.
+- Safety: no localStorage.clear, IndexedDB deletion, schema reset, pack ID rewrite, or real-user data access. IndexedDB audio remains separate from JSON metadata.
+- Not completed: full 14-type production UI, complete V11 sentence/listening/read evidence expansions, FSRS shadow scheduling, physical iPhone Safari validation, CI after push, merge, production deploy.
+- Next minimal recovery command: `git status --short && npm run check`.
+- Status: code candidate is `READY_FOR_REVIEW` only after PR/CI review; not merged or deployed. Design claims above remain distinct from implemented behavior.
+- Post-push evidence: PR #92 updated to head `051e9611d1776f047ddf31425446748187fba106`. GitHub `test` and `real-app` checks passed; Cloudflare Pages preview passed; Workers Builds check failed (existing external production integration/build check, not a merge/deploy action). PR remains OPEN and unmerged.

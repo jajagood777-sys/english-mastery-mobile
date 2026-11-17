@@ -1,7 +1,8 @@
 import {captureStableViewport,restoreStableViewport} from './scroll-stability.mjs';
-import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmission,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
+import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmission,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,compareReadingAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
+import {compareVocabularyChoice,buildVocabularyAttempt} from './vocab.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,speechTextHash} from './speech-clips.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
@@ -39,14 +40,14 @@ async function speakNaturalOrDevice(text,segments=null){const values=Array.isArr
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}
 function resumeSpeech(){naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}}
-function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
+function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
     const raw=localStorage.getItem(STORE);
     if(raw){
       const obj=JSON.parse(raw);const safe=migrateBackupPayload(obj);
       if(obj.activeSession && typeof obj.activeSession==='object' && Array.isArray(obj.activeSession.queue)) safe.activeSession={...obj.activeSession,running:false,lastTick:null};
-      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=JSON.stringify(safe);
+      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.vocabularyAttempts=safe.vocabularyAttempts||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=JSON.stringify(safe);
       return safe;
     }
   }catch(err){console.warn('Saved V2 data unavailable:',err);}
@@ -187,6 +188,87 @@ function renderPaperStoryPractice(){
   }
   box.append(prompt,lines(btn('暂停并返回首页',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn ghost'),btn('放弃当前 Section（保留已有证据）',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn danger')));app.append(box);
 }
+function renderVocabularyPractice(){
+  const pack=data.dailyPack;
+  const tasks=Array.isArray(pack?.vocabularyPractice)?pack.vocabularyPractice:[];
+  if(!tasks.length)return null;
+  const past=Array.isArray(data.vocabularyAttempts)?data.vocabularyAttempts:[];
+  const done=new Set(past.filter(row=>row.packId===pack.packId&&row.completed).map(row=>row.taskId));
+  const task=tasks.find(row=>!done.has(row.id));
+  const box=section('vocabulary-practice-panel');
+  box.append(el('div','触控词汇 · SMART VOCABULARY','eyebrow'),
+    h('h2','语境辨析 · '+done.size+'/'+tasks.length),
+    p('选择题只记录识别证据；答对不自动计为K，也不等于独立回忆。','subtle'));
+  if(!task){
+    box.append(h('h3','本批词汇选择题已全部处理'),
+      p('完成包含已跳过项目，不代表全部掌握。真实初答可在备份及学习报告中保留。','tiny'));
+    return box;
+  }
+  const options=Array.isArray(task.options)?task.options:[];
+  const multiple=Array.isArray(task.correctOptionIds)&&task.correctOptionIds.length>1;
+  const selected=new Set();
+  box.append(h('h3',task.prompt,'question'));
+  if(task.type==='listening_word_recognition'&&task.audioUrl)box.append(audioControls(task.audioUrl));
+  if(multiple)box.append(p('本题存在多个正确答案，可选择多项后统一提交。','tiny'));
+  const choices=div('vocab-choice-grid');
+  options.forEach(option=>{
+    const b=btn(option.id+'. '+option.text,()=>{
+      if(multiple&&selected.has(option.id))selected.delete(option.id);
+      else {if(!multiple)selected.clear();selected.add(option.id);}
+      choices.querySelectorAll('button').forEach(node=>{
+        const active=selected.has(node.dataset.optionId);
+        node.classList.toggle('selected',active);
+        node.setAttribute('aria-pressed',String(active));
+      });
+    },'btn vocab-choice');
+    b.dataset.optionId=option.id;
+    b.setAttribute('aria-pressed','false');
+    choices.append(b);
+  });
+  const status=p('请选择一个答案。','tiny');
+  const answerText=()=>options.filter(option=>task.correctOptionIds.includes(option.id)).map(option=>option.text).join(' / ');
+  const attemptId='vocabulary:'+encodeURIComponent(pack.packId)+':'+encodeURIComponent(task.id);
+  const storeAttempt=(choice,check,skipped)=>{
+    if((data.vocabularyAttempts||[]).some(row=>row.id===attemptId&&row.completed))return false;
+    const at=new Date().toISOString();
+    const attempt=buildVocabularyAttempt({
+      task,taskId:task.id,sourceItemId:task.sourceItemId,choice,
+      choiceCheck:check,skipped,at
+    });
+    data.vocabularyAttempts=[...(data.vocabularyAttempts||[]),{
+      ...attempt,id:attemptId,packId:pack.packId,completed:true
+    }];
+    return save();
+  };
+  const skipButton=btn('跳过本题',()=>{
+    if(!storeAttempt('',null,true))return;
+    render();
+  },'btn ghost');
+  const submit=btn('提交识别答案',()=>{
+    if(!selected.size){status.textContent='请先选择答案，或者选择跳过。';return;}
+    const chosen=[...selected];
+    let check;
+    if(multiple){
+      const expected=new Set(task.correctOptionIds);
+      const correct=chosen.length===expected.size&&chosen.every(id=>expected.has(id));
+      check={status:correct?'correct':'incorrect',
+        selectedOptionIds:chosen,selectedText:options.filter(option=>selected.has(option.id)).map(option=>option.text).join(' / '),
+        recognitionResult:correct?'RECOGNITION_CORRECT':'RECOGNITION_INCORRECT',
+        correctOptionIds:[...task.correctOptionIds]};
+    }else check=compareVocabularyChoice(chosen[0],task);
+    if(!['correct','incorrect'].includes(check.status)){
+      status.textContent='答案格式有误，尚未记录本次提交。';return;
+    }
+    if(!storeAttempt(chosen.join(','),check,false))return;
+    status.textContent=(check.status==='correct'?'识别正确（不是独立回忆）。':'识别错误。')
+      +' 参考答案：'+answerText()+'。'+(task.explanation||'');
+    submit.disabled=true;skipButton.disabled=true;
+    choices.querySelectorAll('button').forEach(button=>button.disabled=true);
+    box.append(btn('继续下一题',()=>render(),'btn primary'));
+  },'btn primary');
+  box.append(choices,lines(submit,skipButton),status,p('跳过与未评估项目不会计为K/V/N，也不会提高独立回忆成绩。','tiny'));
+  return box;
+}
 function renderHome(){
   const s=homeSummary(data,new Date());
   const hero=section('hero home-hero');
@@ -199,7 +281,7 @@ function renderHome(){
   heroActions.classList.add('home-hero-actions');
   if(s.unallocatedActiveMs>0)summary.append(p('历史跨日累计时间中有每日分配未知的部分；不会计入今天。','tiny'));
   hero.append(heroVisual,heroCopy,summary,heroActions);
-  app.append(hero);if(data.dailyPack){const overview=renderDailyOverview();if(overview)app.append(overview);app.append(journeyPanel());}
+  app.append(hero);if(data.dailyPack){const overview=renderDailyOverview();if(overview)app.append(overview);app.append(journeyPanel());const vocab=renderVocabularyPractice();if(vocab)app.append(vocab);}
   if(data.activeSession){const resume=section('resume-card');resume.append(el('div','继续上次训练','eyebrow'),h('h2',`${modeLabel(data.activeSession.mode)} · ${scopeLabel(data.activeSession.scope)}`),p('未完成的训练已保留，计时会在继续后恢复。','subtle'),lines(btn('继续训练',()=>{page='practice';render();},'btn primary'),btn('结束并保存',()=>finishSession(),'btn ghost')));app.append(resume);}
   const head=div('section-head');head.append(h('h2','选择学习方式'),el('span','英语内容保持英文','tiny'));app.append(head);
   const modes=div('feature-grid');
@@ -282,8 +364,8 @@ function renderTransferPractice(){
   const prompt=section('panel');prompt.append(h('h2',context.prompt));
   if(state.state==='input'){
     const hintText=transferHintText(context,weakness,state.hintLevel);if(hintText)prompt.append(p(hintText,'hint'));
-    const input=textarea(state.draft,taskType==='writing'?'写作初稿（可选 80–100 词）……':taskType==='grammar'?'请先独立改写句子……':'请先用英文独立回答……');input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>{state.draft=input.value;save();});
-    if(taskType==='writing'){const counter=el('div',`当前字数：${state.draft.trim()?state.draft.trim().split(/\s+/).length:0} · 建议 80–100 词`,'tiny');input.addEventListener('input',()=>{counter.textContent=`当前字数：${input.value.trim()?input.value.trim().split(/\s+/).length:0} · 建议 80–100 词`;});prompt.append(counter);}
+    const input=textarea(state.draft,taskType==='writing'?'写作初稿（按题目要求作答）……':taskType==='grammar'?'请先独立改写句子……':'请先用英文独立回答……');input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>{state.draft=input.value;save();});
+    if(taskType==='writing'){const counter=el('div',`当前字数：${state.draft.trim()?state.draft.trim().split(/\s+/).length:0}`,'tiny');input.addEventListener('input',()=>{counter.textContent=`当前字数：${input.value.trim()?input.value.trim().split(/\s+/).length:0}`;});prompt.append(counter);}
     prompt.append(field(taskType==='writing'?'写作初稿':taskType==='grammar'?'独立改写':'你的独立回答',input));
     const speaking=taskType==='speaking'||taskType==='reading_to_speaking';if(speaking)prompt.append(renderRecordingControls({weaknessId:weakness.id,taskId:context.id,attemptId:state.attemptId||state.id,role:'original'}));
     const actions=[btn(state.hintLevel?'再次查看分层提示':'需要提示',()=>{state.hintLevel=Math.min(state.hintLevel+1,(context.hints||[]).length+2);state.hintEvents=[...(state.hintEvents||[]),{level:state.hintLevel,at:new Date().toISOString()}];save();render();},'btn ghost')];if(speaking)actions.push(btn('仅保存录音并提交初答',()=>submitWeaknessRecordingOnly(active),'btn secondary'));actions.push(btn(taskType==='writing'?'提交初稿':'提交独立初答',()=>submitWeaknessTransfer(active,input.value),'btn primary'));prompt.append(lines(...actions));
@@ -493,6 +575,16 @@ function finishDailyJourney(){
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
   const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],spellingAttempts:j.spellingAttempts||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const vocabularyAttempts=(data.vocabularyAttempts||[]).filter(row=>row.packId===j.packId);
+  report.vocabulary_practice={
+    tasks_total:(data.dailyPack?.vocabularyPractice||[]).length,
+    submitted:vocabularyAttempts.filter(row=>row.completed&&!row.skipped).length,
+    skipped:vocabularyAttempts.filter(row=>row.skipped).length,
+    recognition_correct:vocabularyAttempts.filter(row=>row.recognitionResult==='RECOGNITION_CORRECT').length,
+    time_measured:false,
+    recognition_not_independent_recall:true,
+    attempts:vocabularyAttempts.map(row=>({...row}))
+  };
   report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
   report.reading_completed=j.readingDoneIds.filter(id=>!(j.readingPartialIds||[]).includes(id)).length;
   report.reading_partial=j.readingPartialIds||[];
@@ -846,7 +938,7 @@ wrap.append(lines(btn(draft.pack?'确认导入一份文件并开始综合学习'
     readingIds.push(existing.id);
   }
   if(draft.reading&&!data.readings.some(r=>r.text===draft.reading.text))data.readings.push(draft.reading);
-  if(isPack){data.dailyPack={...packMeta,itemIds:merged.itemIds,readingIds,speechIds:[...new Set(speechIds)],transferTasks:packMeta.transferTasks||[],spellingTasks:packMeta.spellingTasks||[],storyPractice:packMeta.storyPractice||null,dialogueScenarios:packMeta.dialogueScenarios||[],listeningDiagnostics:packMeta.listeningDiagnostics||[],sourcePack:draft.sourcePack||null,sourcePackUnavailableReason:draft.sourcePackUnavailableReason||null};data.packHistory=[...(data.packHistory||[]).filter(x=>x.packId!==packMeta.packId),data.dailyPack];}
+  if(isPack){data.dailyPack={...packMeta,itemIds:merged.itemIds,readingIds,speechIds:[...new Set(speechIds)],transferTasks:packMeta.transferTasks||[],spellingTasks:packMeta.spellingTasks||[],vocabularyPractice:packMeta.vocabularyPractice||[],storyPractice:packMeta.storyPractice||null,dialogueScenarios:packMeta.dialogueScenarios||[],listeningDiagnostics:packMeta.listeningDiagnostics||[],sourcePack:draft.sourcePack||null,sourcePackUnavailableReason:draft.sourcePackUnavailableReason||null};data.packHistory=[...(data.packHistory||[]).filter(x=>x.packId!==packMeta.packId),data.dailyPack];}
   if(!save())return;
   notify(`已识别并导入：词汇 ${words}、句子 ${sentences}、阅读 ${readings}、听力 ${listening}、演讲 ${(draft.speeches||[]).length}、弱项 ${weaknesses}。`);
   draft=null;importRaw='';if(isPack)startDailyJourney();else render();
@@ -1030,7 +1122,7 @@ function readingQuestionsFor(reading){return Array.isArray(reading?.questions)?r
 function readingCheckState(reading){return (data.readingChecks||[]).find(check=>check.readingId===reading.id)||null;}
 function readingCheckNextIndex(state,questions){const attempted=new Set((state?.answers||[]).map(answer=>answer.questionId));const nextUnattempted=questions.findIndex(question=>!attempted.has(question.id));if(nextUnattempted>=0)return nextUnattempted;if(state?.status==='partial'){const skipped=(state?.answers||[]).find(answer=>answer.skipped);if(skipped){const index=questions.findIndex(question=>question.id===skipped.questionId);if(index>=0)return index;}}return -1;}
 function startReadingCheck(reading){const prior=readingCheckState(reading);const questions=readingQuestionsFor(reading);const state=prior&&prior.status==='partial'?{...prior,status:'in_progress',index:Math.max(0,readingCheckNextIndex(prior,questions))}:{id:`reading-check:${reading.id}`,readingId:reading.id,status:'in_progress',index:0,answers:[],events:[],startedAt:new Date().toISOString()};data.readingChecks=[...(data.readingChecks||[]).filter(check=>check.readingId!==reading.id),state];if(save())render();}
-function submitReadingCheck(reading,answer,{skipped=false}={}){const questions=readingQuestionsFor(reading),state=readingCheckState(reading);if(!state||state.status!=='in_progress')return;const question=questions[state.index];if(!question)return;const raw=String(answer||'').trim();if(!raw&&!skipped){notify('请填写答案，或明确点击跳过本题。');return;}const auto=skipped?{status:'unassessed',message:'本题已跳过。'}:question.type==='choice'&&question.answer?compareReadingChoice(raw,question.answer,question.options||[]):(question.type!=='open'&&question.answer?compareAnswer(raw,question.answer,{accepted:question.acceptedAnswers||[]}):{status:'unassessed'});const event={questionId:question.id,answer:raw,skipped,autoCheck:auto,at:new Date().toISOString(),questionType:question.questionType||question.type,answerConstraints:question.answerConstraints||null};state.events=[...(state.events||[]),event];const existing=state.answers.findIndex(item=>item.questionId===question.id);if(existing>=0)state.answers[existing]={...state.answers[existing],...event,original_skip:state.answers[existing].skipped||false};else state.answers.push(event);const unanswered=questions.filter(item=>!state.answers.some(answer=>answer.questionId===item.id&&!answer.skipped));const allAnswered=questions.every(item=>state.answers.some(answer=>answer.questionId===item.id));const next=readingCheckNextIndex(state,questions);if(next<0||(allAnswered&&skipped)){state.status=state.answers.some(item=>item.skipped)?'partial':'completed';state.completedAt=new Date().toISOString();state.index=questions.length;}else{state.status='in_progress';state.index=next;}if(state.status==='completed'&&data.dailyJourney?.readingPartialIds?.includes(reading.id)){const j=data.dailyJourney;j.readingPartialIds=j.readingPartialIds.filter(id=>id!==reading.id);const stage=(j.completed||[]).find(x=>x.stage==='reading');if(stage){stage.partial_count=j.readingPartialIds.length;if(!j.readingPartialIds.length)stage.status='completed';}}if(save())render();}
+function submitReadingCheck(reading,answer,{skipped=false}={}){const questions=readingQuestionsFor(reading),state=readingCheckState(reading);if(!state||state.status!=='in_progress')return;const question=questions[state.index];if(!question)return;const raw=String(answer||'').trim();if(!raw&&!skipped){notify('请填写答案，或明确点击跳过本题。');return;}const auto=skipped?{status:'unassessed',message:'本题已跳过。'}:compareReadingAnswer(question,raw);const event={questionId:question.id,answer:raw,skipped,autoCheck:auto,at:new Date().toISOString(),questionType:question.questionType||question.type,answerConstraints:question.answerConstraints||null};state.events=[...(state.events||[]),event];const existing=state.answers.findIndex(item=>item.questionId===question.id);if(existing>=0)state.answers[existing]={...state.answers[existing],...event,original_skip:state.answers[existing].skipped||false};else state.answers.push(event);const unanswered=questions.filter(item=>!state.answers.some(answer=>answer.questionId===item.id&&!answer.skipped));const allAnswered=questions.every(item=>state.answers.some(answer=>answer.questionId===item.id));const next=readingCheckNextIndex(state,questions);if(next<0||(allAnswered&&skipped)){state.status=state.answers.some(item=>item.skipped)?'partial':'completed';state.completedAt=new Date().toISOString();state.index=questions.length;}else{state.status='in_progress';state.index=next;}if(state.status==='completed'&&data.dailyJourney?.readingPartialIds?.includes(reading.id)){const j=data.dailyJourney;j.readingPartialIds=j.readingPartialIds.filter(id=>id!==reading.id);const stage=(j.completed||[]).find(x=>x.stage==='reading');if(stage){stage.partial_count=j.readingPartialIds.length;if(!j.readingPartialIds.length)stage.status='completed';}}if(save())render();}
 function renderReadingCheck(reading){const questions=readingQuestionsFor(reading);if(!questions.length)return null;const box=section('reading-check-panel');const state=readingCheckState(reading);box.append(el('div','可选理解检查 · COMPREHENSION','question-label'),h('h2','阅读理解检查'),p('这是可选的小测；空白答案不会自动推进，开放题不会被武断地自动判错。','subtle'));if(!state){box.append(btn('开始可选小测',()=>startReadingCheck(reading),'btn secondary'));return box;}if(state.status==='completed'){const correct=state.answers.filter(answer=>answer.autoCheck?.status==='correct').length;box.append(p(`小测已完成：${state.answers.length} 题，客观题自动正确 ${correct} 题；开放题保留为人工比较。`,'success'));return box;}if(state.status==='partial')box.append(p('本次小测部分完成；可以继续未提交题目。','hint'));const question=questions[state.index];if(!question){if(state.status==='partial')box.append(btn('继续补做未完成题目',()=>startReadingCheck(reading),'btn primary'));return box;}box.append(p(`第 ${state.index+1} / ${questions.length} 题 · ${question.questionType||question.type}`,'tiny'),h('h3',question.prompt));const radioType=['choice','true_false_not_given','yes_no_not_given','matching_headings','matching_information','matching_features'].includes(question.type);if(radioType){const options=question.options.length?question.options:(question.type==='true_false_not_given'?['True','False','Not Given']:question.type==='yes_no_not_given'?['Yes','No','Not Given']:[]);if(options.length){const choices=div('setup-options');options.forEach(option=>{const label=el('label');const radio=el('input');radio.type='radio';radio.name=`reading-${reading.id}`;radio.value=option;label.append(radio,el('span',option));choices.append(label);});box.append(choices,btn('提交答案',()=>{const selected=box.querySelector('input[type=radio]:checked');submitReadingCheck(reading,selected?.value||'');},'btn primary'));}else{const input=textInput('','输入匹配答案');box.append(field('你的答案',input),btn('提交答案',()=>submitReadingCheck(reading,input.value),'btn primary'));}}else{const input=textarea('','请用英文填写答案……');input.classList.add('answer-input');box.append(field('你的回答',input),btn(question.type==='open'?'提交开放题':'提交答案',()=>submitReadingCheck(reading,input.value),'btn primary'));}box.append(btn('跳过本题',()=>submitReadingCheck(reading,'',{skipped:true}),'btn ghost'));return box;}
 function renderTransferRecovery(message){
   const box=section('panel error-state');

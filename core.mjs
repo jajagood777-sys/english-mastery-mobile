@@ -1,6 +1,7 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
+import {normalizeVocabularyTasks} from './vocab.mjs';
 export const VERSION = 4.3;
-export const APP_VERSION = '10.3.12';
+export const APP_VERSION = '10.4.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -278,6 +279,28 @@ export function compareReadingChoice(userAnswer, expectedAnswer, options=[]) {
   const user=normalizeReadingChoiceAnswer(userAnswer,options), expected=normalizeReadingChoiceAnswer(expectedAnswer,options);
   if(!user.valid||!expected.valid) return {status:'invalid',user,expected,message:'阅读选择题答案键或选项文本无效。'};
   return {status:user.index===expected.index?'correct':'incorrect',user,expected};
+}
+
+/**
+ * Grade a reading response only when the pack supplies a finite, explicit
+ * answer basis. Open and unconstrained short/completion answers stay
+ * unassessed so a model answer is never treated as an exhaustive key.
+ */
+export function compareReadingAnswer(question={}, answer='') {
+  const type=clean(question?.type||question?.questionType||question?.question_type).toLowerCase().replaceAll('-','_').replaceAll(' ','_');
+  const raw=clean(answer);
+  if(!raw) return {status:'blank',message:'没有填写答案。'};
+  if(type==='choice'||type==='multiple_choice') return compareReadingChoice(raw,question.answer,question.options||[]);
+  if(type==='true_false_not_given'||type==='yes_no_not_given') {
+    const expected=clean(question.answer);
+    const allowed=type==='true_false_not_given'?['true','false','not given']:['yes','no','not given'];
+    if(!expected||!allowed.includes(normalized(expected))||!allowed.includes(normalized(raw))) return {status:'unassessed',message:'题目缺少有效的有限答案键。'};
+    return {status:normalized(raw)===normalized(expected)?'correct':'incorrect',user:raw,reference:expected};
+  }
+  const accepted=listValue(question.acceptedAnswers||question.accepted_answers);
+  if(!accepted.length) return {status:'unassessed',message:'该阅读回答没有完整的允许答案集合，保留给学习者自查。'};
+  const reference=clean(question.answer||question.correctAnswer||question.correct_answer||accepted[0]);
+  return compareAnswer(raw,reference,{accepted});
 }
 export function compareSpellingAnswer(answer,target) {
   const raw=clean(answer), expected=clean(target), normalize=s=>s.toLocaleLowerCase().replace(/[\u200B\s.,!?;:'"“”‘’_\-]+/g,'');
@@ -557,6 +580,8 @@ export function mergeBackupState(current={}, restored={}) {
   const speechAttempts=uniqueBy([...(current.speechAttempts||[]),...(restored.speechAttempts||[])], 'id');
   const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
+  const readingRetellingAttempts = uniqueBy([...(Array.isArray(current.readingRetellingAttempts) ? current.readingRetellingAttempts : []), ...(Array.isArray(restored.readingRetellingAttempts) ? restored.readingRetellingAttempts : [])], 'id');
+  const vocabularyAttempts = uniqueBy([...(Array.isArray(current.vocabularyAttempts) ? current.vocabularyAttempts : []), ...(Array.isArray(restored.vocabularyAttempts) ? restored.vocabularyAttempts : [])], 'id');
   const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
   const transferAttempts = mergeTransferAttempts(current.transferAttempts, restored.transferAttempts);
   const listeningDiagnosticAttempts = uniqueBy([...(current.listeningDiagnosticAttempts||[]), ...(restored.listeningDiagnosticAttempts||[])], 'id');
@@ -573,6 +598,8 @@ export function mergeBackupState(current={}, restored={}) {
     speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferHints:{...(restored.speechTransferHints||{}),...(current.speechTransferHints||{})},speechTransferAttempts:[...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],
     readingMarks,
     readingChecks,
+    readingRetellingAttempts,
+    vocabularyAttempts,
     weaknesses,
     transferAttempts,
     listeningDiagnosticAttempts,
@@ -740,6 +767,9 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const storyPractice=normalizeStoryPractice(value.story_practice||value.storyPractice||value.stories,packId);
   const dialogueScenarios=normalizeDialogueScenarios(value.dialogue_scenarios||value.dialogueScenarios,packId);
   const listeningDiagnostics=normalizeListeningDiagnostics(value.listening_diagnostics||value.listeningDiagnostics,packId);
+  const vocabularyResult=normalizeVocabularyTasks(value.vocabulary_practice||value.vocabularyPractice||[],packId);
+  errors.push(...vocabularyResult.errors.map(error=>`词汇题：${error}`));
+  const vocabularyPractice=vocabularyResult.tasks;
   const transferTasks=[];
   const spellingTasks=[];
   if(value.spelling_tasks!==undefined&&!Array.isArray(value.spelling_tasks)) errors.push('spelling_tasks 必须是数组；已跳过拼写强化。');
@@ -809,8 +839,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     if(seenReading.has(key)){errors.push(`重复阅读：${reading.title}`);continue;}
     seenReading.add(key);uniqueReadings.push(reading);
   }
-  if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length&&!speeches.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,storyPractice,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,storyPractice,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
+  if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length&&!speeches.length&&!vocabularyPractice.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,vocabularyPractice,storyPractice,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,vocabularyPractice,storyPractice,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -1039,6 +1069,7 @@ export function validateBackup(value){
   if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
   if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
   if(value.readingRetellingAttempts!==undefined&&!Array.isArray(value.readingRetellingAttempts)) throw Error('Backup has invalid reading-retelling data.');
+  if(value.vocabularyAttempts!==undefined&&(!Array.isArray(value.vocabularyAttempts)||value.vocabularyAttempts.length>500000)) throw Error('Backup has invalid vocabulary-attempt data.');
   if(value.paperStoryPractice!==undefined&&value.paperStoryPractice!==null&&typeof value.paperStoryPractice!=='object') throw Error('Backup has invalid paper-story practice data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
@@ -1068,7 +1099,7 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts.filter(row=>row&&typeof row==='object'):[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {

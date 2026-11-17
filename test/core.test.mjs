@@ -129,7 +129,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{startedAt:'2026-10-30T04:50:00Z',endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'10.3.12');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'10.4.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,unallocatedActiveMs:0,packItems:1});
 });
 
@@ -186,6 +186,18 @@ test('V4.2 backup merge retains readings, pack metadata, history and existing pr
  const restored={items:[{id:'w:1',kind:'word',target:'address',status:'UNTESTED'},{id:'w:2',kind:'word',target:'evidence'}],attempts:[{id:'a:1'},{id:'a:2'}],sessions:[{id:'s:1'},{id:'s:2'}],reports:[{report_id:'r:1'},{report_id:'r:2'}],readings:[{id:'reading:1',text:'One.'},{id:'reading:2',text:'Two.'}],dailyPack:{packId:'later',title:'Later'},packHistory:[{packId:'later'}],settings:{theme:'day'}};
  const merged=mergeBackupState(current,restored);
  assert.equal(merged.items.find(x=>x.id==='w:1').attempts,2); assert.equal(merged.items.length,2); assert.equal(merged.attempts.length,2); assert.equal(merged.sessions.length,2); assert.equal(merged.reports.length,2); assert.equal(merged.readings.length,2); assert.equal(merged.dailyPack.packId,'today'); assert.equal(merged.packHistory.length,2); assert.equal(merged.settings.theme,'night');
+});
+
+test('backup merge retains and deduplicates reading retelling attempts',()=>{
+ const current={items:[],attempts:[],sessions:[],readingRetellingAttempts:[{id:'retell:1',readingId:'r1',firstAnswer:'old',firstSubmittedAt:'2026-10-30T00:00:00Z'}]};
+ const restored={items:[],attempts:[],sessions:[],readingRetellingAttempts:[
+  {id:'retell:1',readingId:'r1',firstAnswer:'new'},
+  {id:'retell:2',readingId:'r2',firstAnswer:'second'}
+ ]};
+ const merged=mergeBackupState(current,restored);
+ assert.deepEqual(merged.readingRetellingAttempts,[current.readingRetellingAttempts[0],restored.readingRetellingAttempts[1]]);
+ const repeated=mergeBackupState(merged,restored);
+ assert.deepEqual(repeated.readingRetellingAttempts,merged.readingRetellingAttempts);
 });
 
 test('V4.2 backup validation keeps reading and pack defaults explicit',()=>{
