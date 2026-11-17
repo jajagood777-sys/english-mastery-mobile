@@ -96,6 +96,7 @@ function normalizeContext(raw = {}, taskId, index, errors) {
   }
   const explanation = pick(raw, 'explanation', 'explanation_en', 'why');
   const productionPrompt = pick(raw, 'production_prompt', 'productionPrompt', 'transfer_prompt', 'transferPrompt');
+  if (!explanation) errors.push(`${taskId}/${id}: explanation is required with the answer`);
   if (errors.length > errorStart) return null;
   return {
     id,

@@ -88,8 +88,8 @@ test('summarizes CDTL evidence without treating skipped or unrated work as maste
 
 test('keeps duplicate IDs and malformed choice sets out of the normalized task list', () => {
   const result = normalizeCDTLTasks([
-    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one' }] },
-    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one' }] },
+    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one', explanation: 'One matches the prompt.' }] },
+    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one', explanation: 'One matches the prompt.' }] },
     { id: 'too-few', contexts: [{ prompt: 'No distractor.', options: ['one'], answer: 'one' }] }
   ], 'pack');
   assert.equal(result.tasks.length, 1);
@@ -116,7 +116,7 @@ test('preserves the first answer while recording retry and prompt evidence', () 
 test('supports an explicitly declared set of valid choice answers', () => {
   const normalized = normalizeCDTLTasks([{
     id: 'acceptable',
-    contexts: [{ prompt: 'Choose an acceptable response.', options: ['Sure', 'Certainly', 'Never'], answers: ['Sure', 'Certainly'] }]
+    contexts: [{ prompt: 'Choose an acceptable response.', options: ['Sure', 'Certainly', 'Never'], answers: ['Sure', 'Certainly'], explanation: 'Both responses are acceptable in this context.' }]
   }], 'pack');
   assert.equal(normalized.errors.length, 0);
   assert.deepEqual(normalized.tasks[0].contexts[0].correctOptionIds, ['A', 'B']);
