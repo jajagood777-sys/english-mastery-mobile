@@ -596,3 +596,4 @@ User iPhone screenshots showed long three-paragraph synthetic listening text in 
 - Not completed: full 14-type production UI, complete V11 sentence/listening/read evidence expansions, FSRS shadow scheduling, physical iPhone Safari validation, CI after push, merge, production deploy.
 - Next minimal recovery command: `git status --short && npm run check`.
 - Status: code candidate is `READY_FOR_REVIEW` only after PR/CI review; not merged or deployed. Design claims above remain distinct from implemented behavior.
+- Post-push evidence: PR #92 updated to head `051e9611d1776f047ddf31425446748187fba106`. GitHub `test` and `real-app` checks passed; Cloudflare Pages preview passed; Workers Builds check failed (existing external production integration/build check, not a merge/deploy action). PR remains OPEN and unmerged.
