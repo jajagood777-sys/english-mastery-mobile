@@ -188,6 +188,18 @@ test('V4.2 backup merge retains readings, pack metadata, history and existing pr
  assert.equal(merged.items.find(x=>x.id==='w:1').attempts,2); assert.equal(merged.items.length,2); assert.equal(merged.attempts.length,2); assert.equal(merged.sessions.length,2); assert.equal(merged.reports.length,2); assert.equal(merged.readings.length,2); assert.equal(merged.dailyPack.packId,'today'); assert.equal(merged.packHistory.length,2); assert.equal(merged.settings.theme,'night');
 });
 
+test('backup merge retains and deduplicates reading retelling attempts',()=>{
+ const current={items:[],attempts:[],sessions:[],readingRetellingAttempts:[{id:'retell:1',readingId:'r1',firstAnswer:'old',firstSubmittedAt:'2026-10-30T00:00:00Z'}]};
+ const restored={items:[],attempts:[],sessions:[],readingRetellingAttempts:[
+  {id:'retell:1',readingId:'r1',firstAnswer:'new'},
+  {id:'retell:2',readingId:'r2',firstAnswer:'second'}
+ ]};
+ const merged=mergeBackupState(current,restored);
+ assert.deepEqual(merged.readingRetellingAttempts,[current.readingRetellingAttempts[0],restored.readingRetellingAttempts[1]]);
+ const repeated=mergeBackupState(merged,restored);
+ assert.deepEqual(repeated.readingRetellingAttempts,merged.readingRetellingAttempts);
+});
+
 test('V4.2 backup validation keeps reading and pack defaults explicit',()=>{
  const out=validateBackup({items:[],attempts:[],sessions:[],readings:[{id:'reading:1',title:'Story',text:'A short story.',source:'Local'}],dailyPack:{packId:'p1',title:'Today'},packHistory:[{packId:'p1',title:'Today'}]});
  assert.equal(out.readings[0].text,'A short story.'); assert.equal(out.dailyPack.packId,'p1'); assert.equal(out.packHistory.length,1);

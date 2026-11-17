@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,recordsFromLearningPack,buildBattleReport,buildSpellingSummary,normalizeTransferAttempt} from '../core.mjs';
+import {resolveTaskInputMode,compareReadingChoice,compareReadingAnswer,compareSpellingAnswer,recordsFromLearningPack,buildBattleReport,buildSpellingSummary,normalizeTransferAttempt} from '../core.mjs';
 import {handoverEntries,zipStore,readZipStore,sha256Hex} from '../handover.mjs';
 
 test('V8 structured task modes keep speaking controls separate from writing',()=>{
@@ -18,6 +18,12 @@ test('V8 reading choice answers normalize keys and full option text',()=>{
   assert.equal(compareReadingChoice('C','third',options).status,'correct');
   assert.equal(compareReadingChoice('Z','B',options).status,'invalid');
   assert.equal(compareReadingChoice('same','same',[]).status,'invalid');
+});
+test('reading open and unconstrained short answers stay unassessed',()=>{
+  assert.equal(compareReadingAnswer({type:'open',answer:'Paris',modelAnswer:'Paris'},'Paris').status,'unassessed');
+  assert.equal(compareReadingAnswer({type:'short_answer',answer:'Paris'},'Paris').status,'unassessed');
+  assert.equal(compareReadingAnswer({type:'short_answer',answer:'Paris',acceptedAnswers:['Paris','The city of Paris']},'The city of Paris').status,'correct');
+  assert.equal(compareReadingAnswer({type:'true_false_not_given',answer:'True'},'True').status,'correct');
 });
 test('V8 spelling preserves first answer and classifies real typo',()=>{
   assert.equal(compareSpellingAnswer('calss','class').errorType,'letter_order_or_substitution');
