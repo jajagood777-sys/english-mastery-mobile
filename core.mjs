@@ -1,7 +1,7 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 import {normalizeVocabularyTasks} from './vocab.mjs';
 export const VERSION = 4.3;
-export const APP_VERSION = '10.3.12';
+export const APP_VERSION = '10.4.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -581,6 +581,7 @@ export function mergeBackupState(current={}, restored={}) {
   const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
   const readingRetellingAttempts = uniqueBy([...(Array.isArray(current.readingRetellingAttempts) ? current.readingRetellingAttempts : []), ...(Array.isArray(restored.readingRetellingAttempts) ? restored.readingRetellingAttempts : [])], 'id');
+  const vocabularyAttempts = uniqueBy([...(Array.isArray(current.vocabularyAttempts) ? current.vocabularyAttempts : []), ...(Array.isArray(restored.vocabularyAttempts) ? restored.vocabularyAttempts : [])], 'id');
   const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
   const transferAttempts = mergeTransferAttempts(current.transferAttempts, restored.transferAttempts);
   const listeningDiagnosticAttempts = uniqueBy([...(current.listeningDiagnosticAttempts||[]), ...(restored.listeningDiagnosticAttempts||[])], 'id');
@@ -598,6 +599,7 @@ export function mergeBackupState(current={}, restored={}) {
     readingMarks,
     readingChecks,
     readingRetellingAttempts,
+    vocabularyAttempts,
     weaknesses,
     transferAttempts,
     listeningDiagnosticAttempts,
@@ -1067,6 +1069,7 @@ export function validateBackup(value){
   if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
   if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
   if(value.readingRetellingAttempts!==undefined&&!Array.isArray(value.readingRetellingAttempts)) throw Error('Backup has invalid reading-retelling data.');
+  if(value.vocabularyAttempts!==undefined&&(!Array.isArray(value.vocabularyAttempts)||value.vocabularyAttempts.length>500000)) throw Error('Backup has invalid vocabulary-attempt data.');
   if(value.paperStoryPractice!==undefined&&value.paperStoryPractice!==null&&typeof value.paperStoryPractice!=='object') throw Error('Backup has invalid paper-story practice data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
@@ -1096,7 +1099,7 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts.filter(row=>row&&typeof row==='object'):[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {

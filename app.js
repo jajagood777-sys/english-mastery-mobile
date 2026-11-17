@@ -47,7 +47,7 @@ function load(){
     if(raw){
       const obj=JSON.parse(raw);const safe=migrateBackupPayload(obj);
       if(obj.activeSession && typeof obj.activeSession==='object' && Array.isArray(obj.activeSession.queue)) safe.activeSession={...obj.activeSession,running:false,lastTick:null};
-      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=JSON.stringify(safe);
+      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.vocabularyAttempts=safe.vocabularyAttempts||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=JSON.stringify(safe);
       return safe;
     }
   }catch(err){console.warn('Saved V2 data unavailable:',err);}
@@ -189,18 +189,84 @@ function renderPaperStoryPractice(){
   box.append(prompt,lines(btn('暂停并返回首页',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn ghost'),btn('放弃当前 Section（保留已有证据）',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn danger')));app.append(box);
 }
 function renderVocabularyPractice(){
-  const tasks=Array.isArray(data.dailyPack?.vocabularyPractice)?data.dailyPack.vocabularyPractice:[];
+  const pack=data.dailyPack;
+  const tasks=Array.isArray(pack?.vocabularyPractice)?pack.vocabularyPractice:[];
   if(!tasks.length)return null;
-  const done=new Set((data.vocabularyAttempts||[]).filter(row=>row.packId===data.dailyPack.packId&&row.completed).map(row=>row.taskId));
-  const task=tasks.find(row=>!done.has(row.id))||tasks[0];
-  const context=task.contexts?.[0]; if(!context)return null;
+  const past=Array.isArray(data.vocabularyAttempts)?data.vocabularyAttempts:[];
+  const done=new Set(past.filter(row=>row.packId===pack.packId&&row.completed).map(row=>row.taskId));
+  const task=tasks.find(row=>!done.has(row.id));
   const box=section('vocabulary-practice-panel');
-  box.append(el('div','触控词汇 · SMART VOCABULARY','eyebrow'),h('h2',`语境辨析 · ${done.size}/${tasks.length}`),p('选择题只记录识别证据；需要真正会用时，再完成独立造句。','subtle'),h('h3',context.prompt,'question'));
-  const choices=div('vocab-choice-grid');let selected='';
-  (context.options||[]).forEach((option,index)=>{const id=String.fromCharCode(65+index);const b=btn(`${id}. ${option}`,()=>{selected=id;choices.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');},'btn vocab-choice');b.dataset.optionId=id;choices.append(b);});
+  box.append(el('div','触控词汇 · SMART VOCABULARY','eyebrow'),
+    h('h2','语境辨析 · '+done.size+'/'+tasks.length),
+    p('选择题只记录识别证据；答对不自动计为K，也不等于独立回忆。','subtle'));
+  if(!task){
+    box.append(h('h3','本批词汇选择题已全部处理'),
+      p('完成包含已跳过项目，不代表全部掌握。真实初答可在备份及学习报告中保留。','tiny'));
+    return box;
+  }
+  const options=Array.isArray(task.options)?task.options:[];
+  const multiple=Array.isArray(task.correctOptionIds)&&task.correctOptionIds.length>1;
+  const selected=new Set();
+  box.append(h('h3',task.prompt,'question'));
+  if(task.type==='listening_word_recognition'&&task.audioUrl)box.append(audioControls(task.audioUrl));
+  if(multiple)box.append(p('本题存在多个正确答案，可选择多项后统一提交。','tiny'));
+  const choices=div('vocab-choice-grid');
+  options.forEach(option=>{
+    const b=btn(option.id+'. '+option.text,()=>{
+      if(multiple&&selected.has(option.id))selected.delete(option.id);
+      else {if(!multiple)selected.clear();selected.add(option.id);}
+      choices.querySelectorAll('button').forEach(node=>{
+        const active=selected.has(node.dataset.optionId);
+        node.classList.toggle('selected',active);
+        node.setAttribute('aria-pressed',String(active));
+      });
+    },'btn vocab-choice');
+    b.dataset.optionId=option.id;
+    b.setAttribute('aria-pressed','false');
+    choices.append(b);
+  });
   const status=p('请选择一个答案。','tiny');
-  const submit=btn('提交识别答案',()=>{const check=compareVocabularyChoice(selected,context);const attempt=buildVocabularyAttempt({task:{...task,...context},taskId:task.id,packId:data.dailyPack.packId,choice:selected,choiceCheck:check,completed:true});data.vocabularyAttempts=[...(data.vocabularyAttempts||[]),attempt];status.textContent=check.status==='correct'?'识别正确。请注意：这不等于独立回忆。':`识别结果：${check.status==='incorrect'?'需要纠错':'未评估'}。参考答案：${check.expected||context.answer}`;if(context.explanation)status.textContent+=` ${context.explanation}`;submit.disabled=true;save();},'btn primary');
-  box.append(choices,lines(submit,btn('跳过本题',()=>{const attempt=buildVocabularyAttempt({task:{...task,...context},taskId:task.id,packId:data.dailyPack.packId,skipped:true,completed:true});data.vocabularyAttempts=[...(data.vocabularyAttempts||[]),attempt];save();render();},'btn ghost')),status,p('跳过不会计为正确或掌握。','tiny'));
+  const answerText=()=>options.filter(option=>task.correctOptionIds.includes(option.id)).map(option=>option.text).join(' / ');
+  const attemptId='vocabulary:'+encodeURIComponent(pack.packId)+':'+encodeURIComponent(task.id);
+  const storeAttempt=(choice,check,skipped)=>{
+    if((data.vocabularyAttempts||[]).some(row=>row.id===attemptId&&row.completed))return false;
+    const at=new Date().toISOString();
+    const attempt=buildVocabularyAttempt({
+      task,taskId:task.id,sourceItemId:task.sourceItemId,choice,
+      choiceCheck:check,skipped,at
+    });
+    data.vocabularyAttempts=[...(data.vocabularyAttempts||[]),{
+      ...attempt,id:attemptId,packId:pack.packId,completed:true
+    }];
+    return save();
+  };
+  const skipButton=btn('跳过本题',()=>{
+    if(!storeAttempt('',null,true))return;
+    render();
+  },'btn ghost');
+  const submit=btn('提交识别答案',()=>{
+    if(!selected.size){status.textContent='请先选择答案，或者选择跳过。';return;}
+    const chosen=[...selected];
+    let check;
+    if(multiple){
+      const expected=new Set(task.correctOptionIds);
+      const correct=chosen.length===expected.size&&chosen.every(id=>expected.has(id));
+      check={status:correct?'correct':'incorrect',
+        selectedOptionIds:chosen,selectedText:options.filter(option=>selected.has(option.id)).map(option=>option.text).join(' / '),
+        recognitionResult:correct?'RECOGNITION_CORRECT':'RECOGNITION_INCORRECT',
+        correctOptionIds:[...task.correctOptionIds]};
+    }else check=compareVocabularyChoice(chosen[0],task);
+    if(!['correct','incorrect'].includes(check.status)){
+      status.textContent='答案格式有误，尚未记录本次提交。';return;
+    }
+    if(!storeAttempt(chosen.join(','),check,false))return;
+    status.textContent=(check.status==='correct'?'识别正确（不是独立回忆）。':'识别错误。')
+      +' 参考答案：'+answerText()+'。'+(task.explanation||'');
+    submit.disabled=true;skipButton.disabled=true;
+    choices.querySelectorAll('button').forEach(button=>button.disabled=true);
+    box.append(btn('继续下一题',()=>render(),'btn primary'));
+  },'btn primary');
+  box.append(choices,lines(submit,skipButton),status,p('跳过与未评估项目不会计为K/V/N，也不会提高独立回忆成绩。','tiny'));
   return box;
 }
 function renderHome(){
@@ -509,6 +575,16 @@ function finishDailyJourney(){
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
   const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],spellingAttempts:j.spellingAttempts||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const vocabularyAttempts=(data.vocabularyAttempts||[]).filter(row=>row.packId===j.packId);
+  report.vocabulary_practice={
+    tasks_total:(data.dailyPack?.vocabularyPractice||[]).length,
+    submitted:vocabularyAttempts.filter(row=>row.completed&&!row.skipped).length,
+    skipped:vocabularyAttempts.filter(row=>row.skipped).length,
+    recognition_correct:vocabularyAttempts.filter(row=>row.recognitionResult==='RECOGNITION_CORRECT').length,
+    time_measured:false,
+    recognition_not_independent_recall:true,
+    attempts:vocabularyAttempts.map(row=>({...row}))
+  };
   report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
   report.reading_completed=j.readingDoneIds.filter(id=>!(j.readingPartialIds||[]).includes(id)).length;
   report.reading_partial=j.readingPartialIds||[];
