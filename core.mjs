@@ -1075,7 +1075,7 @@ export function validateBackup(value){
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
   const transferAttempts=mergeTransferAttempts(value.transferAttempts||[],[]);
   const journey=value.dailyJourney;
-  const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['words','spelling','sentences','reading','listening','speech','transfer'].includes(x))?{
+  const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['vocabulary','words','spelling','sentences','reading','listening','speech','transfer'].includes(x))?{
     ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
     speechRunning:false,speechLastTick:null,speechMs:Math.max(0,Number(journey.speechMs)||0),
     speechDoneIds:Array.isArray(journey.speechDoneIds)?journey.speechDoneIds.filter(x=>typeof x==='string'):[],

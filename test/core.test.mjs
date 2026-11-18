@@ -439,3 +439,21 @@ test('V1.0 immediate recall normalizes report evidence and preserves completed s
  const report=buildBattleReport({session:{id:'journey:v1',startedAt:'2026-11-02T00:00:00Z',endedAt:'2026-11-02T00:05:00Z',activeMs:300000,mode:'journey',packId:'four-in-one'},attempts:[],readings:[{id:'story-03',title:'The Quiet Room',storyId:'quiet-room',sectionId:'03'}],readingCompletedIds:['story-03'],readingRecallAttempts:[{markId:'mark:composure',readingId:'story-03',word:'composure',sourceTitle:'The Quiet Room',userAnswer:'composure',rating:'K',independent:true}]});
  assert.equal(report.reading_analysis.articles[0].completed,true);assert.equal(report.reading_analysis.immediate_recall[0].status,'K');assert.equal(report.reading_analysis.immediate_recall[0].user_answer,'composure');assert.match(battleReportMarkdown(report),/composure · K · 原答：composure/);
 });
+
+
+test('V11 single-Journey stage survives JSON backup migration and page reload',()=>{
+  const packId='SYNTHETIC-PERSISTED-VOCABULARY';
+  const state={version:4.3,items:[],attempts:[],sessions:[],dailyPack:{
+    packId,vocabularyPractice:[{id:'v1',prompt:'Choose the word',options:[{id:'A',text:'correct'}],correctOptionIds:['A']}],
+    itemIds:[],readingIds:[],transferTasks:[],recommendedMinutes:20},
+    vocabularyAttempts:[{id:'vocabulary:'+packId+':v1',packId,taskId:'v1',completed:true,firstAnswer:'A',rating:null}],
+    dailyJourney:{id:'journey:vocab',packId,steps:['vocabulary','sentences','reading','listening'],
+      index:1,completed:[{stage:'vocabulary',status:'completed',count:1}],sessionIds:[],
+      startedAt:'2026-11-18T01:00:00Z',finishedAt:null,readingMs:0}};
+  const result=migrateBackupPayload(state);
+  assert.ok(result.dailyJourney);
+  assert.deepEqual(result.dailyJourney.steps,['vocabulary','sentences','reading','listening']);
+  assert.equal(result.dailyJourney.index,1);
+  assert.equal(result.vocabularyAttempts[0].firstAnswer,'A');
+  assert.equal(result.vocabularyAttempts[0].rating,null);
+});

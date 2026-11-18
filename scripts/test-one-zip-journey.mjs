@@ -74,7 +74,9 @@ try{
     localStorage.setItem(key,JSON.stringify(s));
   },{id:packId});
   await page.reload({waitUntil:'domcontentloaded'});
+  console.log('LEGACY BEFORE RESUME',JSON.stringify({journey:(await state()).dailyJourney,packId:(await state()).dailyPack?.packId}));
   await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
+  console.log('LEGACY AFTER RESUME',JSON.stringify({journey:(await state()).dailyJourney,packId:(await state()).dailyPack?.packId,errors}));
   await page.getByRole('heading',{name:'触控炼词'}).waitFor({timeout:10000});
   saved=await state();
   assert.equal(saved.dailyJourney.id,'journey:legacy-synthetic');
