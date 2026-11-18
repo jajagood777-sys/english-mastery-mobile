@@ -1,5 +1,5 @@
 /**
- * Contextual Discrimination & Transfer Lab (CDTL · 10.5.0)
+ * Contextual Discrimination & Transfer Lab (CDTL · 11.0.0)
  * Provides side-by-side semantic nuance comparison, collocation contrast,
  * and immediate error-recovery cards when a learner misses a vocabulary choice
  * or requests deeper lexical discrimination.
@@ -19,6 +19,19 @@ export function extractExampleFromExplanation(explanationEn = '') {
     };
   }
   return { meaning: raw, example: '' };
+}
+
+/**
+ * Generates a concise contrastive memory anchor highlighting how the target
+ * differs from the chosen distractor in meaning or collocation context.
+ */
+export function buildContrastAnchor(targetExpr = '', targetSense = '', distractorExpr = '', distractorSense = '') {
+  const t = cleanCdtl(targetExpr);
+  const d = cleanCdtl(distractorExpr);
+  if (!t || !d) return '';
+  const ts = cleanCdtl(targetSense).replace(/\.$/, '');
+  const ds = cleanCdtl(distractorSense).replace(/\.$/, '');
+  return `区分锚点：「${t}」聚焦 "${ts || '目标语境义'}"，而「${d}」侧重 "${ds || '干扰项语义'}"。`;
 }
 
 export function buildCdtlCard(task = {}, chosenOptionId = '', archiveWords = []) {
@@ -62,6 +75,10 @@ export function buildCdtlCard(task = {}, chosenOptionId = '', archiveWords = [])
     };
   }
 
+  const contrastAnchor = distractorDetail
+    ? buildContrastAnchor(correctDetail.expression, correctDetail.senseEn, distractorDetail.expression, distractorDetail.senseEn)
+    : '';
+
   return {
     taskId: cleanCdtl(task.id),
     sourceItemId: cleanCdtl(task.sourceItemId),
@@ -70,6 +87,7 @@ export function buildCdtlCard(task = {}, chosenOptionId = '', archiveWords = [])
     isErrorComparison: Boolean(distractorDetail),
     correct: correctDetail,
     chosenDistractor: distractorDetail,
+    contrastAnchor,
     explanationEn: cleanCdtl(task.explanationEn),
     productionPrompt: cleanCdtl(task.productionPrompt || (targetWord ? `Use "${targetWord}" in your own original sentence.` : '')),
     pedagogicalNote: 'CDTL 语境辨析：对比目标词与干扰项的核心搭配边界；选择正确仅记录识别，独立造句才构成主动产出证据。'
@@ -360,3 +378,46 @@ export function summarizeCDTLAttempts(value = []) {
   return summary;
 }
 
+
+/**
+ * Builds an Interference Radar (顽固易混词对干扰雷达) from vocabulary attempts.
+ * Groups recurring or first-attempt confusions into actionable pair cards for
+ * the Battle Report and Central Immortal Aperture handoff.
+ */
+export function buildInterferenceRadar(tasks = [], attempts = [], archiveWords = []) {
+  const cards = buildCdtlBatchFromAttempts(tasks, attempts, archiveWords);
+  const pairMap = new Map();
+
+  for (const card of cards) {
+    if (!card.chosenDistractor) continue;
+    const target = cleanCdtl(card.correct.expression);
+    const distractor = cleanCdtl(card.chosenDistractor.expression);
+    if (!target || !distractor) continue;
+    const pairKey = `${normCdtl(target)}<->${normCdtl(distractor)}`;
+    const prior = pairMap.get(pairKey);
+    if (prior) {
+      prior.count++;
+      prior.taskIds.push(card.taskId);
+    } else {
+      pairMap.set(pairKey, {
+        pairId: `pair:${normCdtl(target)}:${normCdtl(distractor)}`,
+        target,
+        targetSense: card.correct.senseEn,
+        targetExample: card.correct.exampleEn,
+        distractor,
+        distractorSense: card.chosenDistractor.senseEn,
+        distractorExample: card.chosenDistractor.exampleEn,
+        contrastAnchor: card.contrastAnchor,
+        questionType: card.questionType,
+        count: 1,
+        taskIds: [card.taskId]
+      });
+    }
+  }
+
+  const pairs = [...pairMap.values()].sort((a, b) => b.count - a.count || a.target.localeCompare(b.target));
+  return {
+    totalConfusedPairs: pairs.length,
+    pairs
+  };
+}
