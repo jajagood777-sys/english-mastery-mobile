@@ -967,6 +967,11 @@ function showEditDialog(item){document.getElementById('edit-dialog')?.remove();c
 function chooseImport(raw,filename){importRaw=raw;importFilename=filename;draft=null;try{if(filename.toLowerCase().endsWith('.json')){const parsed=JSON.parse(raw);if(isFullBackup(parsed))throw Error('这是完整数据备份，请从“设置 → 恢复 JSON 备份”导入；学习包入口只接受 daily learning pack。');if(!Array.isArray(parsed.items)&&Array.isArray(parsed.weaknesses)){draft={items:[],readings:[],weaknesses:parsed.weaknesses,transferTasks:Array.isArray(parsed.transfer_tasks)?parsed.transfer_tasks:[],errors:[],sourceType:'weakness'};}else{draft=recordsFromLearningPack(parsed,{source:'中央仙窍英语资料库'});draft.sourcePack=preserveSourcePack(raw,parsed,filename);if(draft.sourcePack.unavailableReason)draft.sourcePackUnavailableReason=draft.sourcePack.unavailableReason;}}else draft=filename.toLowerCase().endsWith('.csv')?recordsFromCSV(raw,{includeExamples:true,source:filename}):sentencesFromText(raw,{source:filename});if(!draft.items.length&&!(draft.readings||[]).length&&!(draft.weaknesses||[]).length&&!draft.storyPractice&&!(draft.speeches||[]).length)throw Error('学习包没有可识别的英语材料。');if(!filename.toLowerCase().endsWith('.csv')&&!filename.toLowerCase().endsWith('.json'))draft.reading={id:`reading:${Date.now()}`,title:filename,source:filename,text:raw,createdAt:new Date().toISOString()};notify(`预览已准备：${draft.items.length} 张卡片${draft.storyPractice?'，含纸上故事练习':''}${draft.weaknesses?.length?`，${draft.weaknesses.length} 个弱项`:''}。`);}catch(e){draft={error:e.message};notify(`导入预览失败：${e.message}`);}render();}
 function applyImportedDraft(){
   if(!draft||draft.error||!draft.pack)return false;
+  const words=draft.items.filter(item=>item.kind==='word').length;
+  const sentences=draft.items.filter(item=>item.kind==='sentence'&&item.module!=='listening').length;
+  const listening=draft.items.filter(item=>item.module==='listening').length;
+  const readings=(draft.readings||[]).length;
+  const touchWords=(draft.pack.vocabularyPractice||[]).length;
 
   const isPack=Boolean(draft.pack),packMeta=draft.pack;
   if(isPack&&data.dailyJourney&&!data.dailyJourney.finishedAt&&data.dailyJourney.packId!==packMeta.packId){

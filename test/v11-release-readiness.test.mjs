@@ -62,3 +62,10 @@ test('single Journey retains original data and does not inflate K from multiple 
   assert.match(app,/recognition_not_independent_recall:true/);
   assert.match(app,/vocabularyAttempts/);
 });
+
+test('ZIP importer has all counters in its own scope before committing',()=>{
+  const body=app.slice(app.indexOf('function applyImportedDraft(){'),app.indexOf('function renderLibrary(){'));
+  for(const field of ['words','sentences','listening','readings','touchWords'])assert.match(body,new RegExp('const '+field+'='));
+  assert.match(body,/if\(!save\(\)\)return false/);
+  assert.match(body,/draft=null;importRaw='';if\(isPack\)startDailyJourney\(\)/);
+});
