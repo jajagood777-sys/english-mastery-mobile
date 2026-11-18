@@ -9,6 +9,7 @@ on:
       - 'sw.js'
       - 'scripts/test-real-app-native-speech.mjs'
       - 'scripts/test-spelling-progress.mjs'
+      - 'scripts/test-one-zip-journey.mjs'
       - 'scripts/test-v6-follow-along-feedback.mjs'
       - 'scripts/test-v1-four-in-one.mjs'
       - '.github/workflows/kokoro-app-e2e.yml'
@@ -39,3 +40,5 @@ jobs:
         run: node scripts/test-v6-follow-along-feedback.mjs
       - name: Verify V1 four-in-one Journey and Exit Ticket
         run: node scripts/test-v1-four-in-one.mjs
+      - name: Verify one ZIP enters a vocabulary-first Journey and resumes safely
+        run: node scripts/test-one-zip-journey.mjs
