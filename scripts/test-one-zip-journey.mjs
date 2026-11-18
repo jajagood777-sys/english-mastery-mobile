@@ -62,26 +62,29 @@ try{
   assert.equal(saved.vocabularyAttempts.filter(x=>x.rating==='K').length,0);
   assert.ok(saved.activeSession?.journeyId===saved.dailyJourney.id,'Next existing Journey stage should begin automatically');
 
-  // Legacy ongoing V22 has no vocabulary stage. Resume inserts, never discards an existing step or answer.
-  await page.evaluate(({id})=>{
-    const key='central-english-mastery.v2',s=JSON.parse(localStorage.getItem(key));
-    s.activeSession=null;
-    s.vocabularyAttempts=[];
-    s.dailyJourney={id:'journey:legacy-synthetic',packId:id,startedAt:'2026-11-17T00:00:00Z',
+  // Separate isolated browser context: never overwrite localStorage in a running app and reload,
+  // because beforeunload is allowed to flush the currently running Journey back to disk.
+  const legacyState={...saved,activeSession:null,vocabularyAttempts:[],
+    dailyJourney:{id:'journey:legacy-synthetic',packId,startedAt:'2026-11-17T00:00:00Z',
       steps:['sentences'],index:0,completed:[],sessionIds:[],readingMs:0,speechMs:0,
       readingDoneIds:[],spellingAttempts:[],transferAttempts:[],transferMs:0,
-      finishedAt:null,targetMinutes:20};
-    localStorage.setItem(key,JSON.stringify(s));
-  },{id:packId});
-  await page.reload({waitUntil:'domcontentloaded'});
-  console.log('LEGACY BEFORE RESUME',JSON.stringify({journey:(await state()).dailyJourney,packId:(await state()).dailyPack?.packId}));
-  await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
-  console.log('LEGACY AFTER RESUME',JSON.stringify({journey:(await state()).dailyJourney,packId:(await state()).dailyPack?.packId,errors}));
-  await page.getByRole('heading',{name:'触控炼词'}).waitFor({timeout:10000});
-  saved=await state();
-  assert.equal(saved.dailyJourney.id,'journey:legacy-synthetic');
-  assert.deepEqual(saved.dailyJourney.steps.slice(0,2),['vocabulary','sentences']);
-  assert.equal(saved.dailyJourney.completed.length,0);
+      finishedAt:null,targetMinutes:20}};
+  const legacyPage=await browser.newPage({viewport:{width:390,height:844}});
+  const legacyErrors=[];
+  legacyPage.on('pageerror',e=>legacyErrors.push(e.message));
+  await legacyPage.addInitScript(state=>{
+    localStorage.setItem('central-english-mastery.v2',JSON.stringify(state));
+  },legacyState);
+  await legacyPage.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});
+  await legacyPage.getByRole('button',{name:'开始／继续今日完整学习'}).click();
+  await legacyPage.getByRole('heading',{name:'触控炼词'}).waitFor({timeout:10000});
+  const migrated=await legacyPage.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
+  assert.equal(migrated.dailyJourney.id,'journey:legacy-synthetic');
+  assert.deepEqual(migrated.dailyJourney.steps.slice(0,2),['vocabulary','sentences']);
+  assert.equal(migrated.dailyJourney.completed.length,0);
+  assert.equal(migrated.vocabularyAttempts.length,0);
+  assert.equal(legacyErrors.length,0,'Legacy page errors: '+legacyErrors.join(' | '));
+  await legacyPage.close();
   assert.equal(errors.length,0,'Unexpected runtime errors: '+errors.join(' | '));
   console.log('ONE ZIP -> VOCABULARY -> NEXT JOURNEY STAGE; REFRESH + LEGACY MIGRATION PASS');
 }finally{
