@@ -8,7 +8,7 @@ const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
 const pkg=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
 
-test('10.5.0 vocabulary task enters the actual one-Journey stage with no parallel screen',()=>{
+test('11.0.0 vocabulary task enters the actual one-Journey stage with no parallel screen',()=>{
  const raw={schema_version:'2.0',pack_id:'test-v11',items:[],vocabulary_practice:[{id:'q1',type:'contextual_cloze',prompt:'The policy will ___ everyone.',options:[{id:'A',text:'affect'},{id:'B',text:'effect'},{id:'C',text:'infect'},{id:'D',text:'reflect'}],correct_option_ids:['A'],explanation_en:'Affect is the verb.'}]};
  const parsed=recordsFromLearningPack(raw);
  assert.equal(parsed.vocabularyPractice.length,1);
@@ -37,10 +37,10 @@ test('choice evidence persists in old backups and 10.5 recognition never becomes
  assert.match(app,/countsAsMasteryK:false/);
 });
 
-test('PWA version and offline cache include all 10.5 and 10.4.2 compatibility modules',()=>{
- assert.equal(APP_VERSION,'10.5.0');
- assert.equal(pkg.version,'10.5.0');
- assert.match(sw,/english-cultivation-static-v10\.5\.0/);
+test('PWA version and offline cache include 11.0 plus retained 10.5 and 10.4.2 modules',()=>{
+ assert.equal(APP_VERSION,'11.0.0');
+ assert.equal(pkg.version,'11.0.0');
+ assert.match(sw,/english-cultivation-static-v11\.0\.0/);
  for(const asset of ['vocab.mjs','cdtl.mjs','studio.mjs','handover.mjs'])assert.ok(sw.includes("'./"+asset+"'"),'Missing offline asset '+asset);
 });
 

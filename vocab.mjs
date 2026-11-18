@@ -1,5 +1,5 @@
 /**
- * Smart Vocabulary Touch Engine (10.5.0)
+ * Smart Vocabulary Touch Engine (11.0.0)
  * Supports 14 candidate vocabulary question types, strict schema 2.0 validation,
  * source-archive lookup, and honest recognition-only evidence grading.
  *
@@ -37,7 +37,7 @@ export const VOCAB_TYPE_LABELS = Object.freeze({
   antonym_contrast: '反义语境对比 · Antonym Contrast',
   idiom_in_context: '习语语境运用 · Idiom in Context',
   audio_word_recognition: '听音辨词 · Audio Recognition',
-  sentence_paraphrase_match: '同义句转换 · Paraphrase Match'
+  sentence_paraphrase_match: '同轮同义转换 · Paraphrase Match'
 });
 
 const cleanVocab = value => String(value ?? '').replace(/\r/g, '').trim();
@@ -219,6 +219,56 @@ export function evaluateVocabularyChoice(task, selectedOptionId) {
   };
 }
 
+/**
+ * Builds an Intra-Journey Micro-Rehearsal queue (同轮错词末端微回炉)
+ * grounded in Retrieval Practice + Corrective Feedback research (Roediger & Karpicke 2006).
+ * Selects up to `maxItems` tasks that were missed on the first attempt and not yet rehearsed.
+ */
+export function buildIntraSessionRehearsalQueue(tasks = [], attempts = [], { maxItems = 5 } = {}) {
+  const validTasks = Array.isArray(tasks) ? tasks : [];
+  const validAttempts = Array.isArray(attempts) ? attempts : [];
+  const taskMap = new Map(validTasks.map(t => [cleanVocab(t?.id), t]));
+  const queue = [];
+  const seen = new Set();
+
+  for (const attempt of validAttempts) {
+    if (!attempt || attempt.skipped) continue;
+    const tid = cleanVocab(attempt.taskId || attempt.id);
+    if (!tid || seen.has(tid)) continue;
+    const failedFirst = attempt.firstCheck ? !attempt.firstCheck.correct : attempt.correct === false;
+    if (!failedFirst) continue;
+    if (attempt.rehearsalCompleted) continue;
+    const task = taskMap.get(tid);
+    if (!task) continue;
+    seen.add(tid);
+
+    const correctOpt = (task.options || []).find(o => (task.correctOptionIds || []).includes(o.id));
+    const targetWord = cleanVocab(task.target || correctOpt?.text || '');
+    const firstLetterCue = targetWord
+      ? `${targetWord[0]}_____ (${targetWord.length} letters)`
+      : '';
+    const maskedExample = task.archivedExample && targetWord
+      ? task.archivedExample.replace(new RegExp(targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), '_____')
+      : '';
+
+    queue.push({
+      taskId: task.id,
+      sourceItemId: task.sourceItemId,
+      target: targetWord,
+      targetSense: cleanVocab(task.targetSense),
+      firstLetterCue,
+      maskedExample,
+      originalPrompt: task.prompt,
+      options: task.options,
+      correctOptionIds: task.correctOptionIds,
+      priorWrongChoice: cleanVocab(attempt.selectedText || attempt.selectedOptionId)
+    });
+    if (queue.length >= maxItems) break;
+  }
+
+  return queue;
+}
+
 export function summarizeVocabularyPractice(tasks = [], attempts = []) {
   const validTasks = Array.isArray(tasks) ? tasks : [];
   const validAttempts = Array.isArray(attempts) ? attempts : [];
@@ -233,6 +283,7 @@ export function summarizeVocabularyPractice(tasks = [], attempts = []) {
   let incorrectFirst = 0;
   let skipped = 0;
   let productionSubmitted = 0;
+  let rehearsedCorrect = 0;
 
   for (const task of validTasks) {
     const attempt = byTask.get(task.id);
@@ -247,6 +298,7 @@ export function summarizeVocabularyPractice(tasks = [], attempts = []) {
       else incorrectFirst++;
     }
     if (cleanVocab(attempt.productionAnswer)) productionSubmitted++;
+    if (attempt.rehearsalPassed) rehearsedCorrect++;
   }
 
   return {
@@ -257,7 +309,8 @@ export function summarizeVocabularyPractice(tasks = [], attempts = []) {
     skipped,
     remaining: Math.max(0, validTasks.length - answered - skipped),
     productionSubmitted,
-    recognitionOnlyNotice: '触控选择题仅代表语境识别（Recognition），不自动计为 K 或独立无提示掌握。'
+    rehearsedCorrect,
+    recognitionOnlyNotice: '触控选择题与同轮微回炉仅代表语境识别与短时修正，不自动计为 K 或独立无提示掌握。'
   };
 }
 

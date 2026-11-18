@@ -1,7 +1,10 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
-import {normalizeVocabularyPractice, summarizeVocabularyPractice} from './vocab.mjs';
+import {normalizeVocabularyPractice, summarizeVocabularyPractice, buildIntraSessionRehearsalQueue} from './vocab.mjs';
+import {buildInterferenceRadar} from './cdtl.mjs';
+import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discourse.mjs';
+export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '10.5.0';
+export const APP_VERSION = '11.0.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -1083,6 +1086,7 @@ export function validateBackup(value){
     ...journey,vocabularyRunning:false,vocabularyLastTick:null,vocabularyMs:Math.max(0,Number(journey.vocabularyMs)||0),
     vocabularyIndex:Math.max(0,Number(journey.vocabularyIndex)||0),
     vocabularyAttempts:Array.isArray(journey.vocabularyAttempts)?journey.vocabularyAttempts:[],
+    vocabularyRehearsalDone:Boolean(journey.vocabularyRehearsalDone),
     readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
     speechRunning:false,speechLastTick:null,speechMs:Math.max(0,Number(journey.speechMs)||0),
     speechDoneIds:Array.isArray(journey.speechDoneIds)?journey.speechDoneIds.filter(x=>typeof x==='string'):[],
@@ -1109,7 +1113,7 @@ export function validateBackup(value){
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1211,7 +1215,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
     transfer_evidence: buildTransferAnalytics({weaknesses,transferAttempts,now}),
     spelling_evidence: {attempts:Array.isArray(spellingAttempts)?spellingAttempts:[],summary:buildSpellingSummary(spellingAttempts)},
-    vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts)},
+    vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts),interferenceRadar:buildInterferenceRadar(vocabularyTasks,vocabularyAttempts,originalWordArchive)},
     fsrs_shadow: replayFsrsShadowHistory(detail, now),
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
@@ -1262,6 +1266,7 @@ export function battleReportMarkdown(report) {
     ...(readingChecks.length?[``, `## IELTS / reading comprehension checks`, ``, ...readingChecks]:[]),
     ...(report.transfer_attempts?.length?[``, `## Transfer challenge`, ``, ...transferLines]:[]),
     ...(report.spelling_evidence?[``, `## Spelling Forge`, ``, `- Total: ${report.spelling_evidence.summary?.total||0}`, `- First correct: ${report.spelling_evidence.summary?.firstCorrect||0}`, `- First incorrect: ${report.spelling_evidence.summary?.firstIncorrect||0}`, `- Retry correct: ${report.spelling_evidence.summary?.retryCorrect||0}`]:[]),
+    ...(report.vocabulary_practice_evidence?.summary?.total?[``, `## Smart Vocabulary & Interference Radar`, ``, `- Total recognition items: ${report.vocabulary_practice_evidence.summary.total}`, `- First recognition correct: ${report.vocabulary_practice_evidence.summary.correctFirst}`, `- First recognition incorrect: ${report.vocabulary_practice_evidence.summary.incorrectFirst}`, `- Intra-session micro-rehearsal recovered: ${report.vocabulary_practice_evidence.summary.rehearsedCorrect||0}`, ...(report.vocabulary_practice_evidence.interferenceRadar?.pairs?.length?[`- Confused lexical pairs (${report.vocabulary_practice_evidence.interferenceRadar.totalConfusedPairs}):`, ...report.vocabulary_practice_evidence.interferenceRadar.pairs.slice(0,10).map(p=>`  - ${inline(p.target)} vs ${inline(p.distractor)} (${inline(p.contrastAnchor||p.questionType)})`)]:[])]:[]),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,
@@ -1390,12 +1395,17 @@ export function replayFsrsShadowHistory(attempts = [], asOf = new Date()) {
     states[id] = st;
     if (new Date(st.dueAt).getTime() <= asOfTime) dueCount++;
   }
+  const stabilities = Object.values(states).map(s => Number(s.stability || 0)).filter(n => n > 0);
+  const avgStabilityDays = stabilities.length ? Number((stabilities.reduce((a, b) => a + b, 0) / stabilities.length).toFixed(2)) : 0;
+  const highRiskCount = Object.values(states).filter(s => Number(s.retrievability || 1) < 0.85 || new Date(s.dueAt).getTime() <= asOfTime).length;
   return {
     model: 'py-fsrs-6.3.2-shadow',
     qualifiedIndependentEvents: qualifiedEvents,
     excludedNonIndependentOrUnrated: excludedEvents,
     trackedCards: cards.size,
     shadowDueCount: dueCount,
+    avgStabilityDays,
+    highRiskCount,
     cards: states
   };
 }
