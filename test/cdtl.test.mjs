@@ -1,134 +1,168 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
-  normalizeCDTLTasks,
-  compareCDTLChoice,
-  buildCDTLAttempt,
-  summarizeCDTLAttempts
+  VOCAB_QUESTION_TYPES,
+  validateVocabularyTask,
+  normalizeVocabularyPractice,
+  evaluateVocabularyChoice,
+  summarizeVocabularyPractice
+} from '../vocab.mjs';
+import {
+  buildCdtlCard,
+  buildCdtlBatchFromAttempts
 } from '../cdtl.mjs';
+import {
+  APP_VERSION,
+  recordsFromLearningPack,
+  validateBackup,
+  homeSummary,
+  buildBattleReport,
+  fsrsShadowStep,
+  replayFsrsShadowHistory
+} from '../core.mjs';
 
-test('normalizes contextual discrimination tasks without inventing missing choices', () => {
-  const result = normalizeCDTLTasks([
+test('10.5.0 vocab engine validates 14 types and grades recognition honestly without counting as K', () => {
+  assert.equal(APP_VERSION, '10.5.0');
+  assert.equal(VOCAB_QUESTION_TYPES.length, 14);
+
+  const sampleTask = {
+    id: 'V22-SMART-20261115-W001',
+    source_item_id: '20261115-W001',
+    type: 'contextual_cloze',
+    target_sense: 'A rapidly rotating mass of air or water.',
+    prompt: 'Choose the word that best completes this source sentence: A _____ formed beneath the bridge.',
+    options: [
+      { id: 'A', text: 'expertise' },
+      { id: 'B', text: 'valve' },
+      { id: 'C', text: 'vortex' },
+      { id: 'D', text: 'constraint' }
+    ],
+    correct_option_ids: ['C'],
+    explanation_en: 'Source meaning: A rapidly rotating mass of air or water. Original example: A vortex formed beneath the bridge.'
+  };
+
+  const checked = validateVocabularyTask(sampleTask, 0);
+  assert.equal(checked.valid, true);
+  assert.equal(checked.task.target, '');
+
+  const rightEval = evaluateVocabularyChoice(checked.task, 'C');
+  assert.equal(rightEval.status, 'correct');
+  assert.equal(rightEval.correct, true);
+  assert.equal(rightEval.recognitionOnly, true);
+  assert.equal(rightEval.countsAsMasteryK, false);
+
+  const wrongEval = evaluateVocabularyChoice(checked.task, 'A');
+  assert.equal(wrongEval.status, 'incorrect');
+  assert.equal(wrongEval.correct, false);
+  assert.equal(wrongEval.countsAsMasteryK, false);
+});
+
+test('10.5.0 CDTL builds side-by-side target and distractor cards from archive', () => {
+  const archive = [
+    { id: '20261115-W001', target: 'vortex', definition_en: 'A whirling mass of fluid or air.', example: 'A vortex formed beneath the bridge.' },
+    { id: '20261115-W002', target: 'valve', definition_en: 'A device for controlling passage of fluid.', example: 'Turn off the main intake valve.' }
+  ];
+  const { tasks, errors } = normalizeVocabularyPractice([
     {
-      id: 'affect-effect',
-      title: 'Affect vs effect',
-      targets: ['affect', 'effect'],
-      contexts: [
-        {
-          id: 'c1',
-          prompt: 'The new policy will _____ every employee.',
-          options: ['affect', 'effect'],
-          answer: 'affect',
-          explanation: 'Affect is the verb here.',
-          production_prompt: 'Write one new sentence using the correct verb.'
-        }
-      ]
+      id: 'V22-SMART-W001',
+      source_item_id: '20261115-W001',
+      type: 'contextual_cloze',
+      prompt: 'A _____ formed beneath the bridge.',
+      options: [
+        { id: 'A', text: 'valve' },
+        { id: 'B', text: 'vortex' }
+      ],
+      correct_option_ids: ['B'],
+      explanation_en: 'Source meaning: A whirling mass of fluid.'
     }
-  ], 'pack-cdtl');
-  assert.equal(result.errors.length, 0);
-  assert.equal(result.tasks.length, 1);
-  assert.deepEqual(result.tasks[0].targets, ['affect', 'effect']);
-  assert.equal(result.tasks[0].contexts[0].answer, 'affect');
-  assert.equal(result.tasks[0].contexts[0].productionPrompt, 'Write one new sentence using the correct verb.');
+  ], archive, 'PACK-V22');
+
+  assert.equal(errors.length, 0);
+  assert.equal(tasks[0].target, 'vortex');
+
+  const card = buildCdtlCard(tasks[0], 'A', archive);
+  assert.equal(card.isErrorComparison, true);
+  assert.equal(card.correct.expression, 'vortex');
+  assert.equal(card.chosenDistractor.expression, 'valve');
+  assert.match(card.chosenDistractor.senseEn, /controlling passage of fluid/);
+
+  const batch = buildCdtlBatchFromAttempts(tasks, [{ taskId: 'V22-SMART-W001', selectedOptionId: 'A', correct: false }], archive);
+  assert.equal(batch.length, 1);
 });
 
-test('rejects a context whose answer is not one of its visible options', () => {
-  const result = normalizeCDTLTasks([{
-    id: 'bad',
-    title: 'Bad task',
-    targets: ['rise', 'raise'],
-    contexts: [{prompt: 'Prices _____ quickly.', options: ['rise', 'raise'], answer: 'fall'}]
-  }], 'pack-cdtl');
-  assert.equal(result.tasks.length, 0);
-  assert.match(result.errors[0], /answer.*options/i);
-});
+test('10.5.0 recordsFromLearningPack parses real V22 110 touch-choice JSON and preserves vocabulary stage in backup', () => {
+  const v22Path = new URL('../../downloads/v22_touch_mc_110.json', import.meta.url);
+  if (!fs.existsSync(v22Path)) return;
+  const raw = JSON.parse(fs.readFileSync(v22Path, 'utf8'));
+  const parsed = recordsFromLearningPack(raw);
 
-test('choice comparison is deterministic and keeps production open for honest self-rating', () => {
-  assert.equal(compareCDTLChoice('Affect', {answer: 'affect'}).status, 'case_or_punctuation');
-  assert.equal(compareCDTLChoice('effect', {answer: 'affect'}).status, 'incorrect');
-  assert.equal(compareCDTLChoice('', {answer: 'affect'}).status, 'blank');
-  const attempt = buildCDTLAttempt({
-    taskId: 'affect-effect',
-    contextId: 'c1',
-    targets: ['affect', 'effect'],
-    choice: 'affect',
-    choiceCheck: {status: 'correct'},
-    productionPrompt: 'Use affect in a new context.',
-    firstProductionAnswer: 'The noise affected my sleep.',
-    referenceAnswer: 'The noise affected my sleep.',
-    hintUsed: false
-  });
-  assert.equal(attempt.firstChoice, 'affect');
-  assert.equal(attempt.firstProductionAnswer, 'The noise affected my sleep.');
-  assert.equal(attempt.rating, null);
-  assert.equal(attempt.evidenceType, 'independent');
-});
+  assert.equal(parsed.pack.packId, 'EN-DAILY-20261115-V22-MOMO-RECALL-TRANSFER-001');
+  assert.equal(parsed.vocabularyPractice.length, 110);
+  assert.equal(parsed.originalWordArchive.length, 110);
+  assert.equal(parsed.items.length, 27);
+  assert.equal(parsed.readings.length, 4);
 
-test('summarizes CDTL evidence without treating skipped or unrated work as mastery', () => {
-  const summary = summarizeCDTLAttempts([
-    {choiceCheck: {status: 'correct'}, evidenceType: 'independent', rating: 'K'},
-    {choiceCheck: {status: 'incorrect'}, evidenceType: 'prompted', rating: 'V'},
-    {status: 'skipped', evidenceType: 'skipped', rating: null},
-    {choiceCheck: {status: 'correct'}, evidenceType: 'independent', rating: null}
+  const summary = summarizeVocabularyPractice(parsed.vocabularyPractice, [
+    { taskId: parsed.vocabularyPractice[0].id, selectedOptionId: parsed.vocabularyPractice[0].correctOptionIds[0], correct: true }
   ]);
-  assert.deepEqual(summary, {
-    total: 4,
-    choiceCorrect: 2,
-    choiceIncorrect: 1,
-    independent: 2,
-    prompted: 1,
-    skipped: 1,
-    rated: 2,
-    K: 1,
-    V: 1,
-    N: 0,
-    unassessed: 1
+  assert.equal(summary.total, 110);
+  assert.equal(summary.answered, 1);
+  assert.equal(summary.correctFirst, 1);
+  assert.equal(summary.remaining, 109);
+
+  // Validate backup with vocabulary stage in dailyJourney.steps
+  const state = validateBackup({
+    items: parsed.items,
+    attempts: [],
+    sessions: [],
+    readings: parsed.readings,
+    speeches: parsed.speeches,
+    dailyPack: { ...parsed.pack, itemIds: parsed.items.map(x => x.id) },
+    dailyJourney: {
+      id: 'journey:v22:test',
+      packId: parsed.pack.packId,
+      startedAt: '2026-11-18T10:00:00Z',
+      steps: ['vocabulary', 'sentences', 'reading', 'listening', 'speech', 'transfer'],
+      index: 0,
+      vocabularyIndex: 5,
+      vocabularyMs: 30000,
+      vocabularyAttempts: [{ id: 'va1', taskId: parsed.vocabularyPractice[0].id, selectedOptionId: 'C', correct: true }],
+      completed: [],
+      sessionIds: []
+    }
   });
+  assert.ok(state.dailyJourney);
+  assert.equal(state.dailyJourney.steps[0], 'vocabulary');
+  assert.equal(state.dailyJourney.vocabularyIndex, 5);
+  assert.equal(homeSummary(state).packItems, 137);
 });
 
-test('keeps duplicate IDs and malformed choice sets out of the normalized task list', () => {
-  const result = normalizeCDTLTasks([
-    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one', explanation: 'One matches the prompt.' }] },
-    { id: 'same', contexts: [{ id: 'c', prompt: 'Pick one.', options: ['one', 'two'], answer: 'one', explanation: 'One matches the prompt.' }] },
-    { id: 'too-few', contexts: [{ prompt: 'No distractor.', options: ['one'], answer: 'one' }] }
-  ], 'pack');
-  assert.equal(result.tasks.length, 1);
-  assert.equal(result.tasks[0].packId, 'pack');
-  assert.equal(result.errors.filter(error => /duplicate task id/i.test(error)).length, 1);
-  assert.ok(result.errors.some(error => /2 to 4/i.test(error)));
-});
+test('10.5.0 FSRS 6.3.2 shadow scheduler tracks only independent recall and excludes recognition choices', () => {
+  const step1 = fsrsShadowStep(null, 'K', new Date('2026-11-10T08:00:00Z'));
+  assert.equal(step1.model, 'fsrs-6.3.2-shadow');
+  assert.ok(step1.stability > 2.0);
+  assert.ok(step1.intervalDays >= 2);
 
-test('preserves the first answer while recording retry and prompt evidence', () => {
-  const attempt = buildCDTLAttempt({
-    taskId: 't1', contextId: 'c1', choice: 'effect',
-    choiceCheck: { status: 'incorrect' }, hintUsed: true,
-    firstProductionAnswer: 'The effect was immediate.',
-    retryProductionAnswer: 'The policy affected workers.',
-    referenceViewed: true, rating: 'V'
+  const shadow = replayFsrsShadowHistory([
+    { itemId: 'w:1', rating: 'K', prompt_used: false, viewed_answer: false, attempt_timestamp: '2026-11-10T08:00:00Z' },
+    { itemId: 'w:2', rating: 'K', prompt_used: true, viewed_answer: false, attempt_timestamp: '2026-11-10T08:05:00Z' },
+    { itemId: 'w:3', rating: 'UNRATED', evidence_type: 'recognition_only', attempt_timestamp: '2026-11-10T08:10:00Z' }
+  ], new Date('2026-11-18T08:00:00Z'));
+
+  assert.equal(shadow.qualifiedIndependentEvents, 1);
+  assert.equal(shadow.excludedNonIndependentOrUnrated, 2);
+  assert.equal(shadow.trackedCards, 1);
+  assert.equal(shadow.shadowDueCount, 1);
+
+  const report = buildBattleReport({
+    session: { id: 's-v22', startedAt: '2026-11-18T08:00:00Z', activeMs: 60000, mode: 'journey', packId: 'p1' },
+    attempts: [{ id: 'a1', sessionId: 's-v22', itemId: 'w:1', kind: 'word', status: 'K', prompt_used: false, viewed_answer: false, at: '2026-11-18T08:00:30Z' }],
+    items: [{ id: 'w:1', kind: 'word', target: 'vortex' }],
+    vocabularyTasks: [{ id: 'vt1', correctOptionIds: ['A'], options: [{ id: 'A', text: 'vortex' }] }],
+    vocabularyAttempts: [{ id: 'va1', taskId: 'vt1', selectedOptionId: 'A', correct: true }]
   });
-  assert.equal(attempt.firstChoice, 'effect');
-  assert.equal(attempt.firstProductionAnswer, 'The effect was immediate.');
-  assert.equal(attempt.retryProductionAnswer, 'The policy affected workers.');
-  assert.equal(attempt.evidenceType, 'prompted');
-  assert.equal(attempt.rating, 'V');
-});
-
-test('supports an explicitly declared set of valid choice answers', () => {
-  const normalized = normalizeCDTLTasks([{
-    id: 'acceptable',
-    contexts: [{ prompt: 'Choose an acceptable response.', options: ['Sure', 'Certainly', 'Never'], answers: ['Sure', 'Certainly'], explanation: 'Both responses are acceptable in this context.' }]
-  }], 'pack');
-  assert.equal(normalized.errors.length, 0);
-  assert.deepEqual(normalized.tasks[0].contexts[0].correctOptionIds, ['A', 'B']);
-  assert.equal(compareCDTLChoice('B', normalized.tasks[0].contexts[0]).status, 'correct');
-});
-
-test('rejects duplicate and overfull option sets instead of silently truncating them', () => {
-  const result = normalizeCDTLTasks([{
-    id: 'bad-options',
-    contexts: [{ prompt: 'Pick the word.', options: ['one', 'one', 'two', 'three', 'four', 'five'], answer: 'one' }]
-  }]);
-  assert.equal(result.tasks.length, 0);
-  assert.ok(result.errors.some(error => /unique/i.test(error)));
-  assert.ok(result.errors.some(error => /2 to 4/i.test(error)));
+  assert.equal(report.vocabulary_practice_evidence.summary.answered, 1);
+  assert.equal(report.fsrs_shadow.qualifiedIndependentEvents, 1);
+  assert.equal(report.data_quality.choice_recognition_never_counted_as_K, true);
 });

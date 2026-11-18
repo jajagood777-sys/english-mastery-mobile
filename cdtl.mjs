@@ -1,3 +1,105 @@
+/**
+ * Contextual Discrimination & Transfer Lab (CDTL · 10.5.0)
+ * Provides side-by-side semantic nuance comparison, collocation contrast,
+ * and immediate error-recovery cards when a learner misses a vocabulary choice
+ * or requests deeper lexical discrimination.
+ */
+
+const cleanCdtl = value => String(value ?? '').replace(/\r/g, '').trim();
+const normCdtl = value => cleanCdtl(value).toLocaleLowerCase().replace(/\s+/g, ' ');
+
+export function extractExampleFromExplanation(explanationEn = '') {
+  const raw = cleanCdtl(explanationEn);
+  if (!raw) return { meaning: '', example: '' };
+  const match = raw.match(/Source meaning:\s*(.+?)(?:\.\s*Original example:\s*(.+?))?(?:\.\s*This is recognition evidence.*)?$/i);
+  if (match) {
+    return {
+      meaning: cleanCdtl(match[1]),
+      example: cleanCdtl(match[2] || '')
+    };
+  }
+  return { meaning: raw, example: '' };
+}
+
+export function buildCdtlCard(task = {}, chosenOptionId = '', archiveWords = []) {
+  if (!task || typeof task !== 'object') return null;
+  const options = Array.isArray(task.options) ? task.options : [];
+  const correctIds = Array.isArray(task.correctOptionIds) ? task.correctOptionIds : [];
+  const correctOption = options.find(opt => correctIds.includes(opt.id)) || null;
+  const chosenOption = options.find(opt => opt.id === cleanCdtl(chosenOptionId)) || null;
+
+  const archive = Array.isArray(archiveWords) ? archiveWords : [];
+  const findArchiveEntry = text => {
+    const key = normCdtl(text);
+    if (!key) return null;
+    return archive.find(row => normCdtl(row?.target) === key) || null;
+  };
+
+  const parsed = extractExampleFromExplanation(task.explanationEn);
+  const targetWord = cleanCdtl(task.target || correctOption?.text || '');
+  const targetArchive = archive.find(row => cleanCdtl(row?.id) === cleanCdtl(task.sourceItemId)) || findArchiveEntry(targetWord);
+
+  const correctDetail = {
+    optionId: correctOption?.id || '',
+    expression: correctOption?.text || targetWord,
+    senseEn: cleanCdtl(task.targetSense || targetArchive?.definition_en || targetArchive?.definitionEn || parsed.meaning),
+    exampleEn: cleanCdtl(task.archivedExample || targetArchive?.example || parsed.example),
+    additionalContexts: Array.isArray(task.archivedAdditionalContexts) && task.archivedAdditionalContexts.length
+      ? task.archivedAdditionalContexts
+      : Array.isArray(targetArchive?.additional_contexts)
+        ? targetArchive.additional_contexts.map(cleanCdtl).filter(Boolean)
+        : []
+  };
+
+  let distractorDetail = null;
+  if (chosenOption && !correctIds.includes(chosenOption.id)) {
+    const distractorArchive = findArchiveEntry(chosenOption.text);
+    distractorDetail = {
+      optionId: chosenOption.id,
+      expression: chosenOption.text,
+      senseEn: cleanCdtl(distractorArchive?.definition_en || distractorArchive?.definitionEn || '与当前语境或核心语义不匹配的干扰项。'),
+      exampleEn: cleanCdtl(distractorArchive?.example || '')
+    };
+  }
+
+  return {
+    taskId: cleanCdtl(task.id),
+    sourceItemId: cleanCdtl(task.sourceItemId),
+    questionType: cleanCdtl(task.type || 'definition_recognition'),
+    prompt: cleanCdtl(task.prompt),
+    isErrorComparison: Boolean(distractorDetail),
+    correct: correctDetail,
+    chosenDistractor: distractorDetail,
+    explanationEn: cleanCdtl(task.explanationEn),
+    productionPrompt: cleanCdtl(task.productionPrompt || (targetWord ? `Use "${targetWord}" in your own original sentence.` : '')),
+    pedagogicalNote: 'CDTL 语境辨析：对比目标词与干扰项的核心搭配边界；选择正确仅记录识别，独立造句才构成主动产出证据。'
+  };
+}
+
+export function buildCdtlBatchFromAttempts(tasks = [], attempts = [], archiveWords = []) {
+  const taskMap = new Map((Array.isArray(tasks) ? tasks : []).map(t => [cleanCdtl(t?.id), t]));
+  const cards = [];
+  const seen = new Set();
+
+  for (const attempt of (Array.isArray(attempts) ? attempts : [])) {
+    if (!attempt || attempt.skipped) continue;
+    const tid = cleanCdtl(attempt.taskId || attempt.id);
+    if (!tid || seen.has(tid)) continue;
+    const isWrong = attempt.firstCheck ? !attempt.firstCheck.correct : attempt.correct === false;
+    if (!isWrong) continue;
+    const task = taskMap.get(tid);
+    if (!task) continue;
+    const card = buildCdtlCard(task, attempt.selectedOptionId, archiveWords);
+    if (card) {
+      seen.add(tid);
+      cards.push(card);
+    }
+  }
+  return cards;
+}
+
+
+// Legacy stable API preserved from 10.4.2 for existing imports and persisted evidence.
 /*
  * Contextual Discrimination & Transfer Lab (CDTL)
  *
