@@ -110,6 +110,7 @@ function render(){
     if(page==='more')return renderMore();
     if(page==='settings')return renderSettings();
     if(page==='practice')return renderPractice();
+    if(page==='vocabulary')return renderVocabularyJourneyStage();
     if(page==='library')return renderLibrary();
     if(page==='reading')return renderReading();
     if(page==='speech')return renderSpeechChamber();
@@ -189,10 +190,50 @@ function renderPaperStoryPractice(){
   box.append(prompt,lines(btn('暂停并返回首页',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn ghost'),btn('放弃当前 Section（保留已有证据）',()=>{accruePaperStory();session.running=false;if(save())setPage('home');},'btn danger')));app.append(box);
 }
 function openSmartVocabulary(){
-  if(!data.dailyPack?.vocabularyPractice?.length){notify('当前学习包尚无触控词汇选择题，请在资料库确认导入最新V22续学包。');return;}
-  page='home';render();
-  const target=document.getElementById('smart-vocabulary-practice');
-  if(target){target.scrollIntoView({behavior:'smooth',block:'start'});target.focus({preventScroll:true});}
+  // No parallel exercises: every entry resumes the canonical Journey.
+  startDailyJourney();
+}
+function touchVocabularyProgress(pack=data.dailyPack){
+  const tasks=Array.isArray(pack?.vocabularyPractice)?pack.vocabularyPractice:[];
+  const recorded=new Set((data.vocabularyAttempts||[])
+    .filter(row=>row.packId===pack?.packId&&row.completed).map(row=>row.taskId));
+  return {total:tasks.length,done:tasks.filter(row=>recorded.has(row.id)).length};
+}
+function ensureVocabularyStageForExistingJourney(){
+  const j=data.dailyJourney,pack=data.dailyPack;
+  if(!j||j.finishedAt||j.packId!==pack?.packId||
+      !Array.isArray(pack?.vocabularyPractice)||!pack.vocabularyPractice.length||
+      !Array.isArray(j.steps)||j.steps.includes('vocabulary')||
+      (j.completed||[]).some(row=>row.stage==='vocabulary')||
+      touchVocabularyProgress(pack).done===pack.vocabularyPractice.length)return false;
+  const current=j.steps[j.index];
+  const busy=data.activeSession?.journeyId===j.id||
+    (current==='reading'&&j.readingRunning)||
+    (current==='speech'&&j.speechRunning)||
+    (current==='transfer'&&j.transferRunning);
+  j.steps.splice(Math.min(j.steps.length,Math.max(0,j.index+(busy?1:0))),0,'vocabulary');
+  return true;
+}
+function advanceVocabularyJourneyStage(){
+  const j=data.dailyJourney;
+  if(!j||j.finishedAt||journeyStage()!=='vocabulary')return;
+  const progress=touchVocabularyProgress();
+  if(progress.done<progress.total){render();return;}
+  j.completed.push({stage:'vocabulary',status:'completed',count:progress.done,
+    recognition_not_independent_recall:true});
+  j.index++;
+  if(!save())return;
+  beginJourneyStage();
+}
+function renderVocabularyJourneyStage(){
+  if(journeyStage()!=='vocabulary')return setPage('home');
+  const j=data.dailyJourney;
+  app.append(el('div','唯一学习流程 · JOURNEY','eyebrow'),
+    h('h1','触控炼词'),
+    p('第 '+(j.index+1)+' / '+j.steps.length+' 阶段。完成后直接进入下一模块；中途退出会保留已提交答案。','subtle'));
+  const box=renderVocabularyPractice();
+  if(box)app.append(box);
+  app.append(lines(btn('返回首页（保留进度）',()=>setPage('home'),'btn ghost')));
 }
 function renderVocabularyPractice(){
   const pack=data.dailyPack;
@@ -207,6 +248,7 @@ function renderVocabularyPractice(){
     h('h2','语境辨析 · '+done.size+'/'+tasks.length),
     p('选择题只记录识别证据；答对不自动计为K，也不等于独立回忆。','subtle'));
   if(!task){
+    if(journeyStage()==='vocabulary')box.append(btn('进入Journey下一阶段',advanceVocabularyJourneyStage,'btn primary'));
     box.append(h('h3','本批词汇选择题已全部处理'),
       p('完成包含已跳过项目，不代表全部掌握。真实初答可在备份及学习报告中保留。','tiny'));
     return box;
@@ -249,7 +291,7 @@ function renderVocabularyPractice(){
   };
   const skipButton=btn('跳过本题',()=>{
     if(!storeAttempt('',null,true))return;
-    render();
+    if(journeyStage()==='vocabulary'&&touchVocabularyProgress().done===tasks.length)advanceVocabularyJourneyStage();else render();
   },'btn ghost');
   const submit=btn('提交识别答案',()=>{
     if(!selected.size){status.textContent='请先选择答案，或者选择跳过。';return;}
@@ -271,7 +313,9 @@ function renderVocabularyPractice(){
       +' 参考答案：'+answerText()+'。'+(task.explanation||'');
     submit.disabled=true;skipButton.disabled=true;
     choices.querySelectorAll('button').forEach(button=>button.disabled=true);
-    box.append(btn('继续下一题',()=>render(),'btn primary'));
+    box.append(btn(journeyStage()==='vocabulary'&&touchVocabularyProgress().done===tasks.length?'进入Journey下一阶段':'继续下一题',()=>{
+      if(journeyStage()==='vocabulary'&&touchVocabularyProgress().done===tasks.length)advanceVocabularyJourneyStage();else render();
+    },'btn primary'));
   },'btn primary');
   box.append(choices,lines(submit,skipButton),status,p('跳过与未评估项目不会计为K/V/N，也不会提高独立回忆成绩。','tiny'));
   return box;
@@ -284,14 +328,11 @@ function renderHome(){
   heroCopy.append(el('div','今日修炼 · DAILY CULTIVATION','eyebrow'),h('h1','把今天的英语，练成自己的表达。'),p('用英语学习英语：先理解，再回忆，最后复习。','lead'));
   const summary=div('today-summary');
   summary.append(statistic('待复习',s.due),statistic('新内容',s.newItems),statistic('实际训练',`${s.todayMinutes} 分钟`));
-  const hasSmartVocab=Array.isArray(data.dailyPack?.vocabularyPractice)&&data.dailyPack.vocabularyPractice.length>0;
-  const heroActions=hasSmartVocab?
-    lines(btn('开始触控词汇（'+data.dailyPack.vocabularyPractice.length+'题）',openSmartVocabulary,'btn primary home-primary'),btn('继续完整Journey',startDailyJourney,'btn secondary')):
-    lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),data.packItems?btn('管理学习包',()=>setPage('library'),'btn secondary'):btn('导入今日总学习包',()=>setPage('library'),'btn secondary'));
+  const heroActions=lines(btn(data.dailyPack?'继续当前完整Journey':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn(data.dailyPack?'管理学习包':'导入唯一ZIP学习包',()=>setPage('library'),'btn secondary'));
   heroActions.classList.add('home-hero-actions');
   if(s.unallocatedActiveMs>0)summary.append(p('历史跨日累计时间中有每日分配未知的部分；不会计入今天。','tiny'));
   hero.append(heroVisual,heroCopy,summary,heroActions);
-  app.append(hero);if(data.dailyPack){const vocab=renderVocabularyPractice();if(vocab)app.append(vocab);const overview=renderDailyOverview();if(overview)app.append(overview);app.append(journeyPanel());}
+  app.append(hero);if(data.dailyPack){app.append(journeyPanel());const overview=renderDailyOverview();if(overview)app.append(overview);}
   if(data.activeSession){const resume=section('resume-card');resume.append(el('div','继续上次训练','eyebrow'),h('h2',`${modeLabel(data.activeSession.mode)} · ${scopeLabel(data.activeSession.scope)}`),p('未完成的训练已保留，计时会在继续后恢复。','subtle'),lines(btn('继续训练',()=>{page='practice';render();},'btn primary'),btn('结束并保存',()=>finishSession(),'btn ghost')));app.append(resume);}
   const head=div('section-head');head.append(h('h2','选择学习方式'),el('span','英语内容保持英文','tiny'));app.append(head);
   const modes=div('feature-grid');
@@ -454,14 +495,14 @@ function renderMore(){
 }
 
 
-const JOURNEY_LABELS={words:'炼词',spelling:'炼字｜SPELLING FORGE',sentences:'炼句',reading:'阅读',listening:'听力',speech:'演讲跟读',transfer:'综合输出'};
+const JOURNEY_LABELS={vocabulary:'触控炼词',words:'炼词',spelling:'炼字｜SPELLING FORGE',sentences:'炼句',reading:'阅读',listening:'听力',speech:'演讲跟读',transfer:'综合输出'};
 function moduleForItem(item){return item.module==='listening'?'listening':item.kind==='word'?'words':'sentences';}
 function journeyStages(){
   const ids=new Set(data.dailyPack?.itemIds||[]);
   const relevant=activeItems().filter(item=>ids.has(item.id));
   const readingIds=new Set(data.dailyPack?.readingIds||[]);
   const hasReading=(data.readings||[]).some(reading=>readingIds.has(reading.id));
-  const stages=['words',...(data.dailyPack?.spellingTasks?.length?['spelling']:[]),'sentences','reading','listening'].filter(stage=>stage==='reading'?hasReading:stage==='spelling'?true:relevant.some(item=>moduleForItem(item)===stage));
+  const stages=[...(data.dailyPack?.vocabularyPractice?.length?['vocabulary']:[]),'words',...(data.dailyPack?.spellingTasks?.length?['spelling']:[]),'sentences','reading','listening'].filter(stage=>stage==='vocabulary'?true:stage==='reading'?hasReading:stage==='spelling'?true:relevant.some(item=>moduleForItem(item)===stage));
   if(journeySpeeches().length)stages.push('speech');
   if((data.dailyPack?.transferTasks||[]).length)stages.push('transfer');
   return stages;
@@ -479,7 +520,7 @@ function startDailyJourney(){
   const pack=data.dailyPack;if(!pack)return setPage('library');
   if(data.activeSession&&(data.activeSession.journeyId!==data.dailyJourney?.id||data.dailyJourney?.packId!==pack.packId)){notify('请先完成或结束上一个训练，再开始新的今日综合学习。');setPage('practice');return;}
   const old=data.dailyJourney;
-  if(old?.packId===pack.packId&&!old.finishedAt)return beginJourneyStage();
+  if(old?.packId===pack.packId&&!old.finishedAt){if(ensureVocabularyStageForExistingJourney()&&!save())return;return beginJourneyStage();}
   if(old&&!old.finishedAt&&old.packId!==pack.packId&&!confirm('上一个综合学习尚未完成。切换新学习包？已有练习记录仍保留。'))return;
   if(old?.packId===pack.packId&&old.finishedAt&&!confirm('这份学习包已经完成。确定重新开始一次综合学习？'))return;
   const steps=journeyStages();
@@ -492,6 +533,11 @@ function startDailyJourney(){
 function beginJourneyStage(){
   const j=data.dailyJourney;if(!j||j.finishedAt)return;
   const stage=journeyStage();if(!stage)return finishDailyJourney();
+  if(stage==='vocabulary'){
+    const progress=touchVocabularyProgress();
+    if(progress.done===progress.total){advanceVocabularyJourneyStage();return;}
+    if(save())setPage('vocabulary');return;
+  }
   if(stage==='spelling'){if(save())setPage('spelling');return;}
   if(stage==='speech'){
     const pending=journeySpeeches().filter(row=>!(j.speechDoneIds||[]).includes(row.id));
@@ -630,7 +676,7 @@ function rebuildJourneyReport(){
 }
 function transferTaskLabel(type){return ({speaking:'口语训练',writing:'写作训练',grammar:'语法练习',reading_to_speaking:'阅读复述',exit_ticket:'Exit Ticket｜课末独立验收',general_transfer:'综合输出'})[type]||'综合输出';}
 function dailyTaskProgress(task){return transferTaskProgressState({...task,packId:data.dailyPack?.packId},[...(data.transferAttempts||[]),...(data.dailyJourney?.transferAttempts||[])]);}
-function renderDailyOverview(){if(!data.dailyPack)return null;const pack=data.dailyPack,items=todayPackItems(),readings=journeyReadings(),questionProgress=readingQuestionProgress(readings,data.readingChecks||[]),questions=questionProgress.total,tasks=Array.isArray(pack.transferTasks)?pack.transferTasks:[];const modules=[{key:'words',label:'词汇训练',count:items.filter(item=>item.kind==='word').length,done:items.filter(item=>item.kind==='word'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('words',{scope:'today'})},{key:'sentences',label:'语法与句子',count:items.filter(item=>item.kind==='sentence'&&item.module!=='listening').length,done:items.filter(item=>item.kind==='sentence'&&item.module!=='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today'})},{key:'reading',label:'阅读',count:readings.length,done:data.dailyJourney?.readingDoneIds?.length||0,action:()=>setPage('reading')},{key:'comprehension',label:'阅读理解',count:questions,done:questionProgress.answered,skipped:questionProgress.skipped,unassessed:questionProgress.unassessed,action:()=>setPage('reading')},{key:'listening',label:'听力听写',count:items.filter(item=>item.module==='listening').length,done:items.filter(item=>item.module==='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today-listening',sentenceStyle:'listening'})}];if(Array.isArray(pack.vocabularyPractice)&&pack.vocabularyPractice.length){const tried=new Set((data.vocabularyAttempts||[]).filter(row=>row.packId===pack.packId&&row.completed).map(row=>row.taskId));modules.unshift({key:'smart_vocab',label:'触控词汇选择题',count:pack.vocabularyPractice.length,done:pack.vocabularyPractice.filter(row=>tried.has(row.id)).length,action:openSmartVocabulary});if(modules[1]?.key==='words'&&!modules[1].count)modules.splice(1,1);}for(const type of ['speaking','writing','grammar','exit_ticket','general_transfer']){const selected=type==='speaking'?tasks.filter(task=>task.taskType==='speaking'||task.taskType==='reading_to_speaking'):tasks.filter(task=>task.taskType===type);if(selected.length)modules.push({key:type,label:transferTaskLabel(type),count:selected.length,done:selected.filter(task=>['COMPLETED','UNASSESSED'].includes(dailyTaskProgress(task))).length,skipped:selected.filter(task=>dailyTaskProgress(task)==='SKIPPED').length,unassessed:selected.filter(task=>dailyTaskProgress(task)==='UNASSESSED').length,action:()=>startDailyTransferTask(selected[0])});}if(journeySpeeches().length)modules.push({key:'speech',label:'英语演讲跟读',count:journeySpeeches().length,done:data.dailyJourney?.speechDoneIds?.length||0,action:()=>setPage('speech')});const box=section('daily-overview');box.append(el('div','今日学习目录 · DAILY OVERVIEW','eyebrow'),h('h2',pack.title||'今日学习包'),p('所有模块都来自这一份 JSON。已完成的内容会保留，未完成部分可以直接继续。','subtle'));const grid=div('daily-module-grid');modules.forEach(module=>{const card=div('daily-module-card');const progress=module.count?`${module.done}/${module.count}`:'0';card.append(el('div',module.label,'item-title'),el('div',progress,'daily-module-count'),p(module.count?`已提交 ${module.done} · 跳过 ${module.skipped||0} · 未评价 ${module.unassessed||0} · 未提交 ${Math.max(0,module.count-module.done-(module.skipped||0))}`:'未测量','tiny'),btn(module.done&&module.done>=module.count?'查看记录':'继续学习',module.action,'btn secondary'));grid.append(card);});const reviewCount=items.filter(item=>item.practiceRole==='review').length+tasks.filter(task=>task.practiceRole==='review').length;const newCount=items.filter(item=>item.practiceRole!=='review').length+tasks.filter(task=>task.practiceRole!=='review').length;box.append(grid,p(`今日新学：${newCount} · 今日回炉：${reviewCount}`,'subtle'));return box;}
+function renderDailyOverview(){if(!data.dailyPack)return null;const pack=data.dailyPack,items=todayPackItems(),readings=journeyReadings(),questionProgress=readingQuestionProgress(readings,data.readingChecks||[]),questions=questionProgress.total,tasks=Array.isArray(pack.transferTasks)?pack.transferTasks:[];const modules=[{key:'words',label:'词汇训练',count:items.filter(item=>item.kind==='word').length,done:items.filter(item=>item.kind==='word'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('words',{scope:'today'})},{key:'sentences',label:'语法与句子',count:items.filter(item=>item.kind==='sentence'&&item.module!=='listening').length,done:items.filter(item=>item.kind==='sentence'&&item.module!=='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today'})},{key:'reading',label:'阅读',count:readings.length,done:data.dailyJourney?.readingDoneIds?.length||0,action:()=>setPage('reading')},{key:'comprehension',label:'阅读理解',count:questions,done:questionProgress.answered,skipped:questionProgress.skipped,unassessed:questionProgress.unassessed,action:()=>setPage('reading')},{key:'listening',label:'听力听写',count:items.filter(item=>item.module==='listening').length,done:items.filter(item=>item.module==='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today-listening',sentenceStyle:'listening'})}];if(Array.isArray(pack.vocabularyPractice)&&pack.vocabularyPractice.length){const tried=new Set((data.vocabularyAttempts||[]).filter(row=>row.packId===pack.packId&&row.completed).map(row=>row.taskId));modules.unshift({key:'smart_vocab',label:'触控词汇选择题',count:pack.vocabularyPractice.length,done:pack.vocabularyPractice.filter(row=>tried.has(row.id)).length,action:startDailyJourney});if(modules[1]?.key==='words'&&!modules[1].count)modules.splice(1,1);}for(const type of ['speaking','writing','grammar','exit_ticket','general_transfer']){const selected=type==='speaking'?tasks.filter(task=>task.taskType==='speaking'||task.taskType==='reading_to_speaking'):tasks.filter(task=>task.taskType===type);if(selected.length)modules.push({key:type,label:transferTaskLabel(type),count:selected.length,done:selected.filter(task=>['COMPLETED','UNASSESSED'].includes(dailyTaskProgress(task))).length,skipped:selected.filter(task=>dailyTaskProgress(task)==='SKIPPED').length,unassessed:selected.filter(task=>dailyTaskProgress(task)==='UNASSESSED').length,action:()=>startDailyTransferTask(selected[0])});}if(journeySpeeches().length)modules.push({key:'speech',label:'英语演讲跟读',count:journeySpeeches().length,done:data.dailyJourney?.speechDoneIds?.length||0,action:()=>setPage('speech')});const box=section('daily-overview');box.append(el('div','今日学习目录 · DAILY OVERVIEW','eyebrow'),h('h2',pack.title||'今日学习包'),p('所有模块都来自这一份 JSON。已完成的内容会保留，未完成部分可以直接继续。','subtle'));const grid=div('daily-module-grid');modules.forEach(module=>{const card=div('daily-module-card');const progress=module.count?`${module.done}/${module.count}`:'0';card.append(el('div',module.label,'item-title'),el('div',progress,'daily-module-count'),p(module.count?`已提交 ${module.done} · 跳过 ${module.skipped||0} · 未评价 ${module.unassessed||0} · 未提交 ${Math.max(0,module.count-module.done-(module.skipped||0))}`:'未测量','tiny'),btn('按Journey继续',startDailyJourney,'btn secondary'));grid.append(card);});const reviewCount=items.filter(item=>item.practiceRole==='review').length+tasks.filter(task=>task.practiceRole==='review').length;const newCount=items.filter(item=>item.practiceRole!=='review').length+tasks.filter(task=>task.practiceRole!=='review').length;box.append(grid,p(`今日新学：${newCount} · 今日回炉：${reviewCount}`,'subtle'));return box;}
 function startDailyTransferTask(task){const source=normalizeSourceMeta(task);const weakness=makeWeakness({id:`weakness:transfer:${task.id}`,...source,targetExpression:task.targetExpression||'',skillType:task.skillType||'Transfer / Application',taskType:task.taskType||'general_transfer',evidenceType:'pack_transfer',retrievalStatus:'UNTESTED',taskType:task.taskType||task.task_type||'general_transfer',contexts:task.contexts});startWeaknessTransfer(weakness);}
 
 function journeyPanel(){
@@ -641,9 +687,9 @@ function journeyPanel(){
   const stages=j?.packId===pack.packId?j.steps:journeyStages();
   const completed=j?.packId===pack.packId?(j.completed||[]):[];
   box.append(p(`学习模块：${stages.map(x=>JOURNEY_LABELS[x]).join(' → ')||'暂无可用模块'} · 建议 ${pack.recommendedMinutes||data.settings.duration||40} 分钟（不强制）`,'subtle'));
-  if(pack.vocabularyPractice?.length)box.append(p('触控词汇共 '+pack.vocabularyPractice.length+' 题，在首页独立练习；本入口保留原Journey进度，不会自动把选择题计为旧K/V/N。','tiny'),btn('打开触控词汇选择题',openSmartVocabulary,'btn primary'));
+  if(pack.vocabularyPractice?.length)box.append(p('触控词汇 '+pack.vocabularyPractice.length+' 题已纳入同一个Journey；从当前阶段开始，完成后进入下一阶段。','tiny'));
   const summary=div('journey-stages');
-  for(const stage of [...new Set([...(j?.packId===pack.packId?j.steps:stages), 'words','sentences','reading','listening',...(journeySpeeches().length?['speech']:[])])]){
+  for(const stage of [...new Set([...(j?.packId===pack.packId?j.steps:stages), 'vocabulary','words','sentences','reading','listening',...(journeySpeeches().length?['speech']:[])])]){
     const included=stages.includes(stage),done=completed.find(x=>x.stage===stage);
     summary.append(el('span',`${done?(done.status==='completed'?'✓ ':'◐ '):included?'○ ':'— '}${JOURNEY_LABELS[stage]}`,'chip'));
   }
@@ -914,25 +960,17 @@ function preserveSourcePack(raw,parsed,filename){
   if(bytes.length>5_000_000)return {unavailableReason:'原始学习包超过 5 MB，未写入本机 Journey 状态以避免存储压力。'};
   return {raw,packId:String(parsed.pack_id).trim(),schemaVersion:'2.0',provenance:{type:'imported_daily_pack',fileName:filename||'learning-pack.json',importedAt:new Date().toISOString()}};
 }
-function inputStudyZip(){const x=el('input','','input');x.type='file';x.accept='.zip,application/zip';x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>100*1024*1024){notify('配音学习包过大，请控制在 100 MB 以内。');return;}try{const files=await unpackSpeechZip(file),packFile=files.find(item=>item.name==='learning-pack.json')||files.find(item=>/\.json$/i.test(item.name)&&!/^speech-manifest|^manifest|^package-info$/i.test(item.name.replace(/\.json$/i,'')));if(!packFile)throw Error('ZIP中没有学习包 JSON。');const packRaw=await packFile.text();let pack;try{pack=JSON.parse(packRaw);}catch{throw Error('学习包 JSON 无法解析。');}const infoFile=files.find(item=>item.name==='package-info.json');const manifestFile=files.find(item=>item.name==='speech-manifest.json'||item.name==='manifest.json');if(infoFile){const info=JSON.parse(await infoFile.text());if(info.schema_version&&String(info.schema_version)!=='2.0')throw Error('ZIP学习包 schema_version 不受支持。');if(info.pack_id&&String(info.pack_id)!==String(pack.pack_id||''))throw Error('ZIP package-info 与学习包 pack_id 不一致。');if(info.manifest_sha256&&manifestFile){const manifestHash=await sha256Hex(new Uint8Array(await manifestFile.arrayBuffer()));if(manifestHash!==info.manifest_sha256)throw Error('ZIP speech-manifest SHA-256 校验失败。');}}let audioSummary=null;const hasManifest=Boolean(manifestFile);if(hasManifest)audioSummary=await importSpeechClips(files);await chooseImport(packRaw,packFile.name);if(audioSummary){const coverage=Object.entries(audioSummary.byCategory||{}).map(([key,row])=>`${key} ${row.imported}/${row.total}`).join(' · ');notify(`学习包预览已准备；自然语音 ${audioSummary.imported}/${audioSummary.total} 段${coverage?`（${coverage}）`:''}${audioSummary.missing?`，缺失 ${audioSummary.missing} 段`:''}。`);}else notify('学习包预览已准备；未包含自然语音清单，将使用设备朗读。');}catch(error){notify(`ZIP学习包读取失败：${error.message}`);}finally{x.value='';}});return x;}
+function inputStudyZip(){const x=el('input','','input');x.type='file';x.accept='.zip,application/zip';x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>100*1024*1024){notify('配音学习包过大，请控制在 100 MB 以内。');return;}try{const files=await unpackSpeechZip(file),packFile=files.find(item=>item.name==='learning-pack.json')||files.find(item=>/\.json$/i.test(item.name)&&!/^speech-manifest|^manifest|^package-info$/i.test(item.name.replace(/\.json$/i,'')));if(!packFile)throw Error('ZIP中没有学习包 JSON。');const packRaw=await packFile.text();let pack;try{pack=JSON.parse(packRaw);}catch{throw Error('学习包 JSON 无法解析。');}const infoFile=files.find(item=>item.name==='package-info.json');const manifestFile=files.find(item=>item.name==='speech-manifest.json'||item.name==='manifest.json');if(infoFile){const info=JSON.parse(await infoFile.text());if(info.schema_version&&String(info.schema_version)!=='2.0')throw Error('ZIP学习包 schema_version 不受支持。');if(info.pack_id&&String(info.pack_id)!==String(pack.pack_id||''))throw Error('ZIP package-info 与学习包 pack_id 不一致。');if(info.manifest_sha256&&manifestFile){const manifestHash=await sha256Hex(new Uint8Array(await manifestFile.arrayBuffer()));if(manifestHash!==info.manifest_sha256)throw Error('ZIP speech-manifest SHA-256 校验失败。');}}let audioSummary=null;const hasManifest=Boolean(manifestFile);if(hasManifest)audioSummary=await importSpeechClips(files);await chooseImport(packRaw,packFile.name);if(draft?.pack&&!draft.error){if(!applyImportedDraft())return;}if(audioSummary){const coverage=Object.entries(audioSummary.byCategory||{}).map(([key,row])=>`${key} ${row.imported}/${row.total}`).join(' · ');notify(`学习包预览已准备；自然语音 ${audioSummary.imported}/${audioSummary.total} 段${coverage?`（${coverage}）`:''}${audioSummary.missing?`，缺失 ${audioSummary.missing} 段`:''}。`);}else notify('学习包预览已准备；未包含自然语音清单，将使用设备朗读。');}catch(error){notify(`ZIP学习包读取失败：${error.message}`);}finally{x.value='';}});return x;}
 function inputFile(accept,fn){const x=el('input','','input');x.type='file';x.accept=accept;x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>3_000_000){notify('文件过大，请选择小于 3 MB 的文件。');return;}try{await fn(await file.text(),file.name);}catch(e){notify(`读取文件失败：${e.message}`);}});return x;}
 function showCardDialog(item){document.getElementById('card-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='card-dialog';const card=section('switch-dialog card-dialog');const history=data.attempts.filter(attempt=>attempt.itemId===item.id).slice(-8).reverse();card.append(el('div','卡片详情 · CARD DETAIL','eyebrow'),h('h2',item.kind==='word'?item.target:item.text),p(`${item.status==='UNTESTED'?'未测试':item.status} · ${item.paused?'已暂停复习':'正在复习'} · ${item.attempts||0} 次记录`,'subtle'));if(item.example)card.append(p(item.example,'small-block'));if(item.context)card.append(p(`原文上下文：${item.context}`,'hint'));if(item.meaningZh)card.append(p(`中文释义：${item.meaningZh}`,'hint'));const list=el('ul','','list');if(history.length)history.forEach(row=>{const li=el('li');li.append(el('span',`${row.status||'?'} · ${row.answer||'跳过'} · ${row.initial_check?.status||'未检查'}`,'item-sub'),el('span',new Date(row.at).toLocaleDateString('zh-CN'),'chip'));list.append(li);});else list.append(el('li','还没有真实练习记录。','item-sub'));card.append(h('h3','最近练习'),list,lines(btn('编辑卡片',()=>{backdrop.remove();showEditDialog(item);},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
 function showEditDialog(item){document.getElementById('edit-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='edit-dialog';const card=section('switch-dialog card-dialog');const target=textInput(item.kind==='word'?item.target:item.text,'英文目标内容');const example=textarea(item.kind==='word'?item.example:item.context||item.text,'English example or original sentence');const meaning=textInput(item.meaningZh||'','可选中文释义');const tags=textInput((item.tags||[]).join('、'),'标签，用顿号分隔');card.append(el('div','编辑学习卡片','eyebrow'),p('修改资料不会清除历史 K/V/N、作答或复习日期。','subtle'),field(item.kind==='word'?'目标词或词块':'原句',target),field('英文例句或上下文',example),field('中文释义（可选）',meaning),field('标签（可选）',tags),lines(btn('保存修改',()=>{const nextTarget=target.value.trim(),nextExample=example.value.trim();if(!nextTarget||!nextExample){notify('英文目标和例句不能为空。');return;}if(item.kind==='word'){item.target=nextTarget;item.example=nextExample;}else{item.text=nextTarget;item.context=nextExample;}item.meaningZh=meaning.value.trim();item.tags=tags.value.split(/[、,;|]/).map(x=>x.trim()).filter(Boolean);if(!save())return;backdrop.remove();notify('卡片资料已更新，历史记录保留。');render();},'btn primary'),btn('取消',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
 function chooseImport(raw,filename){importRaw=raw;importFilename=filename;draft=null;try{if(filename.toLowerCase().endsWith('.json')){const parsed=JSON.parse(raw);if(isFullBackup(parsed))throw Error('这是完整数据备份，请从“设置 → 恢复 JSON 备份”导入；学习包入口只接受 daily learning pack。');if(!Array.isArray(parsed.items)&&Array.isArray(parsed.weaknesses)){draft={items:[],readings:[],weaknesses:parsed.weaknesses,transferTasks:Array.isArray(parsed.transfer_tasks)?parsed.transfer_tasks:[],errors:[],sourceType:'weakness'};}else{draft=recordsFromLearningPack(parsed,{source:'中央仙窍英语资料库'});draft.sourcePack=preserveSourcePack(raw,parsed,filename);if(draft.sourcePack.unavailableReason)draft.sourcePackUnavailableReason=draft.sourcePack.unavailableReason;}}else draft=filename.toLowerCase().endsWith('.csv')?recordsFromCSV(raw,{includeExamples:true,source:filename}):sentencesFromText(raw,{source:filename});if(!draft.items.length&&!(draft.readings||[]).length&&!(draft.weaknesses||[]).length&&!draft.storyPractice&&!(draft.speeches||[]).length)throw Error('学习包没有可识别的英语材料。');if(!filename.toLowerCase().endsWith('.csv')&&!filename.toLowerCase().endsWith('.json'))draft.reading={id:`reading:${Date.now()}`,title:filename,source:filename,text:raw,createdAt:new Date().toISOString()};notify(`预览已准备：${draft.items.length} 张卡片${draft.storyPractice?'，含纸上故事练习':''}${draft.weaknesses?.length?`，${draft.weaknesses.length} 个弱项`:''}。`);}catch(e){draft={error:e.message};notify(`导入预览失败：${e.message}`);}render();}
-function renderLibrary(){app.append(el('div','知识宝库 · KNOWLEDGE VAULT','eyebrow'),h('h1','导入与管理英语资料'),p('支持中央仙窍学习包、词汇 CSV、句子 CSV、TXT、Markdown 和粘贴文本。原始文件不会被修改。','lead'));
-const panel=section();panel.append(h('h2','导入学习材料'),p('中央仙窍每天只需生成一个 english-daily-master-pack.json，内含炼词、炼句、阅读、听力。一次导入自动分类；仍支持旧学习包、CSV、TXT、Markdown。','subtle'));
-panel.append(lines(btn('打开英语阅读室',()=>setPage('reading'),'btn secondary')));panel.append(field('导入每日学习包 ZIP（JSON + speech-manifest.json + MP3）',inputStudyZip()),field('从 iPhone“文件”App 选择资料',inputFile('.json,.csv,.txt,.md,application/json,text/csv,text/plain',chooseImport)));
-const text=textarea('',`Paste English sentences or a short story here…`);text.rows=5;panel.append(field('或粘贴英文材料',text),lines(btn('预览粘贴内容',()=>chooseImport(text.value,'Pasted English text'),'btn secondary')));
-const opt=div('setup-options');const toggle=el('input');toggle.type='checkbox';toggle.id='examples';toggle.checked=true;const lab=el('label');lab.htmlFor=toggle.id;lab.append(toggle,el('span','同时从词汇例句生成句子卡'));opt.append(lab);panel.append(opt);
-toggle.addEventListener('change',()=>{if(importFilename.toLowerCase().endsWith('.csv')&&importRaw){try{draft=recordsFromCSV(importRaw,{includeExamples:toggle.checked,source:importFilename});updatePreview();}catch(e){notify(e.message);}}});
-function updatePreview(){const preview=document.getElementById('import-preview');if(preview)preview.replaceChildren(createPreview());}
-function createPreview(){const wrap=div();if(!draft)return wrap;if(draft.error){wrap.append(p(draft.error,'error'));return wrap;}const words=draft.items.filter(x=>x.kind==='word').length,sentences=draft.items.filter(x=>x.kind==='sentence'&&x.module!=='listening').length,listening=draft.items.filter(x=>x.module==='listening').length,readings=(draft.readings||[]).length,weaknesses=(draft.weaknesses||[]).length,touchWords=(draft.pack?.vocabularyPractice||[]).length;
-  wrap.append(h('h3',draft.pack?`${draft.pack.title} · 总学习包预览`:weaknesses?`弱项资料预览 · ${weaknesses} 个弱项`:`导入预览 · ${words} 个词汇 / ${sentences} 个句子`));if(draft.pack)wrap.append(p(`自动识别：触控词汇 ${touchWords} 题 · 传统词卡 ${words} · 炼句 ${sentences} · 阅读 ${readings} · 听力 ${listening} · 综合输出 ${draft.pack.transferTasks?.length||0} · 英语演讲 ${draft.pack.speechIds?.length||0} · 纸上故事 Section ${draft.pack.storyPractice?.stories?.reduce((sum,story)=>sum+story.sections.length,0)||0} · 建议 ${draft.pack.recommendedMinutes||data.settings.duration||40} 分钟（不强制）`,'subtle'));if(draft.pack)wrap.append(p(`来源：${draft.pack.source} · 日期：${draft.pack.createdAt||'未提供'} · ${draft.items.length} 张传统词句卡和 ${touchWords} 道触控词汇题。`,'subtle'));if(weaknesses)wrap.append(p(`这些弱项会保留来源和独立测试状态，不会自动写成 N。`,'subtle'));if(draft.errors?.length)wrap.append(p(`${draft.errors.length} 项质量提示：${draft.errors.slice(0,3).join('；')}`,'error'));
-const list=el('ul','','preview-list list');(draft.readings||[]).slice(0,4).forEach(x=>{const li=el('li');li.append(el('span',x.title,'item-title'),el('span','阅读','chip'));list.append(li);});(draft.pack?.vocabularyPractice||[]).slice(0,3).forEach(x=>{const li=el('li');li.append(el('span',x.prompt.slice(0,90),'item-title'),el('span','触控词汇题','chip'));list.append(li);});draft.items.slice(0,8).forEach(x=>{const li=el('li');li.append(el('span',x.kind==='word'?x.target:x.text,'item-title'),el('span',x.kind,'chip'));list.append(li);});wrap.append(list);
-wrap.append(lines(btn(draft.pack?.vocabularyPractice?.length?'确认导入并显示触控词汇':draft.pack?'确认导入一份文件并开始综合学习':'确认导入这些项目',()=>{
+function applyImportedDraft(){
+  if(!draft||draft.error||!draft.pack)return false;
+
   const isPack=Boolean(draft.pack),packMeta=draft.pack;
   if(isPack&&data.dailyJourney&&!data.dailyJourney.finishedAt&&data.dailyJourney.packId!==packMeta.packId){
-    if(!confirm('上一个综合学习包还有未完成模块。确定切换到新学习包？旧作答和战报仍会保留。'))return;
+    if(!confirm('上一个综合学习包还有未完成模块。确定切换到新学习包？旧作答和战报仍会保留。'))return false;
   }
   const merged=isPack?mergeDailyPackItems(data.items,draft.items):mergeItems(data.items,draft.items);data.items=merged.items;data.weaknesses=mergeWeaknesses(data.weaknesses||[],draft.weaknesses||[]);
   const readingIds=[];
@@ -950,10 +988,22 @@ wrap.append(lines(btn(draft.pack?.vocabularyPractice?.length?'确认导入并显
   }
   if(draft.reading&&!data.readings.some(r=>r.text===draft.reading.text))data.readings.push(draft.reading);
   if(isPack){data.dailyPack={...packMeta,itemIds:merged.itemIds,readingIds,speechIds:[...new Set(speechIds)],transferTasks:packMeta.transferTasks||[],spellingTasks:packMeta.spellingTasks||[],vocabularyPractice:packMeta.vocabularyPractice||[],storyPractice:packMeta.storyPractice||null,dialogueScenarios:packMeta.dialogueScenarios||[],listeningDiagnostics:packMeta.listeningDiagnostics||[],sourcePack:draft.sourcePack||null,sourcePackUnavailableReason:draft.sourcePackUnavailableReason||null};data.packHistory=[...(data.packHistory||[]).filter(x=>x.packId!==packMeta.packId),data.dailyPack];}
-  if(!save())return;
+  if(!save())return false;
   notify(`已导入：触控词汇 ${touchWords} 题、传统词卡 ${words}、句子 ${sentences}、阅读 ${readings}、听力 ${listening}。原有学习进度保留。`);
-  draft=null;importRaw='';if(isPack&&packMeta.vocabularyPractice?.length)openSmartVocabulary();else if(isPack)startDailyJourney();else render();
-},'btn primary'),btn('取消预览',()=>{draft=null;importRaw='';render();},'btn')));return wrap;}
+  draft=null;importRaw='';if(isPack)startDailyJourney();else render();
+  return true;
+}
+function renderLibrary(){app.append(el('div','知识宝库 · KNOWLEDGE VAULT','eyebrow'),h('h1','导入与管理英语资料'),p('支持中央仙窍学习包、词汇 CSV、句子 CSV、TXT、Markdown 和粘贴文本。原始文件不会被修改。','lead'));
+const panel=section();panel.append(h('h2','导入学习材料'),p('一个完整ZIP（学习包JSON + Kokoro原声），一次导入，自动进入唯一Journey；没学完下次直接继续。旧JSON、CSV仍兼容。','subtle'));
+panel.append(lines(btn('打开英语阅读室',()=>setPage('reading'),'btn secondary')));panel.append(field('唯一入口：导入学习包ZIP（自动进入Journey）',inputStudyZip()),field('从 iPhone“文件”App 选择资料',inputFile('.json,.csv,.txt,.md,application/json,text/csv,text/plain',chooseImport)));
+const text=textarea('',`Paste English sentences or a short story here…`);text.rows=5;panel.append(field('或粘贴英文材料',text),lines(btn('预览粘贴内容',()=>chooseImport(text.value,'Pasted English text'),'btn secondary')));
+const opt=div('setup-options');const toggle=el('input');toggle.type='checkbox';toggle.id='examples';toggle.checked=true;const lab=el('label');lab.htmlFor=toggle.id;lab.append(toggle,el('span','同时从词汇例句生成句子卡'));opt.append(lab);panel.append(opt);
+toggle.addEventListener('change',()=>{if(importFilename.toLowerCase().endsWith('.csv')&&importRaw){try{draft=recordsFromCSV(importRaw,{includeExamples:toggle.checked,source:importFilename});updatePreview();}catch(e){notify(e.message);}}});
+function updatePreview(){const preview=document.getElementById('import-preview');if(preview)preview.replaceChildren(createPreview());}
+function createPreview(){const wrap=div();if(!draft)return wrap;if(draft.error){wrap.append(p(draft.error,'error'));return wrap;}const words=draft.items.filter(x=>x.kind==='word').length,sentences=draft.items.filter(x=>x.kind==='sentence'&&x.module!=='listening').length,listening=draft.items.filter(x=>x.module==='listening').length,readings=(draft.readings||[]).length,weaknesses=(draft.weaknesses||[]).length,touchWords=(draft.pack?.vocabularyPractice||[]).length;
+  wrap.append(h('h3',draft.pack?`${draft.pack.title} · 总学习包预览`:weaknesses?`弱项资料预览 · ${weaknesses} 个弱项`:`导入预览 · ${words} 个词汇 / ${sentences} 个句子`));if(draft.pack)wrap.append(p(`自动识别：触控词汇 ${touchWords} 题 · 传统词卡 ${words} · 炼句 ${sentences} · 阅读 ${readings} · 听力 ${listening} · 综合输出 ${draft.pack.transferTasks?.length||0} · 英语演讲 ${draft.pack.speechIds?.length||0} · 纸上故事 Section ${draft.pack.storyPractice?.stories?.reduce((sum,story)=>sum+story.sections.length,0)||0} · 建议 ${draft.pack.recommendedMinutes||data.settings.duration||40} 分钟（不强制）`,'subtle'));if(draft.pack)wrap.append(p(`来源：${draft.pack.source} · 日期：${draft.pack.createdAt||'未提供'} · ${draft.items.length} 张传统词句卡和 ${touchWords} 道触控词汇题。`,'subtle'));if(weaknesses)wrap.append(p(`这些弱项会保留来源和独立测试状态，不会自动写成 N。`,'subtle'));if(draft.errors?.length)wrap.append(p(`${draft.errors.length} 项质量提示：${draft.errors.slice(0,3).join('；')}`,'error'));
+const list=el('ul','','preview-list list');(draft.readings||[]).slice(0,4).forEach(x=>{const li=el('li');li.append(el('span',x.title,'item-title'),el('span','阅读','chip'));list.append(li);});(draft.pack?.vocabularyPractice||[]).slice(0,3).forEach(x=>{const li=el('li');li.append(el('span',x.prompt.slice(0,90),'item-title'),el('span','触控词汇题','chip'));list.append(li);});draft.items.slice(0,8).forEach(x=>{const li=el('li');li.append(el('span',x.kind==='word'?x.target:x.text,'item-title'),el('span',x.kind,'chip'));list.append(li);});wrap.append(list);
+wrap.append(lines(btn('确认导入并进入完整Journey',applyImportedDraft,'btn primary'),btn('取消预览',()=>{draft=null;importRaw='';render();},'btn')));return wrap;}
 const preview=div();preview.id='import-preview';preview.append(createPreview());panel.append(preview);app.append(panel);
 const my=section();const header=div('row wrap');header.append(h('h2',`我的资料 · ${data.items.length} 张卡片`));const controls=div('head-actions');const search=el('input','','input');search.type='search';search.placeholder='搜索资料';search.value=searchTerm;search.style.maxWidth='220px';search.setAttribute('aria-label','搜索资料库');search.addEventListener('input',()=>{searchTerm=search.value;showList();});const select=el('select','','select');select.setAttribute('aria-label','筛选学习卡片');select.style.width='auto';const filterOptions=[['all','全部'],['word','单词'],['sentence','句子'],['content:Stories','故事'],['content:Reading Materials','阅读材料'],['content:IELTS','IELTS'],['content:Teaching Materials','教学材料'],['content:Other Sources','其他来源'],['due','到期'],['untested','未测试'],['status:K','K｜会用'],['status:V','V｜模糊'],['status:N','N｜不会'],['paused','已暂停'],['archived','已归档']];for(const [value,label] of filterOptions){const opt=el('option',label);opt.value=value;select.append(opt);}const tagSet=[...new Set(data.items.flatMap(x=>x.tags||[]))].filter(Boolean).slice(0,20);for(const tag of tagSet){const opt=el('option',`标签：${tag}`);opt.value=`tag:${tag}`;select.append(opt);}const sourceSet=[...new Set(data.items.map(x=>x.source).filter(Boolean))].slice(0,20);for(const source of sourceSet){const opt=el('option',`来源：${source}`);opt.value=`source:${source}`;select.append(opt);}select.value=filter;select.addEventListener('change',()=>{filter=select.value;showList();});controls.append(search,select);header.append(controls);my.append(header);
 const listContainer=div();const showList=()=>{listContainer.replaceChildren();const q=normalized(searchTerm);const matches=data.items.filter(x=>(filter==='all'||x.kind===filter||(filter.startsWith('content:')&&x.contentType===filter.slice(8))||(filter.startsWith('status:')&&x.status===filter.slice(7))||(filter.startsWith('tag:')&&(x.tags||[]).includes(filter.slice(4)))||(filter.startsWith('source:')&&x.source===filter.slice(7))||(filter==='due'&&isDue(x))||(filter==='untested'&&x.status==='UNTESTED')||(filter==='paused'&&x.paused)||(filter==='archived'&&x.archived))&&(!q||normalized([x.target,x.example,x.text,x.source,x.group].join(' ')).includes(q)));const count=p(`${matches.length} 张匹配卡片`,'tiny');listContainer.append(count);if(!matches.length){listContainer.append(div('empty'));listContainer.lastChild.textContent='没有匹配的资料。';return;}const list=el('ul','','list');for(const x of matches.slice(0,50)){const li=el('li');const info=div();info.append(el('div',x.kind==='word'?x.target:x.text,'item-title'),el('div',`${x.contentType||x.group||x.kind} · ${x.source||'未知来源'}${x.tags?.length?` · ${x.tags.join('、')}`:''}`,'item-sub'));const side=div('head-actions');side.append(el('span',x.archived?'已归档':x.paused?'已暂停':x.status==='UNTESTED'?'未测试':x.status,'chip'));side.append(btn('详情',()=>showCardDialog(x),'btn ghost'),btn('编辑',()=>showEditDialog(x),'btn ghost'),btn(x.archived?'恢复':'归档',()=>{x.archived=!x.archived;if(save())render();},'btn ghost'),btn(x.paused?'恢复复习':'暂停复习',()=>{x.paused=!x.paused;if(save())render();},'btn ghost'),btn('重新学习',()=>{x.learningStage='new';x.status='UNTESTED';x.dueAt=null;x.successStreak=0;if(save())render();},'btn ghost'));li.append(info,side);list.append(li);}listContainer.append(list);if(matches.length>50)listContainer.append(p(`显示前 50 条，共 ${matches.length} 条。可以继续搜索缩小范围。`,'tiny'));};
