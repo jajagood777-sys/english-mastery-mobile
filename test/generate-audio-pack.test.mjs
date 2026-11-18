@@ -4,7 +4,7 @@ import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
-const hasFfprobe=spawnSync('ffprobe',['-version']).status===0;
+const hasFfprobe=spawnSync('ffprobe',['-version']).status===0&&spawnSync('zip',['-v']).status===0;
 
 const fixture=join(process.cwd(),'examples/v56-audio-sample-pack.json');
 function run(args){return new Promise(resolve=>{const p=spawn(process.execPath,['scripts/generate-audio-pack.mjs',...args],{cwd:process.cwd(),encoding:'utf8'});let stdout='',stderr='';p.stdout.on('data',x=>stdout+=x);p.stderr.on('data',x=>stderr+=x);p.on('close',code=>resolve({code,stdout,stderr}));});}

@@ -373,10 +373,178 @@ body::before{opacity:.025}
 @media(prefers-reduced-motion:reduce){.btn,.feature-card,.mobile-nav button{transition:none!important}.feature-card:hover{transform:none}}
 
 
-/* V11.1 visibility repair: touch questions stay reachable after importing a resumed Journey. */
-.vocabulary-practice-panel{scroll-margin-top:22px}
-.vocabulary-practice-panel:focus{outline:none}
-.vocab-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
-.vocab-choice{display:block;width:100%;min-height:62px;text-align:left;overflow-wrap:anywhere;white-space:normal;line-height:1.42}
-.vocab-choice.selected,.vocab-choice[aria-pressed="true"]{border:2px solid var(--teal);background:color-mix(in srgb,var(--mist-green) 30%,var(--theme-card));color:var(--theme-text)}
-@media(max-width:640px){.vocab-choice-grid{grid-template-columns:1fr}.vocab-choice{min-height:54px}}
+/* V10.5.0 — Single-Flow Journey, Touch Vocabulary & CDTL Discrimination Lab */
+.secondary-modes-drawer {
+  margin-top: var(--space-5);
+  border: 1px solid var(--system-border, var(--border));
+  border-radius: 16px;
+  padding: 12px 16px;
+  background: var(--system-surface, var(--card));
+}
+.secondary-modes-drawer > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--system-muted, var(--muted));
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.secondary-modes-drawer > summary::-webkit-details-marker { display: none; }
+.secondary-modes-drawer > summary::after {
+  content: "展开 ▾";
+  font-size: 12px;
+  color: var(--system-jade, var(--teal));
+}
+.secondary-modes-drawer[open] > summary::after { content: "收起 ▴"; }
+
+.vocab-touch-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vocab-prompt-card {
+  background: var(--system-surface, var(--card));
+  border: 1px solid var(--system-border, var(--border));
+  border-radius: 18px;
+  padding: 18px;
+}
+.vocab-word-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.vocab-target-word {
+  font-size: clamp(22px, 5vw, 30px);
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--system-jade-deep, var(--ink));
+}
+.vocab-prompt-text {
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+}
+.vocab-options-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.vocab-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--system-border, var(--border));
+  background: var(--system-surface, var(--card));
+  color: var(--system-ink, var(--ink));
+  text-align: left;
+  font-size: 16px;
+  font-weight: 560;
+  transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.vocab-option-btn:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.vocab-option-key {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--teal2, #dfeee5);
+  color: var(--system-jade-deep, #123f35);
+  display: inline-grid;
+  place-items: center;
+  font-weight: 750;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.vocab-option-text {
+  flex: 1;
+  line-height: 1.4;
+}
+.vocab-option-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.vocab-option-btn.is-correct {
+  border-color: #1b6b53;
+  background: #eaf6f0;
+  color: #103c2e;
+}
+.vocab-option-btn.is-correct .vocab-option-key {
+  background: #1b6b53;
+  color: #ffffff;
+}
+.vocab-option-btn.is-wrong {
+  border-color: #b43e3e;
+  background: #fdf0f0;
+  color: #6b1d1d;
+}
+.vocab-option-btn.is-wrong .vocab-option-key {
+  background: #b43e3e;
+  color: #ffffff;
+}
+.vocab-feedback-card {
+  border-radius: 18px;
+  padding: 18px;
+  border: 1.5px solid var(--system-border, var(--border));
+}
+.vocab-feedback-card.is-correct {
+  border-color: #9dcbbb;
+  background: #f4faf7;
+}
+.vocab-feedback-card.is-wrong {
+  border-color: #e2b4b4;
+  background: #fff9f9;
+}
+.cdtl-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.cdtl-col {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--system-border, var(--border));
+  background: var(--system-surface, #ffffff);
+}
+.cdtl-col h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.vocab-thumb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.vocab-next-btn {
+  width: 100%;
+  min-height: 52px;
+  font-size: 16px;
+}
+html[data-theme="night"] .vocab-option-btn.is-correct,
+html[data-theme="night"] .vocab-feedback-card.is-correct {
+  background: rgba(24, 94, 80, 0.28);
+  border-color: #3a8f76;
+  color: #e9f5f0;
+}
+html[data-theme="night"] .vocab-option-btn.is-wrong,
+html[data-theme="night"] .vocab-feedback-card.is-wrong {
+  background: rgba(164, 58, 58, 0.25);
+  border-color: #c96565;
+  color: #fdeaea;
+}
+html[data-theme="night"] .cdtl-col {
+  background: rgba(18, 32, 27, 0.85);
+}

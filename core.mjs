@@ -1,7 +1,7 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
-import {normalizeVocabularyTasks} from './vocab.mjs';
+import {normalizeVocabularyPractice, summarizeVocabularyPractice} from './vocab.mjs';
 export const VERSION = 4.3;
-export const APP_VERSION = '10.4.2';
+export const APP_VERSION = '10.5.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -280,7 +280,6 @@ export function compareReadingChoice(userAnswer, expectedAnswer, options=[]) {
   if(!user.valid||!expected.valid) return {status:'invalid',user,expected,message:'阅读选择题答案键或选项文本无效。'};
   return {status:user.index===expected.index?'correct':'incorrect',user,expected};
 }
-
 /**
  * Grade a reading response only when the pack supplies a finite, explicit
  * answer basis. Open and unconstrained short/completion answers stay
@@ -473,10 +472,12 @@ export function sentenceClozeParts(sentence, target='') {
   const start = match.index + match[1].length; const found = match[2];
   return {question:`${text.slice(0,start)}_____ ${text.slice(start + found.length)}`.replace(/\s+/g,' ').trim(), answer:found};
 }
-export function dateKeyInTimeZone(value, timeZone='Asia/Shanghai') {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+export function dateKeyInTimeZone(date = new Date(), timeZone = 'Asia/Shanghai') {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(date));
+  const y = parts.find(p => p.type === 'year')?.value;
+  const m = parts.find(p => p.type === 'month')?.value;
+  const d = parts.find(p => p.type === 'day')?.value;
+  return `${y}-${m}-${d}`;
 }
 /** Allocate only observed, bounded foreground intervals to actual Beijing dates. */
 export function addActiveInterval(buckets, start, end, maxMs=1800) {
@@ -501,16 +502,18 @@ export function homeSummary(state, now = new Date()) {
   const items = (Array.isArray(state?.items) ? state.items : []).filter(item => !item.archived && !item.paused);
   const sessions = [...(Array.isArray(state?.sessions) ? state.sessions : [])];
   if(state?.activeSession?.running)sessions.push(state.activeSession);
-  const journey=state?.dailyJourney;if(journey&&!journey.finishedAt)for(const prefix of ['reading','speech','transfer'])sessions.push({startedAt:journey.startedAt,activeMs:journey[`${prefix}Ms`],activeByDay:journey[`${prefix}ActiveByDay`]});
+  const journey=state?.dailyJourney;if(journey&&!journey.finishedAt)for(const prefix of ['vocabulary','reading','speech','transfer'])sessions.push({startedAt:journey.startedAt,activeMs:journey[`${prefix}Ms`],activeByDay:journey[`${prefix}ActiveByDay`]});
   const todayKey = dateKeyInTimeZone(now);
   const time=summarizeSessionTime(sessions,todayKey);const todayMinutes=Math.round(time.knownMs/60000);
   const packIds = new Set(Array.isArray(state?.dailyPack?.itemIds) ? state.dailyPack.itemIds : []);
+  const vocabTasks = Array.isArray(state?.dailyPack?.vocabularyPractice) ? state.dailyPack.vocabularyPractice : [];
+  const activePackItems = packIds.size ? items.filter(item => packIds.has(item.id)).length : 0;
   return {
     due: items.filter(item => isDue(item, now)).length,
-    newItems: items.filter(item => item.status === 'UNTESTED' || item.learningStage === 'new').length,
+    newItems: items.filter(item => item.status === 'UNTESTED' || item.learningStage === 'new').length + vocabTasks.length,
     weak: items.filter(item => item.status === 'N' || item.status === 'V').length,
     todayMinutes,unallocatedActiveMs:time.unknownMs,
-    packItems: packIds.size ? items.filter(item => packIds.has(item.id)).length : 0
+    packItems: activePackItems + vocabTasks.length
   };
 }
 export function readingSelectionContext(sourceText, selectedText, {startHint=0, paragraphIndex=0} = {}) {
@@ -580,8 +583,7 @@ export function mergeBackupState(current={}, restored={}) {
   const speechAttempts=uniqueBy([...(current.speechAttempts||[]),...(restored.speechAttempts||[])], 'id');
   const readingMarks = mergeReadingMarks(current.readingMarks, restored.readingMarks);
   const readingChecks = uniqueBy([...(Array.isArray(current.readingChecks)?current.readingChecks:[]),...(Array.isArray(restored.readingChecks)?restored.readingChecks:[])], 'id');
-  const readingRetellingAttempts = uniqueBy([...(Array.isArray(current.readingRetellingAttempts) ? current.readingRetellingAttempts : []), ...(Array.isArray(restored.readingRetellingAttempts) ? restored.readingRetellingAttempts : [])], 'id');
-  const vocabularyAttempts = uniqueBy([...(Array.isArray(current.vocabularyAttempts) ? current.vocabularyAttempts : []), ...(Array.isArray(restored.vocabularyAttempts) ? restored.vocabularyAttempts : [])], 'id');
+  const readingRetellingAttempts = uniqueBy([...(Array.isArray(current.readingRetellingAttempts)?current.readingRetellingAttempts:[]),...(Array.isArray(restored.readingRetellingAttempts)?restored.readingRetellingAttempts:[])], 'id');
   const weaknesses = mergeWeaknesses(current.weaknesses, restored.weaknesses);
   const transferAttempts = mergeTransferAttempts(current.transferAttempts, restored.transferAttempts);
   const listeningDiagnosticAttempts = uniqueBy([...(current.listeningDiagnosticAttempts||[]), ...(restored.listeningDiagnosticAttempts||[])], 'id');
@@ -599,10 +601,10 @@ export function mergeBackupState(current={}, restored={}) {
     readingMarks,
     readingChecks,
     readingRetellingAttempts,
-    vocabularyAttempts,
     weaknesses,
     transferAttempts,
     listeningDiagnosticAttempts,
+    vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -752,7 +754,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   if(!value||typeof value!=='object') throw Error('学习包 JSON 必须是对象。');
   const hasStoryPayload=Boolean(value.story_practice||value.storyPractice||(Array.isArray(value.stories)&&value.stories.length));
   const hasSpeechPayload=Array.isArray(value.speeches)&&value.speeches.length>0;
-  if(!Array.isArray(value.items)&&!hasStoryPayload&&!hasSpeechPayload) throw Error('学习包 JSON 缺少 items 或有效练习模块。');
+  const hasVocabPayload=Array.isArray(value.vocabulary_practice||value.vocabularyPractice)&&(value.vocabulary_practice||value.vocabularyPractice).length>0;
+  if(!Array.isArray(value.items)&&!hasStoryPayload&&!hasSpeechPayload&&!hasVocabPayload) throw Error('学习包 JSON 缺少 items 或有效练习模块。');
   const rawItems=Array.isArray(value.items)?value.items:[];
   if(rawItems.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
   if(value.readings!==undefined&&!Array.isArray(value.readings))throw Error('readings 必须是阅读文章数组。');
@@ -767,9 +770,11 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const storyPractice=normalizeStoryPractice(value.story_practice||value.storyPractice||value.stories,packId);
   const dialogueScenarios=normalizeDialogueScenarios(value.dialogue_scenarios||value.dialogueScenarios,packId);
   const listeningDiagnostics=normalizeListeningDiagnostics(value.listening_diagnostics||value.listeningDiagnostics,packId);
-  const vocabularyResult=normalizeVocabularyTasks(value.vocabulary_practice||value.vocabularyPractice||[],packId);
-  errors.push(...vocabularyResult.errors.map(error=>`词汇题：${error}`));
-  const vocabularyPractice=vocabularyResult.tasks;
+  const archiveWords=Array.isArray(value.original_word_items_read_only_archive||value.originalWordItemsReadOnlyArchive)?(value.original_word_items_read_only_archive||value.originalWordItemsReadOnlyArchive):[];
+  const archiveSpellings=Array.isArray(value.original_spelling_tasks_read_only_archive||value.originalSpellingTasksReadOnlyArchive)?(value.original_spelling_tasks_read_only_archive||value.originalSpellingTasksReadOnlyArchive):[];
+  const vocabSource=normalizeVocabularyPractice(value.vocabulary_practice||value.vocabularyPractice||[],archiveWords,packId);
+  const vocabularyPractice=vocabSource.tasks;
+  errors.push(...vocabSource.errors);
   const transferTasks=[];
   const spellingTasks=[];
   if(value.spelling_tasks!==undefined&&!Array.isArray(value.spelling_tasks)) errors.push('spelling_tasks 必须是数组；已跳过拼写强化。');
@@ -840,7 +845,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     seenReading.add(key);uniqueReadings.push(reading);
   }
   if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length&&!speeches.length&&!vocabularyPractice.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,vocabularyPractice,storyPractice,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,vocabularyPractice,storyPractice,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
+  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length+vocabularyPractice.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -1069,14 +1074,16 @@ export function validateBackup(value){
   if(value.weaknesses!==undefined&&!Array.isArray(value.weaknesses)) throw Error('Backup has invalid weakness data.');
   if(value.transferAttempts!==undefined&&!Array.isArray(value.transferAttempts)) throw Error('Backup has invalid transfer-attempt data.');
   if(value.readingRetellingAttempts!==undefined&&!Array.isArray(value.readingRetellingAttempts)) throw Error('Backup has invalid reading-retelling data.');
-  if(value.vocabularyAttempts!==undefined&&(!Array.isArray(value.vocabularyAttempts)||value.vocabularyAttempts.length>500000)) throw Error('Backup has invalid vocabulary-attempt data.');
   if(value.paperStoryPractice!==undefined&&value.paperStoryPractice!==null&&typeof value.paperStoryPractice!=='object') throw Error('Backup has invalid paper-story practice data.');
   const readingMarks=mergeReadingMarks(value.readingMarks||[]);
   const weaknesses=mergeWeaknesses(value.weaknesses||[],[]);
   const transferAttempts=mergeTransferAttempts(value.transferAttempts||[],[]);
   const journey=value.dailyJourney;
   const dailyJourney=journey&&typeof journey==='object'&&typeof journey.packId==='string'&&Array.isArray(journey.steps)&&journey.steps.every(x=>['vocabulary','words','spelling','sentences','reading','listening','speech','transfer'].includes(x))?{
-    ...journey,readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
+    ...journey,vocabularyRunning:false,vocabularyLastTick:null,vocabularyMs:Math.max(0,Number(journey.vocabularyMs)||0),
+    vocabularyIndex:Math.max(0,Number(journey.vocabularyIndex)||0),
+    vocabularyAttempts:Array.isArray(journey.vocabularyAttempts)?journey.vocabularyAttempts:[],
+    readingRunning:false,readingLastTick:null,readingMs:Math.max(0,Number(journey.readingMs)||0),
     speechRunning:false,speechLastTick:null,speechMs:Math.max(0,Number(journey.speechMs)||0),
     speechDoneIds:Array.isArray(journey.speechDoneIds)?journey.speechDoneIds.filter(x=>typeof x==='string'):[],
     speechAttempts:Array.isArray(journey.speechAttempts)?journey.speechAttempts.filter(x=>x&&typeof x==='object'):[],
@@ -1099,10 +1106,10 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts.filter(row=>row&&typeof row==='object'):[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1204,8 +1211,10 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     transfer_attempts: mergeTransferAttempts([],transferAttempts),
     transfer_evidence: buildTransferAnalytics({weaknesses,transferAttempts,now}),
     spelling_evidence: {attempts:Array.isArray(spellingAttempts)?spellingAttempts:[],summary:buildSpellingSummary(spellingAttempts)},
+    vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts)},
+    fsrs_shadow: replayFsrsShadowHistory(detail, now),
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
-    data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true},
+    data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
     sync_status: 'NOT_SUBMITTED'
   };
 }
@@ -1264,4 +1273,129 @@ export function battleReportMarkdown(report) {
 export function makeCSV(rows,columns){
   const q=v=>`"${String(v??'').replaceAll('"','""')}"`;
   return '\uFEFF'+[columns.map(q).join(','),...rows.map(row=>columns.map(c=>q(row[c])).join(','))].join('\r\n');
+}
+
+
+export const FSRS_DEFAULT_PARAMS = Object.freeze([
+  0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001,
+  1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014,
+  1.8729, 0.5425, 0.0912, 0.0658, 0.1542
+]);
+
+/**
+ * Official py-fsrs 6.3.2 compatible shadow scheduler.
+ * Only accepts verified independent retrieval events (never multiple-choice recognition).
+ */
+export function fsrsShadowStep(cardState = null, ratingKey = 'K', reviewedAt = new Date(), { parameters = FSRS_DEFAULT_PARAMS, desiredRetention = 0.9 } = {}) {
+  const ratingMap = { N: 1, V: 2, K: 3, E: 4 };
+  const r = ratingMap[ratingKey] || 3;
+  const w = parameters;
+  const decay = -w[20];
+  const factor = Math.pow(0.9, 1 / decay) - 1;
+  const clampD = d => Math.min(10, Math.max(1, d));
+  const clampS = st => Math.max(0.001, st);
+  const initS = rating => clampS(w[rating - 1]);
+  const initD = (rating, clamp = true) => {
+    const val = w[4] - Math.exp(w[5] * (rating - 1)) + 1;
+    return clamp ? clampD(val) : val;
+  };
+  const nextInterval = st => Math.max(1, Math.min(36500, Math.round((st / factor) * (Math.pow(desiredRetention, 1 / decay) - 1))));
+  const nowDate = reviewedAt instanceof Date ? reviewedAt : new Date(reviewedAt);
+
+  if (!cardState || !cardState.stability || !cardState.difficulty || !cardState.lastReviewAt) {
+    const stability = initS(r);
+    const difficulty = initD(r, true);
+    const intervalDays = r === 1 ? 1 : r === 2 ? Math.max(1, Math.round(nextInterval(stability) * 0.6)) : nextInterval(stability);
+    const dueAt = new Date(nowDate.getTime() + intervalDays * 86400000).toISOString();
+    return {
+      stability: Number(stability.toFixed(4)),
+      difficulty: Number(difficulty.toFixed(4)),
+      retrievability: 1,
+      intervalDays,
+      lastReviewAt: nowDate.toISOString(),
+      dueAt,
+      reps: 1,
+      model: 'fsrs-6.3.2-shadow'
+    };
+  }
+
+  const lastDate = new Date(cardState.lastReviewAt);
+  const elapsedDays = Math.max(0, Math.floor((nowDate.getTime() - lastDate.getTime()) / 86400000));
+  const retrievability = Math.pow(1 + (factor * elapsedDays) / cardState.stability, decay);
+
+  let nextS;
+  if (elapsedDays < 1) {
+    let inc = Math.exp(w[17] * (r - 3 + w[18])) * Math.pow(cardState.stability, -w[19]);
+    if (r >= 2) inc = Math.max(1, inc);
+    nextS = clampS(cardState.stability * inc);
+  } else if (r === 1) {
+    const longTerm = w[11] * Math.pow(cardState.difficulty, -w[12]) * (Math.pow(cardState.stability + 1, w[13]) - 1) * Math.exp((1 - retrievability) * w[14]);
+    const shortTerm = cardState.stability / Math.exp(w[17] * w[18]);
+    nextS = clampS(Math.min(longTerm, shortTerm));
+  } else {
+    const hardPenalty = r === 2 ? w[15] : 1;
+    const easyBonus = r === 4 ? w[16] : 1;
+    nextS = clampS(cardState.stability * (1 + Math.exp(w[8]) * (11 - cardState.difficulty) * Math.pow(cardState.stability, -w[9]) * (Math.exp((1 - retrievability) * w[10]) - 1) * hardPenalty * easyBonus));
+  }
+
+  const d0Easy = initD(4, false);
+  const deltaD = -(w[6] * (r - 3));
+  const damped = cardState.difficulty + ((10 - cardState.difficulty) * deltaD) / 9;
+  const nextD = clampD(w[7] * d0Easy + (1 - w[7]) * damped);
+  const intervalDays = r === 1 ? 1 : nextInterval(nextS);
+  const dueAt = new Date(nowDate.getTime() + intervalDays * 86400000).toISOString();
+
+  return {
+    stability: Number(nextS.toFixed(4)),
+    difficulty: Number(nextD.toFixed(4)),
+    retrievability: Number(retrievability.toFixed(4)),
+    intervalDays,
+    lastReviewAt: nowDate.toISOString(),
+    dueAt,
+    reps: Number(cardState.reps || 1) + 1,
+    model: 'fsrs-6.3.2-shadow'
+  };
+}
+
+export function replayFsrsShadowHistory(attempts = [], asOf = new Date()) {
+  const asOfTime = (asOf instanceof Date ? asOf : new Date(asOf)).getTime();
+  const cards = new Map();
+  let qualifiedEvents = 0;
+  let excludedEvents = 0;
+
+  for (const row of (Array.isArray(attempts) ? attempts : [])) {
+    if (!row || row.skipped) { excludedEvents++; continue; }
+    const rating = row.rating || row.status;
+    if (!['K', 'V', 'N'].includes(rating)) { excludedEvents++; continue; }
+    const promptUsed = Boolean(row.prompt_used || row.promptUsed || row.viewed_chinese || row.viewedChinese);
+    const viewedAnswer = Boolean(row.viewed_answer || row.viewedAnswer || row.reference_viewed || row.referenceViewed);
+    if (promptUsed || viewedAnswer || row.evidence_type === 'recognition_only') {
+      excludedEvents++;
+      continue;
+    }
+    const stamp = row.attempt_timestamp || row.at;
+    if (!stamp) { excludedEvents++; continue; }
+    const timeMs = new Date(stamp).getTime();
+    if (!Number.isFinite(timeMs) || timeMs > asOfTime + 60000) { excludedEvents++; continue; }
+    const itemId = String(row.item_id || row.itemId || '').trim();
+    if (!itemId) { excludedEvents++; continue; }
+    qualifiedEvents++;
+    const prior = cards.get(itemId) || null;
+    cards.set(itemId, fsrsShadowStep(prior, rating, new Date(timeMs)));
+  }
+
+  const states = {};
+  let dueCount = 0;
+  for (const [id, st] of cards.entries()) {
+    states[id] = st;
+    if (new Date(st.dueAt).getTime() <= asOfTime) dueCount++;
+  }
+  return {
+    model: 'py-fsrs-6.3.2-shadow',
+    qualifiedIndependentEvents: qualifiedEvents,
+    excludedNonIndependentOrUnrated: excludedEvents,
+    trackedCards: cards.size,
+    shadowDueCount: dueCount,
+    cards: states
+  };
 }
