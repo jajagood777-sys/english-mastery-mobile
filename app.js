@@ -328,7 +328,7 @@ function renderHome(){
   heroCopy.append(el('div','今日修炼 · DAILY CULTIVATION','eyebrow'),h('h1','把今天的英语，练成自己的表达。'),p('用英语学习英语：先理解，再回忆，最后复习。','lead'));
   const summary=div('today-summary');
   summary.append(statistic('待复习',s.due),statistic('新内容',s.newItems),statistic('实际训练',`${s.todayMinutes} 分钟`));
-  const heroActions=lines(btn(data.dailyPack?'继续当前完整Journey':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn(data.dailyPack?'管理学习包':'导入唯一ZIP学习包',()=>setPage('library'),'btn secondary'));
+  const heroActions=lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn(data.dailyPack?'管理学习包':'导入唯一ZIP学习包',()=>setPage('library'),'btn secondary'));
   heroActions.classList.add('home-hero-actions');
   if(s.unallocatedActiveMs>0)summary.append(p('历史跨日累计时间中有每日分配未知的部分；不会计入今天。','tiny'));
   hero.append(heroVisual,heroCopy,summary,heroActions);
