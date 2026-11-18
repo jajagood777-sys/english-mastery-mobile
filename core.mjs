@@ -1,7 +1,7 @@
 /** English Cultivation: pure, testable data transforms. No network or private data. */
 import {normalizeVocabularyTasks} from './vocab.mjs';
 export const VERSION = 4.3;
-export const APP_VERSION = '10.4.0';
+export const APP_VERSION = '10.4.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
