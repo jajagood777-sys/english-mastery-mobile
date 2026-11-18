@@ -371,3 +371,12 @@ body::before{opacity:.025}
 }
 @media(min-width:860px){main{padding-top:32px}.reading-article{padding:42px 48px}}
 @media(prefers-reduced-motion:reduce){.btn,.feature-card,.mobile-nav button{transition:none!important}.feature-card:hover{transform:none}}
+
+
+/* V11.1 visibility repair: touch questions stay reachable after importing a resumed Journey. */
+.vocabulary-practice-panel{scroll-margin-top:22px}
+.vocabulary-practice-panel:focus{outline:none}
+.vocab-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.vocab-choice{display:block;width:100%;min-height:62px;text-align:left;overflow-wrap:anywhere;white-space:normal;line-height:1.42}
+.vocab-choice.selected,.vocab-choice[aria-pressed="true"]{border:2px solid var(--teal);background:color-mix(in srgb,var(--mist-green) 30%,var(--theme-card));color:var(--theme-text)}
+@media(max-width:640px){.vocab-choice-grid{grid-template-columns:1fr}.vocab-choice{min-height:54px}}

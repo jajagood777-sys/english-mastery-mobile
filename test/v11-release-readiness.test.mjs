@@ -30,11 +30,34 @@ test('choice evidence survives load validation and duplicate-safe backup merge',
   assert.equal(merged.vocabularyAttempts[0].rating,null);
 });
 test('production PWA assets and software versions agree',()=>{
-  assert.equal(pkg.version,'10.4.0');
+  assert.equal(pkg.version,'10.4.1');
   const core=readFileSync(new URL('../core.mjs',import.meta.url),'utf8');
-  assert.match(core,/APP_VERSION = '10\.4\.0'/);
-  assert.match(sw,/english-cultivation-static-v10\.4\.0/);
+  assert.match(core,/APP_VERSION = '10\.4\.1'/);
+  assert.match(sw,/english-cultivation-static-v10\.4\.1/);
   for(const asset of ['vocab.mjs','cdtl.mjs','studio.mjs','handover.mjs']){
     assert.ok(sw.includes("'./"+asset+"'"),'Missing offline resource '+asset);
   }
+});
+
+
+test('V22 touch vocabulary is surfaced immediately after import and from the homepage',()=>{
+  const css=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
+  assert.match(app,/function openSmartVocabulary\(\)/);
+  assert.match(app,/document\.getElementById\('smart-vocabulary-practice'\)/);
+  assert.match(app,/box\.id='smart-vocabulary-practice'/);
+  assert.match(app,/确认导入并显示触控词汇/);
+  assert.match(app,/if\(isPack&&packMeta\.vocabularyPractice\?\.length\)openSmartVocabulary\(\)/);
+  assert.match(app,/app\.append\(hero\);if\(data\.dailyPack\)\{const vocab=renderVocabularyPractice\(\)/);
+  assert.match(app,/触控词汇选择题/);
+  assert.match(css,/\.vocab-choice-grid\{display:grid/);
+  assert.match(css,/\.vocab-choice\.selected/);
+});
+test('The V22 touch path never erases a running Journey or auto-rates recognition',()=>{
+  const start=app.indexOf('function openSmartVocabulary(){');
+  const end=app.indexOf('function renderVocabularyPractice(){');
+  assert.ok(start>=0&&end>start);
+  const helper=app.slice(start,end);
+  assert.doesNotMatch(helper,/dailyJourney\s*=|localStorage\.clear|data\.items\s*=|IndexedDB|deleteDatabase/);
+  assert.match(app,/recognition_not_independent_recall:true/);
+  assert.match(app,/vocabularyAttempts/);
 });
