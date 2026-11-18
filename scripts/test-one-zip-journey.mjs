@@ -47,7 +47,7 @@ try{
   await page.getByRole('button',{name:/继续下一题/}).click();
   await page.reload({waitUntil:'domcontentloaded'});
   await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
-  await page.getByRole('heading',{name:/触控词汇 1 \/ 2/}).waitFor({timeout:10000});
+  await page.getByRole('heading',{name:/触控词汇 2 \/ 2/}).waitFor({timeout:10000});
   await page.locator('.vocab-option-btn').filter({hasText:'nuance'}).click();
   saved=await state();
   assert.equal(saved.dailyJourney.vocabularyAttempts.length,2);
