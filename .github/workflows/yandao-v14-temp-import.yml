@@ -55,7 +55,18 @@ jobs:
                       upgraded['scripts']={**current.get('scripts',{}),**upgraded.get('scripts',{})}
                       blob=(json.dumps(upgraded,ensure_ascii=False,indent=2)+'\n').encode('utf-8')
                   dst.parent.mkdir(parents=True,exist_ok=True)
+                  if name=='vocab.mjs':
+                      previous=dst.read_text('utf-8')
+                      legacy_marker='// Legacy stable API preserved from 10.4.2'
+                      assert legacy_marker in previous, 'Baseline legacy vocab exports absent'
+                      assert legacy_marker not in blob.decode('utf-8'), 'Duplicate legacy vocab exports'
+                      blob+= ('\n'+previous[previous.index(legacy_marker):]).encode('utf-8')
                   dst.write_bytes(blob)
+          old_test=pathlib.Path('test/v11-release-readiness.test.mjs')
+          old_code=old_test.read_text('utf-8')
+          assert "assert.equal(APP_VERSION,'13.0.0')" in old_code
+          old_code=old_code.replace('13.0.0','14.0.0').replace(r'v13\.0\.0',r'v14\.0\.0')
+          old_test.write_text(old_code,'utf-8')
           assert pathlib.Path('kokoro-preview/runtime/kokoro-engine.mjs').stat().st_size==5052327
           assert pathlib.Path('kokoro-preview/runtime/ort-wasm-simd-threaded.jsep.wasm').stat().st_size==21596019
           assert pathlib.Path('kokoro-preview/runtime/ort-wasm-simd-threaded.wasm').stat().st_size==11133407
