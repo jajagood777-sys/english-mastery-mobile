@@ -90,22 +90,19 @@ test('V4.2 settings page owns duration, backup and theme controls',()=>{
 });
 
 test('V5 PWA cache marker is versioned for safe resource refresh',()=>{
- assert.match(sw,/english-cultivation-static-v15\.1\.3/);
+ assert.match(sw,/english-cultivation-static-v15\.1\.4/);
 });
 
-test('V5.2 native speech chooses real device voices and persists safe settings',()=>{
+test('V15.1.4 Gemini TTS voice settings replace system voice picker while keeping offline fallback',()=>{
  assert.match(app,/speechSynthesis\.getVoices\(\)/);
  assert.match(app,/voiceschanged/);
- assert.match(app,/voiceURI/);
  assert.match(app,/voiceSettingsPanel/);
  assert.match(app,/speakEnglish/);
- assert.match(app,/utter\.voice=voice/);
- assert.match(app,/speechVoiceURI/);
- assert.match(app,/设备英语语音/);
- assert.match(app,/native-voice-select/);
+ assert.match(app,/speakWithGeminiOrFallback/);
+ assert.match(app,/gemini-voice-select/);
+ assert.match(app,/Gemini 英语音色/);
  assert.match(app,/Hello! Let's practice English together/);
- assert.doesNotMatch(app,/Gemini云端|KOKORO_VOICES|neuralSpeech/);
- assert.match(app,/speechVoiceLabel/);
+ assert.doesNotMatch(app,/设备英语语音|native-voice-select|刷新设备语音列表/);
 });
 
 test('V4.3 one-file daily journey has all four stages and positive active time',()=>{
@@ -165,7 +162,7 @@ test('V4.3.1 visual layer is optional, lazy, and does not enter the reading surf
 test('V5 authorized visual bundle contains all nine WebP resources',()=>{
  const files=['calligraphy-01.webp','calligraphy-02.webp','archive-03.webp','calligraphy-04.webp','quote-05.webp','archive-06.webp','portrait-07.webp','portrait-08.webp','hero-09.webp'];
  for(const file of files){const path=new URL(`../assets/visuals/${file}`,import.meta.url);assert.ok(fs.existsSync(path),`missing ${file}`);assert.ok(fs.statSync(path).size>1000,`empty ${file}`);assert.match(visuals,new RegExp(file.replace('.','\\.')));}
- assert.match(sw,/english-cultivation-static-v15\.1\.3/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
+ assert.match(sw,/english-cultivation-static-v15\.1\.4/);assert.match(sw,/assets\/visuals\/hero-09\.webp/);
 });
 
 test('V6.2 visual polish keeps the existing asset layer and mobile-safe rhythm',()=>{

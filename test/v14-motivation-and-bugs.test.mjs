@@ -48,7 +48,7 @@ test('grit badges unlock only when authentic local evidence exists', () => {
   assert.equal(earned.every(b => b.unlocked === true), true);
 });
 
-test('15.1.3 bug fixes are verified in app.js and styles.css', () => {
+test('15.1.4 bug fixes are verified in app.js and styles.css', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
