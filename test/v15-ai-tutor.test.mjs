@@ -59,7 +59,7 @@ test('AI request spec formats OpenRouter and Google AI Studio requests cleanly a
   assert.match(reply, /mitigate/);
 });
 
-test('15.1.2 battle report and central feedback include manualReviewMarks from offline lexicon lookup', () => {
+test('15.1.3 battle report and central feedback include manualReviewMarks from offline lexicon lookup', () => {
   const manualMarks = [
     { word: 'vortex', itemId: 'w:1', markedAt: '2026-11-18T12:00:00Z', packId: 'P-1', source: 'offline_lexicon_lookup' }
   ];
@@ -69,7 +69,7 @@ test('15.1.2 battle report and central feedback include manualReviewMarks from o
     items: [],
     manualReviewMarks: manualMarks
   });
-  assert.equal(report.app_version, '15.1.2');
+  assert.equal(report.app_version, '15.1.3');
   assert.equal(report.manual_review_marks.length, 1);
   assert.equal(report.manual_review_marks[0].word, 'vortex');
 
@@ -82,8 +82,16 @@ test('15.1.2 battle report and central feedback include manualReviewMarks from o
   assert.equal(fb.manual_review_marks[0].word, 'vortex');
 });
 
-test('15.1.2 index.html CSP connect-src permits Google AI Studio and OpenRouter endpoints', () => {
+test('15.1.3 index.html CSP connect-src permits Google AI Studio and OpenRouter endpoints', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /connect-src[^;]*https:\/\/generativelanguage\.googleapis\.com/);
   assert.match(html, /connect-src[^;]*https:\/\/openrouter\.ai/);
+});
+
+test('15.1.3 render() mounts AI dictionary drawer and Pocket Radio drawer and supports selection-to-lookup', () => {
+  const appJs = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(appJs, /if\(lexiconDrawerOpen\)\{const d=renderOfflineLexiconDrawer\(\)/);
+  assert.match(appJs, /if\(radioOpen\)\{const r=renderPocketRadioDrawer\(\)/);
+  assert.match(appJs, /function openAiLexiconDrawer/);
+  assert.match(appJs, /selectionchange/);
 });
