@@ -14,8 +14,8 @@ test('natural speech covers words, examples, sentences and stories with native f
  assert.match(app,/speechButton\(item\.target\)/);
  assert.match(app,/speechButton\(item\.example\)/);
  assert.match(app,/speechControls\(reading\.text/);
- assert.match(app,/window\.speechSynthesis/);assert.match(app,/native-voice-select/);assert.match(app,/speechVoiceLabel/);assert.match(app,/voiceSelect\.addEventListener/);
- assert.doesNotMatch(app,/Gemini|KOKORO|neuralSpeech|createPrivateTTSClient/);
+ assert.match(app,/window\.speechSynthesis/);assert.match(app,/gemini-voice-select/);assert.match(app,/speechVoiceLabel/);assert.match(app,/voiceSelect\.addEventListener/);
+ assert.doesNotMatch(app,/KOKORO|neuralSpeech|createPrivateTTSClient/);
 });
 
 test('native speech keeps asynchronous voices and device fallback',()=>{
@@ -26,7 +26,7 @@ test('native speech keeps asynchronous voices and device fallback',()=>{
  assert.match(app,/if\(!control\.id\)control\.id=/);
  assert.match(app,/availableVoices\.find\(voice=>voice\.localService\)/);
  assert.match(app,/voice\?\.lang\|\|'en-US'/);
- assert.match(app,/浏览器默认语音/);
+ assert.match(app,/本地离线朗读|本地离线语音/);
 });
 
 test('learning package import remains local and independent of speech',()=>{

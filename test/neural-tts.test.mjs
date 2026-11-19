@@ -9,13 +9,13 @@ test('native speech is the only active reading path',()=>{
  assert.match(app,/SpeechSynthesisUtterance/);
  assert.match(app,/utter\.lang=voice\?\.lang\|\|'en-US'/);
  assert.match(app,/voiceschanged/);
- assert.match(app,/native-voice-select/);
+ assert.match(app,/gemini-voice-select/);
  assert.match(app,/speechVoiceURI/);
  assert.match(app,/utter\.voice=voice/);
  assert.match(app,/speechVoiceLabel/);
  assert.match(app,/speakEnglish/);
  assert.match(app,/Hello! Let's practice English together/);
- assert.doesNotMatch(app,/Gemini|KOKORO|neuralSpeech|createPrivateTTSClient/);
+ assert.doesNotMatch(app,/KOKORO|neuralSpeech|createPrivateTTSClient/);
  assert.doesNotMatch(app,/fetch\(/);
 });
 
@@ -31,7 +31,7 @@ test('native speech preserves explicit stop, pause, resume and speed controls',(
 test('learner storage contract remains unchanged while speech is native',()=>{
  const core=load('core.mjs'),app=load('app.js');
  assert.match(core,/VERSION = 4\.3/);
- assert.match(core,/APP_VERSION = '15\.1\.3'/);
+ assert.match(core,/APP_VERSION = '15\.1\.4'/);
  assert.match(app,/const STORE='central-english-mastery\.v2'/);
  assert.match(app,/function save\(\)/);
 });
