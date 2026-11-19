@@ -48,7 +48,7 @@ try{
   assert.ok(first.text.includes('practice English'));
   assert.ok(first.voiceURI,'Offline fallback should use an actual available device voice');
  await page.getByRole('button',{name:'停止朗读'}).click();
- await page.locator('nav button[data-page="reading"]').click();await page.getByRole('heading',{name:'阅读英语材料'}).waitFor();await page.getByRole('button',{name:/朗读英文/}).click();
+ await page.locator('nav button[data-page="reading"]').click();await page.getByRole('heading',{name:'阅读英语材料'}).waitFor();await page.getByRole('button',{name:/朗读英文|Gemini 朗读文章/}).click();
  await page.waitForFunction(()=>window.__nativeSpeechCalls.filter(row=>row.text).length>=2);
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}'));assert.equal(saved.items[0].id,'w:native-regression');assert.equal(saved.readings[0].id,'reading:native-regression');
  await page.locator('nav button[data-page="more"]').click();
