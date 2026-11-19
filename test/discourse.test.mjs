@@ -132,7 +132,7 @@ test('interference radar aggregates confused target-distractor pairs with contra
 
 import { buildBattleReport, battleReportMarkdown, buildCentralLearningFeedback } from '../core.mjs';
 
-test('15.1.1 battle report, markdown, and central feedback include discourse X-Ray, interference radar, reading metrics, and FSRS shadow', () => {
+test('15.1.2 battle report, markdown, and central feedback include discourse X-Ray, interference radar, reading metrics, and FSRS shadow', () => {
   const archive = [
     { id: 'W-1', target: 'vortex', definition_en: 'Rotating mass of water.', example: 'A vortex formed.' },
     { id: 'W-2', target: 'expertise', definition_en: 'Specialist skill.', example: 'Geological expertise.' }
@@ -179,7 +179,7 @@ test('15.1.1 battle report, markdown, and central feedback include discourse X-R
     originalWordArchive: archive
   });
 
-  assert.equal(report.app_version, '15.1.1');
+  assert.equal(report.app_version, '15.1.2');
   assert.equal(report.discourse_summary.analyzedResponses, 1);
   assert.ok(report.discourse_summary.targetHits.includes('vortex'));
   assert.ok(report.discourse_summary.targetMissed.includes('resilient'));

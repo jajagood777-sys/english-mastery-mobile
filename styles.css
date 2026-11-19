@@ -987,3 +987,8 @@ html[data-theme="night"] .cdtl-anchor-pill {
   border: 1px solid var(--theme-border);
   background: var(--theme-bg);
 }
+
+.ai-tutor-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ai-tutor-heading{font-weight:700;margin:10px 0 4px;color:var(--ink)}
+.ai-tutor-bullet{margin:4px 0 4px 10px;line-height:1.55}
+.ai-tutor-para{margin:6px 0;line-height:1.55}
