@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '14.1.0';
+export const APP_VERSION = '15.1.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -586,6 +586,7 @@ export function mergeBackupState(current={}, restored={}) {
     transferAttempts,
     listeningDiagnosticAttempts,
     vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
+    manualReviewMarks:uniqueBy([...(current.manualReviewMarks||[]), ...(restored.manualReviewMarks||[])], 'word'),
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -960,6 +961,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
     },
     discourse_summary:report?.discourse_summary||null,
     radio_exposure:report?.radio_exposure||null,
+    manual_review_marks:Array.isArray(report?.manual_review_marks)?report.manual_review_marks:[],
     fsrs_shadow_summary:report?.fsrs_shadow?{
       model:report.fsrs_shadow.model,
       qualified_independent_events:report.fsrs_shadow.qualifiedIndependentEvents||0,
@@ -1105,10 +1107,11 @@ export function validateBackup(value){
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
-    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],
+    manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[]}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1259,6 +1262,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts),interferenceRadar:buildInterferenceRadar(vocabularyTasks,vocabularyAttempts,originalWordArchive)},
     fsrs_shadow: replayFsrsShadowHistory(detail, now),
     radio_exposure: summarizeRadioExposure(radioLog),
+    manual_review_marks: Array.isArray(manualReviewMarks)?manualReviewMarks:[],
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
     sync_status: 'NOT_SUBMITTED'
@@ -1324,6 +1328,7 @@ export function battleReportMarkdown(report) {
       ``, `## Reading Passage Metrics（阅读词数与今日核心词覆盖）`, ``,
       ...report.reading_analysis.passage_metrics.map(pm => `- ${inline(pm.title)}: ${pm.wordCount} words · Pack target words covered: ${pm.matchedPackCount}${pm.matchedPackWords?.length ? ` (${pm.matchedPackWords.slice(0,6).join(', ')})` : ''}`)
     ]:[]),
+    ...(report.manual_review_marks?.length?[``, `## Manual Review Marks（离线查词手动标为待复习）`, ``, ...report.manual_review_marks.map(m=>`- ${inline(m.word)}（标记时间：${inline(m.markedAt||'未记录')} · 来源：${inline(m.source||'离线查词')}）`)]:[]),
     ...(report.radio_exposure?.clipsPlayed?[``, `## Pocket Radio Passive Exposure（随身电台磨耳朵曝光，不计入 K）`, ``, `- Clips listened: ${report.radio_exposure.clipsPlayed} · Passive listening seconds: ${report.radio_exposure.activeSeconds}s · Channel: ${report.radio_exposure.channelUsed||'default'} (exposure only, countsAsMasteryK: false)`]:[]),
     ...(report.fsrs_shadow?[
       ``, `## FSRS 6.3.2 Shadow Stability（独立回忆稳定度影子调度）`, ``,
