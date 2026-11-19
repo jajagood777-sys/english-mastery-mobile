@@ -1,5 +1,5 @@
 /*
- * YanDao Cultivation Palace — 16.0.1 Flagship Design System
+ * YanDao Cultivation Palace — 16.0.2 Flagship Design System
  * Synthesizes Apple iOS Liquid Glass (olii-dev/liquid-glass, open-glass-ui),
  * Linear Obsidian Dark Mode, shadcn/ui tokens, and Readwise Reader typography.
  * Pure static CSS · Zero runtime overhead · 100% functional & accessibility parity.
@@ -189,13 +189,11 @@ a:hover { text-decoration: underline; }
   gap: 16px;
   margin: 0 calc(clamp(16px, 4vw, 32px) * -1);
   padding: 12px clamp(16px, 4vw, 32px);
-  background: rgba(245, 245, 247, 0.96);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: #f5f5f7;
   border-bottom: 1px solid var(--theme-border);
 }
 html[data-theme="night"] .site-header {
-  background: rgba(7, 8, 11, 0.95);
+  background: #07080b;
 }
 
 .brand { display: flex; align-items: center; gap: 11px; }
@@ -1111,8 +1109,8 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
 /* Mobile — Floating iOS 26 Liquid Glass Tab Dock */
 @media(max-width:640px){
   .site-wrap { padding: 0 14px calc(92px + env(safe-area-inset-bottom)); }
-  .site-header { margin: 0 -14px; padding: 10px 14px 8px; display: block; border-bottom: 1px solid var(--theme-border); background: rgba(245, 245, 247, 0.96); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); }
-  html[data-theme="night"] .site-header { background: rgba(7, 8, 11, 0.95); }
+  .site-header { margin: 0 -14px; padding: 10px 14px 8px; display: block; border-bottom: 1px solid var(--theme-border); background: #f5f5f7; }
+  html[data-theme="night"] .site-header { background: #07080b; }
   .mobile-nav{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:7px max(12px,env(safe-area-inset-left)) calc(7px + env(safe-area-inset-bottom));border-top:1px solid var(--theme-border);background:color-mix(in srgb,var(--surface-solid) 82%,transparent);backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);box-shadow:0 -8px 28px rgba(15,23,42,.08);z-index:40}
   .mobile-nav button { flex-direction: column; gap: 3px; border-radius: 14px; padding: 6px 2px; min-height: 50px; }
   .mobile-nav button span:last-child { font-size: 11px; }
@@ -1132,7 +1130,7 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
 
 
 /* ==========================================================================
-   v16.0.1 Zero-Clutter Flagship Component Refinements
+   v16.0.2 Zero-Clutter Flagship Component Refinements
    ========================================================================== */
 
 /* Pocket Radio — Single-Screen Apple Music Layout */
@@ -1446,7 +1444,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v16.0.1 Next-Gen Tactile Micro-Interactions & Reduced Motion
+   v16.0.2 Next-Gen Tactile Micro-Interactions & Reduced Motion
    ========================================================================== */
 .btn:active:not(:disabled),
 .daily-module-row:active,
