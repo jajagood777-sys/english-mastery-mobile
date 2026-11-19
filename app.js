@@ -730,7 +730,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (16.0.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (16.0.1)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -1082,12 +1082,15 @@ let geminiAudioEl=null;let readingGeminiAudioEl=null;let readingAudioUnlocked=fa
 function ensureReadingGeminiAudio(){if(!readingGeminiAudioEl){readingGeminiAudioEl=new Audio();readingGeminiAudioEl.preload='auto';readingGeminiAudioEl.playsInline=true;readingGeminiAudioEl.setAttribute('playsinline','');readingGeminiAudioEl.setAttribute('webkit-playsinline','');}return readingGeminiAudioEl;}
 function unlockReadingGeminiAudio(){try{if(typeof navigator!=='undefined'&&navigator.audioSession&&'type'in navigator.audioSession)navigator.audioSession.type='playback';}catch{}const a=ensureReadingGeminiAudio();if(!readingAudioUnlocked){try{a.src=SILENT_WAV_DATA_URI;const p=a.play();if(p&&typeof p.then==='function')p.then(()=>{a.pause();readingAudioUnlocked=true;}).catch(()=>{});}catch{}}}
 function geminiSpeechChunks(text){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return [];const sentences=clean.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[clean];const chunks=[];let current='';for(const sentence of sentences){const s=sentence.trim();if(!s)continue;const next=current?`${current} ${s}`:s;if(current&&next.length>560){chunks.push(current);current=s;}else current=next;}if(current)chunks.push(current);return chunks;}
-function stopGeminiAudio(){geminiPlaybackToken++;if(geminiAudioEl){try{geminiAudioEl.pause();geminiAudioEl.onended=null;geminiAudioEl.onerror=null;}catch{}geminiAudioEl=null;}}
+function isSpeechCurrentlyPlaying(){return Boolean((geminiAudioEl&&!geminiAudioEl.paused&&!geminiAudioEl.ended)||(typeof window!=="undefined"&&"speechSynthesis"in window&&window.speechSynthesis.speaking&&!speechPaused));}
+function isSpeechCurrentlyPaused(){return Boolean((geminiAudioEl&&geminiAudioEl.paused&&!geminiAudioEl.ended&&geminiAudioEl.currentTime>0)||(typeof window!=="undefined"&&"speechSynthesis"in window&&speechPaused));}
+function syncReadingPlayButtons(){if(typeof document==="undefined")return;const playing=isSpeechCurrentlyPlaying();document.querySelectorAll(".reading-play-toggle").forEach(b=>{b.textContent=playing?"⏸":"▶";b.setAttribute("aria-pressed",playing?"true":"false");b.title=playing?"暂停朗读":"朗读英文文章";});}
+function stopGeminiAudio(){geminiPlaybackToken++;if(geminiAudioEl){try{geminiAudioEl.pause();geminiAudioEl.onended=null;geminiAudioEl.onerror=null;geminiAudioEl.currentTime=0;}catch{}geminiAudioEl=null;}syncReadingPlayButtons();}
 async function fetchGeminiAudioUrl(chunkText,cfg){const cacheKey=`${cfg.ttsVoice||'Kore'}|${cfg.ttsModel||GEMINI_TTS_DEFAULT_MODEL}|${chunkText}`;if(geminiAudioCache.has(cacheKey))return geminiAudioCache.get(cacheKey);const result=await synthesizeGeminiSpeech(chunkText,cfg);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return url;}
-async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}unlockReadingGeminiAudio();stopSpeech();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{notify('🔊 正在用 Gemini 语音朗读……');let nextPromise=fetchGeminiAudioUrl(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const url=await nextPromise;if(token!==geminiPlaybackToken||!url)return false;if(i+1<chunks.length)nextPromise=fetchGeminiAudioUrl(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));audio.onended=()=>{if(geminiAudioEl===audio)geminiAudioEl=null;resolve();};audio.onerror=()=>reject(Error('音频解码或播放失败'));audio.src=url;audio.playbackRate=rate;geminiAudioEl=audio;audio.play().catch(reject);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂时不可用，已切换本地朗读：${String(error?.message||error).slice(0,60)}`);return speakNaturalOrDevice(clean,segments);}}
+async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}unlockReadingGeminiAudio();stopSpeech();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{notify('🔊 正在用 Gemini 语音朗读……');let nextPromise=fetchGeminiAudioUrl(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const url=await nextPromise;if(token!==geminiPlaybackToken||!url)return false;if(i+1<chunks.length)nextPromise=fetchGeminiAudioUrl(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));audio.onplay=()=>syncReadingPlayButtons();audio.onpause=()=>syncReadingPlayButtons();audio.onended=()=>{if(geminiAudioEl===audio)geminiAudioEl=null;syncReadingPlayButtons();resolve();};audio.onerror=()=>reject(Error('音频解码或播放失败'));audio.src=url;audio.playbackRate=rate;geminiAudioEl=audio;audio.play().catch(reject);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂时不可用，已切换本地朗读：${String(error?.message||error).slice(0,60)}`);return speakNaturalOrDevice(clean,segments);}}
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
-function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}
-function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}}
+function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
+function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
 function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
@@ -1754,11 +1757,19 @@ function speechControls(text,segments=null,{useGemini=false,iconOnly=false}={}){
   const runPlay=()=>{const sel=window.getSelection?.()?.toString().trim();const cleanTts=s=>String(s||'').replace(/\*\*([^*\n]{1,60})\*\*/g,'$1');if(useGemini)speakWithGeminiOrFallback(cleanTts(sel||text),{segments:sel?null:(Array.isArray(segments)?segments.map(cleanTts):segments)});else speakEnglish(text,null,segments);};
   if(iconOnly){
     const bar=div('reading-audio-icons');
-    const bPlay=btn('▶',runPlay,'btn primary reading-icon-btn');bPlay.setAttribute('aria-label','Gemini 朗读英文文章');bPlay.title='朗读英文文章';
-    const bPause=btn('⏸',pauseSpeech,'btn secondary reading-icon-btn');bPause.setAttribute('aria-label','暂停朗读');bPause.title='暂停朗读';
-    const bResume=btn('⏯',resumeSpeech,'btn secondary reading-icon-btn');bResume.setAttribute('aria-label','继续朗读');bResume.title='继续朗读';
-    const bStop=btn('⏹',stopSpeech,'btn ghost reading-icon-btn');bStop.setAttribute('aria-label','停止朗读');bStop.title='停止朗读';
-    bar.append(bPlay,bPause,bResume,bStop);
+    const bToggle=btn(isSpeechCurrentlyPlaying()?'⏸':'▶',()=>{
+      const sel=window.getSelection?.()?.toString().trim();
+      if(sel){runPlay();return;}
+      if(isSpeechCurrentlyPlaying()){pauseSpeech();return;}
+      if(isSpeechCurrentlyPaused()){resumeSpeech();return;}
+      runPlay();
+    },'btn primary reading-icon-btn reading-play-toggle');
+    bToggle.setAttribute('aria-label','Gemini 朗读英文文章');
+    bToggle.title='播放 / 暂停朗读';
+    const bStop=btn('⏹',stopSpeech,'btn secondary reading-icon-btn');
+    bStop.setAttribute('aria-label','停止朗读');
+    bStop.title='停止并回到开头';
+    bar.append(bToggle,bStop);
     return bar;
   }
   const playBtn=useGemini?btn('▶ Gemini 朗读文章',runPlay,'btn secondary'):speechButton(text,segments);
@@ -1782,7 +1793,7 @@ function renderListeningStudio(item,{compact=false,onSourceViewed=null}={}){
   }
   return panel;
 }
-function stopSpeech(){stopGeminiAudio();speechQueue=[];speechQueueIndex=0;speechPaused=false;naturalSpeechPlayer?.stop();if('speechSynthesis'in window)window.speechSynthesis.cancel();}
+function stopSpeech(){stopGeminiAudio();speechQueue=[];speechQueueIndex=0;speechPaused=false;naturalSpeechPlayer?.stop();if('speechSynthesis'in window)window.speechSynthesis.cancel();syncReadingPlayButtons();}
 function textarea(initial='',placeholder='Type your answer in English…'){const x=el('textarea','','textarea');x.value=initial;x.placeholder=placeholder;x.autocapitalize='sentences';x.spellcheck=false;x.enterKeyHint='done';x.rows=3;return x;}
 function textInput(initial='',placeholder=''){const x=el('input','','input');x.type='text';x.value=initial;x.placeholder=placeholder;x.autocapitalize='none';x.autocomplete='off';x.spellcheck=false;x.enterKeyHint='done';return x;}
 function revealAnswer(s, answer, reference, skipped=false, accepted=[], compareOptions={}){if(s.step==='revealed')return false;s.viewedAnswer=Boolean(skipped);s.referenceAnswer=reference;s.draft=String(answer||'').trim();s.skipped=skipped;s.answerCheck=compareOptions.wordItem?compareWordAnswer(s.draft,compareOptions.wordItem,{definitionEn:compareOptions.definitionEn,confidence:compareOptions.confidence}):compareAnswer(s.draft,reference,{accepted});s.retryDraft='';s.retryCheck=null;s.retryCompleted=false;s.step='revealed';if(!save())return false;render();return true;}
