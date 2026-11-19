@@ -974,8 +974,24 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
       items:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.map(mark=>({mark_id:mark.markId||mark.id||null,word:mark.wordText||mark.normalizedWord||'',reading_id:mark.readingId||null,source_title:mark.sourceTitle||'',original_sentence:mark.originalSentence||'',saved_status:mark.savedStatus||'UNSAVED',status:mark.status||'UNTESTED',pack_id:mark.packId||null})):[]
     },
     reading_recall_evidence:{count:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall.length:0,items:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall:[]},
+    reading_passage_metrics:Array.isArray(report?.reading_analysis?.passage_metrics)?report.reading_analysis.passage_metrics:[],
+    vocabulary_recognition_evidence:{
+      counts_as_mastery_K:false,
+      summary:report?.vocabulary_practice_evidence?.summary||null,
+      interference_radar:report?.vocabulary_practice_evidence?.interferenceRadar||{totalConfusedPairs:0,pairs:[]}
+    },
+    discourse_summary:report?.discourse_summary||null,
+    fsrs_shadow_summary:report?.fsrs_shadow?{
+      model:report.fsrs_shadow.model,
+      qualified_independent_events:report.fsrs_shadow.qualifiedIndependentEvents||0,
+      excluded_non_independent_or_unrated:report.fsrs_shadow.excludedNonIndependentOrUnrated||0,
+      tracked_cards:report.fsrs_shadow.trackedCards||0,
+      shadow_due_count:report.fsrs_shadow.shadowDueCount||0,
+      avg_stability_days:report.fsrs_shadow.avgStabilityDays||0,
+      high_risk_count:report.fsrs_shadow.highRiskCount||0
+    }:null,
     transfer_evidence:transferEvidence,
-    integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false}
+    integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false,choice_recognition_never_counted_as_K:true}
   };
 }
 
@@ -1179,6 +1195,50 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
   }
   const readingMarkEvidence=collectReadingMarkEvidence(readingMarks,readings,items);
   const immediateRecall=Array.isArray(readingRecallAttempts)?readingRecallAttempts.map(row=>({...row,mark_id:row.mark_id||row.markId||null,reading_id:row.reading_id||row.readingId||null,word:row.word||row.wordText||row.normalizedWord||'',original_sentence:row.original_sentence||row.originalSentence||'',source_title:row.source_title||row.sourceTitle||'',pack_id:row.pack_id||row.packId||null,user_answer:row.user_answer??row.userAnswer??'',status:row.status||row.rating||'UNTESTED',independent:row.independent!==false,at:row.at||row.timestamp||null})):[];
+  const packTargets = [...new Set([
+    ...(Array.isArray(vocabularyTasks) ? vocabularyTasks.map(t => clean(t?.target)) : []),
+    ...(Array.isArray(items) ? items.filter(i => i?.kind === 'word').map(i => clean(i?.target)) : []),
+    ...(Array.isArray(originalWordArchive) ? originalWordArchive.map(w => clean(w?.target)) : [])
+  ].filter(Boolean))];
+  const mergedTransfers = mergeTransferAttempts([], transferAttempts);
+  const discourseItems = [];
+  for (const ta of mergedTransfers) {
+    if (!clean(ta.firstAnswer)) continue;
+    const diag = analyzeDiscourseAndChunks(ta.firstAnswer, {
+      referenceText: ta.referenceAnswer || '',
+      targetPhrases: Array.isArray(ta.targetPhrases) ? ta.targetPhrases : [],
+      packTargets
+    });
+    discourseItems.push({ source: 'transfer', taskId: ta.taskId || ta.id, taskType: ta.taskType || 'general_transfer', ...diag });
+  }
+  for (const rt of (Array.isArray(readingRetellingAttempts) ? readingRetellingAttempts : [])) {
+    if (!clean(rt?.firstAnswer)) continue;
+    const matchedReading = (Array.isArray(readings) ? readings : []).find(r => r.id === rt.readingId);
+    const diag = analyzeDiscourseAndChunks(rt.firstAnswer, {
+      referenceText: matchedReading?.text || '',
+      targetPhrases: [],
+      packTargets
+    });
+    discourseItems.push({ source: 'reading_retelling', taskId: rt.readingId || rt.id, taskType: 'reading_retelling', ...diag });
+  }
+  const discourseSummary = {
+    analyzedResponses: discourseItems.length,
+    totalOutputWords: discourseItems.reduce((s, d) => s + d.wordCount, 0),
+    avgSentenceWords: discourseItems.length ? Number((discourseItems.reduce((s, d) => s + d.avgSentenceWords, 0) / discourseItems.length).toFixed(1)) : 0,
+    avgLexicalDiversity: discourseItems.length ? Number((discourseItems.reduce((s, d) => s + d.lexicalDiversity, 0) / discourseItems.length).toFixed(2)) : 0,
+    targetHits: [...new Set(discourseItems.flatMap(d => d.targetHits))],
+    targetMissed: [...new Set(discourseItems.flatMap(d => d.targetMissed))],
+    packWordsReused: [...new Set(discourseItems.flatMap(d => d.packHits))],
+    cohesionMarkersUsed: [...new Set(discourseItems.flatMap(d => d.cohesionUsed))],
+    items: discourseItems,
+    isAutomatedScore: false,
+    integrityNotice: '本汇总仅包含词块命中、衔接词与句长客观统计，不代表 AI 语法评分或官方雅思分数。'
+  };
+  const readingPassageMetrics = (Array.isArray(readings) ? readings : []).map(r => ({
+    readingId: r.id,
+    title: r.title || 'Untitled',
+    ...analyzeReadingPassageMetrics(r.text || '', 0, packTargets)
+  }));
   const reportId = `report:${session.id}`;
   return {
     schema_version: REPORT_SCHEMA_VERSION,
@@ -1210,9 +1270,11 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
       marks: readingMarkEvidence,
       immediate_recall: immediateRecall,
       retelling_attempts: Array.isArray(readingRetellingAttempts)?readingRetellingAttempts:[],
-      comprehension_checks: Array.isArray(readingChecks)?readingChecks:[]
+      comprehension_checks: Array.isArray(readingChecks)?readingChecks:[],
+      passage_metrics: readingPassageMetrics
     },
-    transfer_attempts: mergeTransferAttempts([],transferAttempts),
+    transfer_attempts: mergedTransfers,
+    discourse_summary: discourseSummary,
     transfer_evidence: buildTransferAnalytics({weaknesses,transferAttempts,now}),
     spelling_evidence: {attempts:Array.isArray(spellingAttempts)?spellingAttempts:[],summary:buildSpellingSummary(spellingAttempts)},
     vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts),interferenceRadar:buildInterferenceRadar(vocabularyTasks,vocabularyAttempts,originalWordArchive)},
@@ -1267,10 +1329,30 @@ export function battleReportMarkdown(report) {
     ...(report.transfer_attempts?.length?[``, `## Transfer challenge`, ``, ...transferLines]:[]),
     ...(report.spelling_evidence?[``, `## Spelling Forge`, ``, `- Total: ${report.spelling_evidence.summary?.total||0}`, `- First correct: ${report.spelling_evidence.summary?.firstCorrect||0}`, `- First incorrect: ${report.spelling_evidence.summary?.firstIncorrect||0}`, `- Retry correct: ${report.spelling_evidence.summary?.retryCorrect||0}`]:[]),
     ...(report.vocabulary_practice_evidence?.summary?.total?[``, `## Smart Vocabulary & Interference Radar`, ``, `- Total recognition items: ${report.vocabulary_practice_evidence.summary.total}`, `- First recognition correct: ${report.vocabulary_practice_evidence.summary.correctFirst}`, `- First recognition incorrect: ${report.vocabulary_practice_evidence.summary.incorrectFirst}`, `- Intra-session micro-rehearsal recovered: ${report.vocabulary_practice_evidence.summary.rehearsedCorrect||0}`, ...(report.vocabulary_practice_evidence.interferenceRadar?.pairs?.length?[`- Confused lexical pairs (${report.vocabulary_practice_evidence.interferenceRadar.totalConfusedPairs}):`, ...report.vocabulary_practice_evidence.interferenceRadar.pairs.slice(0,10).map(p=>`  - ${inline(p.target)} vs ${inline(p.distractor)} (${inline(p.contrastAnchor||p.questionType)})`)]:[])]:[]),
+    ...(report.discourse_summary?.analyzedResponses?[
+      ``, `## Objective Expression X-Ray（零幻觉客观表达体检）`, ``,
+      `- Analyzed written/retelling responses: ${report.discourse_summary.analyzedResponses}`,
+      `- Total English output words: ${report.discourse_summary.totalOutputWords}`,
+      `- Avg sentence length: ${report.discourse_summary.avgSentenceWords} words · Avg lexical diversity: ${Math.round((report.discourse_summary.avgLexicalDiversity||0)*100)}%`,
+      `- Target chunks hit: ${report.discourse_summary.targetHits?.length ? report.discourse_summary.targetHits.join(', ') : 'none'}`,
+      `- Target chunks missed: ${report.discourse_summary.targetMissed?.length ? report.discourse_summary.targetMissed.join(', ') : 'none'}`,
+      `- Pack vocabulary actively reused: ${report.discourse_summary.packWordsReused?.length ? report.discourse_summary.packWordsReused.join(', ') : 'none'}`,
+      `- Cohesion markers detected: ${report.discourse_summary.cohesionMarkersUsed?.length ? report.discourse_summary.cohesionMarkersUsed.join(', ') : 'none'}`,
+      `- Note: Deterministic lexical/structural metrics only; NOT an AI grammar or IELTS band score.`
+    ]:[]),
+    ...(report.reading_analysis?.passage_metrics?.length?[
+      ``, `## Reading Passage Metrics（阅读词数与今日核心词覆盖）`, ``,
+      ...report.reading_analysis.passage_metrics.map(pm => `- ${inline(pm.title)}: ${pm.wordCount} words · Pack target words covered: ${pm.matchedPackCount}${pm.matchedPackWords?.length ? ` (${pm.matchedPackWords.slice(0,6).join(', ')})` : ''}`)
+    ]:[]),
+    ...(report.fsrs_shadow?[
+      ``, `## FSRS 6.3.2 Shadow Stability（独立回忆稳定度影子调度）`, ``,
+      `- Qualified independent recall events: ${report.fsrs_shadow.qualifiedIndependentEvents||0} (excluded choice/prompted/unrated: ${report.fsrs_shadow.excludedNonIndependentOrUnrated||0})`,
+      `- Tracked cards: ${report.fsrs_shadow.trackedCards||0} · Avg stability: ${report.fsrs_shadow.avgStabilityDays||0} days · High-risk/due: ${report.fsrs_shadow.highRiskCount||0}`
+    ]:[]),
     ``, `## Review recommendations`, ``, `- Due tomorrow: ${(report.review_items?.due_tomorrow || []).length}`,
     `- Needs practice: ${(report.review_items?.needing_practice || []).length}`, `- Review soon: ${(report.review_items?.review_soon || []).length}`, `- Stronger recall: ${(report.review_items?.stronger_recall || []).length}`, ``,
     `## Central Immortal Aperture handoff`, ``,
-    `请中央仙窍处理这份 English Cultivation 学习战报。先检查 report_id 和 session_id，避免重复录入。然后把真实训练时间与 K/V/N 数据同步到原有 Google Sheets，把重点错误和学习总结保存到原有 Notion，并将正式报告按现有归档规则保存到 Google Drive。所有写入都必须回读验证，失败事项明确标注，不得凭空填补学习记录。`
+    `请中央仙窍（Gemini）处理这份言道修炼殿 ${report.app_version||APP_VERSION} 学习战报：1）先按 report_id 和 session_id 去重，避免重复录入；2）将真实训练时间、K/V/N 与独立产出证据增量同步至 Google Sheets 唯一成长数据库，并将正式战报归档至 Google Drive 及更新重要信息墙；3）结合本战报中的「顽固易混词对雷达」「零幻觉客观表达体检（未命中词块）」与「FSRS 6.3.2 高风险到期词」，按 YANDAO-PACK-GEN-11.0 规范生成下一份单 ZIP 学习包。所有写入必须回读验证，触控选择题与微回炉不得冒充 K，严禁凭空填补学习记录。`
   ];
   return lines.join('\n');
 }

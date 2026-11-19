@@ -37,7 +37,7 @@ test('choice evidence persists in old backups and 10.5 recognition never becomes
  assert.match(app,/countsAsMasteryK:false/);
 });
 
-test('PWA version and offline cache include 11.0 plus retained 10.5 and 10.4.2 modules',()=>{
+test('PWA version and offline cache include 11.1.0 plus retained 10.5 and 10.4.2 modules',()=>{
  assert.equal(APP_VERSION,'11.1.0');
  assert.equal(pkg.version,'11.1.0');
  assert.match(sw,/english-cultivation-static-v11\.1\.0/);
