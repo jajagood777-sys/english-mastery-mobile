@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -40,10 +41,11 @@ test('AI request spec formats OpenRouter and Google AI Studio requests cleanly a
   assert.match(orSpec.init.headers.Authorization, /Bearer sk-or-v1-demo/);
 
   const gSpec = buildAiRequestSpec(
-    { provider: 'google_ai', apiKey: 'AIzaSyDemoKey', model: 'gemini-2.5-flash' },
+    { provider: 'google_ai', apiKey: 'AQ.Ab8DemoKey', model: 'gemini-flash-latest' },
     { systemPrompt: 'sys', userPrompt: 'usr' }
   );
-  assert.match(gSpec.url, /generativelanguage\.googleapis\.com/);
+  assert.match(gSpec.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-flash-latest:generateContent$/);
+  assert.equal(gSpec.init.headers['x-goog-api-key'], 'AQ.Ab8DemoKey');
 
   const mockFetch = async () => ({
     ok: true,
@@ -57,7 +59,7 @@ test('AI request spec formats OpenRouter and Google AI Studio requests cleanly a
   assert.match(reply, /mitigate/);
 });
 
-test('15.1.0 battle report and central feedback include manualReviewMarks from offline lexicon lookup', () => {
+test('15.1.1 battle report and central feedback include manualReviewMarks from offline lexicon lookup', () => {
   const manualMarks = [
     { word: 'vortex', itemId: 'w:1', markedAt: '2026-11-18T12:00:00Z', packId: 'P-1', source: 'offline_lexicon_lookup' }
   ];
@@ -67,7 +69,7 @@ test('15.1.0 battle report and central feedback include manualReviewMarks from o
     items: [],
     manualReviewMarks: manualMarks
   });
-  assert.equal(report.app_version, '15.1.0');
+  assert.equal(report.app_version, '15.1.1');
   assert.equal(report.manual_review_marks.length, 1);
   assert.equal(report.manual_review_marks[0].word, 'vortex');
 
@@ -78,4 +80,10 @@ test('15.1.0 battle report and central feedback include manualReviewMarks from o
   const fb = buildCentralLearningFeedback({ report });
   assert.equal(fb.manual_review_marks.length, 1);
   assert.equal(fb.manual_review_marks[0].word, 'vortex');
+});
+
+test('15.1.1 index.html CSP connect-src permits Google AI Studio and OpenRouter endpoints', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /connect-src[^;]*https:\/\/generativelanguage\.googleapis\.com/);
+  assert.match(html, /connect-src[^;]*https:\/\/openrouter\.ai/);
 });
