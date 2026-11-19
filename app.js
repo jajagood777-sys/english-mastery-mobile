@@ -11,7 +11,7 @@ import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
-import {RADIO_CHANNELS,computeShadowPauseMs,buildRadioPlaylist,summarizeRadioExposure} from './radio.mjs';
+import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,summarizeRadioExposure} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,synthesizeGeminiSpeech,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
@@ -257,8 +257,10 @@ function aiTutorSettingsPanel() {
 }
 
 let radioOpen = false;
-let radioChannel = "today_full";
+let radioChannel = "youtube_speeches";
 let radioScope = "all";
+let radioVoiceMode = "gemini";
+let radioRate = 0.9;
 let radioStopAfterRound = true;
 let radioShuffle = false;
 let radioPlaying = false;
@@ -270,6 +272,57 @@ let radioTimer = null;
 let radioTracks = [];
 let radioSessionLog = { clipsPlayed: 0, activeMs: 0, lastChannel: "" };
 let radioPlayStartAt = 0;
+let radioAudioEl = null;
+let radioAudioUnlocked = false;
+let radioActiveEngine = "";
+const SILENT_WAV_DATA_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+function ensureRadioAudioElement() {
+  if (typeof Audio === "undefined") return null;
+  if (!radioAudioEl) {
+    radioAudioEl = new Audio();
+    radioAudioEl.preload = "auto";
+    radioAudioEl.playsInline = true;
+  }
+  return radioAudioEl;
+}
+
+function unlockRadioAudio() {
+  try {
+    if (typeof navigator !== "undefined" && navigator.audioSession) {
+      navigator.audioSession.type = "playback";
+    }
+  } catch {}
+  const elAudio = ensureRadioAudioElement();
+  if (!elAudio || radioAudioUnlocked) return;
+  try {
+    elAudio.src = SILENT_WAV_DATA_URI;
+    elAudio.muted = true;
+    const p = elAudio.play();
+    if (p && typeof p.then === "function") {
+      p.then(() => {
+        try { elAudio.pause(); elAudio.muted = false; } catch {}
+        radioAudioUnlocked = true;
+      }).catch(() => {
+        try { elAudio.muted = false; } catch {}
+      });
+    } else {
+      elAudio.muted = false;
+      radioAudioUnlocked = true;
+    }
+  } catch {
+    try { elAudio.muted = false; } catch {}
+  }
+}
+
+function stopRadioAudioElement() {
+  if (!radioAudioEl) return;
+  try {
+    radioAudioEl.onended = null;
+    radioAudioEl.onerror = null;
+    radioAudioEl.pause();
+  } catch {}
+}
 
 function stopPocketRadio(keepOpen = true) {
   if (radioTimer) { clearTimeout(radioTimer); radioTimer = null; }
@@ -278,6 +331,8 @@ function stopPocketRadio(keepOpen = true) {
     radioPlayStartAt = 0;
   }
   radioPlaying = false;
+  radioActiveEngine = "";
+  stopRadioAudioElement();
   stopSpeech();
   stopActiveAudio();
   stopLocalAudio();
@@ -299,30 +354,104 @@ function refreshRadioTracks(forceShuffle = false) {
   if (radioIndex >= radioTracks.length) radioIndex = 0;
 }
 
-async function playRadioSegment(segText, rate) {
-  if (!radioPlaying || !segText) return;
+function prefetchNextRadioTrack(nextIdx) {
+  if (radioVoiceMode !== "gemini" || !radioTracks.length) return;
+  const cfg = loadAiConfig();
+  if (!isGeminiTtsReady(cfg)) return;
+  if (radioStopAfterRound && nextIdx >= radioTracks.length) return;
+  const wrapped = ((nextIdx % radioTracks.length) + radioTracks.length) % radioTracks.length;
+  const nextTrack = radioTracks[wrapped];
+  const firstSeg = Array.isArray(nextTrack?.segments) && nextTrack.segments.length ? nextTrack.segments[0] : nextTrack?.text;
+  if (firstSeg) {
+    fetchGeminiAudioUrl(firstSeg, cfg).catch(() => {});
+  }
+}
+
+function playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, revokeAfter = false) {
+  return new Promise(resolve => {
+    const audio = ensureRadioAudioElement();
+    if (!audio || radioPlaying !== myPlayToken) {
+      if (revokeAfter) try { URL.revokeObjectURL(url); } catch {}
+      resolve(false);
+      return;
+    }
+    let settled = false;
+    let wd = null;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      if (wd) { clearTimeout(wd); wd = null; }
+      try { audio.onended = null; audio.onerror = null; } catch {}
+      if (revokeAfter) try { URL.revokeObjectURL(url); } catch {}
+      resolve(ok);
+    };
+    wd = setTimeout(() => {
+      try { audio.pause(); } catch {}
+      finish(true);
+    }, watchdogMs);
+    audio.muted = false;
+    audio.src = url;
+    audio.playbackRate = Math.max(0.7, Math.min(1.3, Number(rate) || 0.9));
+    activeLocalAudio = audio;
+    audio.onended = () => finish(true);
+    audio.onerror = () => finish(false);
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => finish(false));
+    }
+  });
+}
+
+async function playRadioSegment(segText, rate, myPlayToken) {
+  if (radioPlaying !== myPlayToken || !segText) return;
+  const watchdogMs = computeSegmentWatchdogMs(segText, rate);
+
+  // 1. Gemini TTS priority (with single unlocked <audio> channel + cache)
+  if (radioVoiceMode === "gemini") {
+    const cfg = loadAiConfig();
+    if (isGeminiTtsReady(cfg)) {
+      try {
+        radioActiveEngine = `Gemini 语音 (${cfg.ttsVoice || "Kore"})`;
+        const url = await fetchGeminiAudioUrl(segText, cfg);
+        if (radioPlaying !== myPlayToken) return;
+        const ok = await playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, false);
+        if (ok) return;
+      } catch {}
+    }
+  }
+  if (radioPlaying !== myPlayToken) return;
+
+  // 2. Offline Kokoro af_heart clip (also routed through the single unlocked <audio> element)
   try {
     if (typeof getSpeechClip === "function" && typeof indexedDB !== "undefined") {
       const blob = await getSpeechClip(segText, "af_heart");
-      if (!radioPlaying) return;
+      if (radioPlaying !== myPlayToken) return;
       if (blob && blob.size > 0) {
-        await new Promise(resolve => {
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.playbackRate = rate;
-          activeLocalAudio = audio;
-          const done = () => { try { URL.revokeObjectURL(url); } catch {} resolve(); };
-          audio.onended = done;
-          audio.onerror = done;
-          audio.play().catch(done);
-        });
-        return;
+        radioActiveEngine = "Kokoro 离线美音";
+        const url = URL.createObjectURL(blob);
+        const ok = await playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, true);
+        if (ok) return;
       }
     }
   } catch {}
-  if (!radioPlaying) return;
+  if (radioPlaying !== myPlayToken) return;
+
+  // 3. Watchdog-protected Web Speech fallback (prevents iOS Safari silent hang on track 3)
   if (typeof window !== "undefined" && window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+    radioActiveEngine = "系统朗读兜底";
     await new Promise(resolve => {
+      let settled = false;
+      let wd = null;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        if (wd) { clearTimeout(wd); wd = null; }
+        resolve();
+      };
+      wd = setTimeout(() => {
+        try { window.speechSynthesis.cancel(); } catch {}
+        done();
+      }, watchdogMs);
       try {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(segText);
@@ -330,18 +459,19 @@ async function playRadioSegment(segText, rate) {
         if (voice) utter.voice = voice;
         utter.lang = voice?.lang || "en-US";
         utter.rate = rate;
-        utter.onend = () => resolve();
-        utter.onerror = () => resolve();
+        utter.onend = done;
+        utter.onerror = done;
         window.speechSynthesis.speak(utter);
-      } catch { resolve(); }
+      } catch { done(); }
     });
   }
 }
 
 async function playRadioTrackAt(idx) {
+  unlockRadioAudio();
   if (!radioTracks.length) refreshRadioTracks();
   if (!radioTracks.length) {
-    notify("当前曲库还没有可播放的英文词句，请先导入学习包或切换「全历史总曲库」。");
+    notify("当前频道暂无可播放条目，请切换到「YouTube 励志演讲」或「Notebook 口语与对话」。");
     stopPocketRadio(true);
     return;
   }
@@ -367,7 +497,7 @@ async function playRadioTrackAt(idx) {
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
-    artist: "言道修炼殿 14.1 随身电台 (Kokoro 优先)",
+    artist: "言道修炼殿 15.3 随身听 (Gemini 语音优先)",
     album: data.dailyPack?.title || "English Cultivation",
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
@@ -376,12 +506,12 @@ async function playRadioTrackAt(idx) {
   });
 
   render();
+  prefetchNextRadioTrack(radioIndex + 1);
 
-  const rate = radioChannel === "sleep_slow" ? 0.8 : Number(data.settings?.speechRate || 0.9);
   const segs = Array.isArray(track.segments) && track.segments.length ? track.segments : [track.text];
   for (let i = 0; i < segs.length; i++) {
     if (radioPlaying !== myPlayToken) return;
-    await playRadioSegment(segs[i], rate);
+    await playRadioSegment(segs[i], radioRate, myPlayToken);
     if (radioPlaying !== myPlayToken) return;
     if (i < segs.length - 1) {
       await new Promise(r => { radioTimer = setTimeout(r, 450); });
@@ -398,20 +528,26 @@ function renderPocketRadioDrawer() {
   if (!radioOpen) return el("span", "");
   refreshRadioTracks();
   const track = radioTracks[radioIndex] || null;
+  const geminiReady = isGeminiTtsReady();
+  const speedPreset = RADIO_SPEED_PRESETS.find(p => Math.abs(p.rate - radioRate) < 0.01) || RADIO_SPEED_PRESETS[1];
   const overlay = div("lexicon-drawer-backdrop");
   const panel = section("lexicon-drawer-panel pocket-radio-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🎧 随身磨耳朵电台 · POCKET RADIO (13.0)", "eyebrow"),
+    el("span", "🎧 随身磨耳朵电台 · POCKET RADIO (15.4.0)", "eyebrow"),
     btn("关闭 ✕", () => stopPocketRadio(false), "btn secondary small-btn")
   );
-  panel.append(head, p("戴上 AirPods 即可闭眼连播；支持锁屏切句、影子跟读自动留白与睡前定时。被动收听仅计入磨耳朵曝光，绝不冒充 K。", "tiny"));
+  panel.append(
+    head,
+    p("已升级单一常驻音频通道 + 下一条预缓冲 + 超时防卡死：支持 Gemini 语音连播 YouTube 励志演讲与 Notebook 口语对话。被动收听仅计入曝光，绝不冒充 K。", "tiny")
+  );
 
   const chRow = div("radio-channel-grid");
   RADIO_CHANNELS.forEach(ch => {
     const b = btn(ch.label, () => {
       radioChannel = ch.id;
       radioIndex = 0;
+      refreshRadioTracks();
       if (radioPlaying) playRadioTrackAt(0);
       else render();
     }, radioChannel === ch.id ? "btn primary small-btn" : "btn secondary small-btn");
@@ -421,14 +557,26 @@ function renderPocketRadioDrawer() {
 
   const nowCard = section("radio-now-playing");
   if (track) {
-    nowCard.append(
+    const badgeRow = div("journey-flow-controls");
+    badgeRow.append(
       el("span", `${track.badge} · 第 ${radioIndex + 1} / ${radioTracks.length} 条`, "chip tiny"),
+      el("span", radioActiveEngine || (radioVoiceMode === "gemini" && geminiReady ? "🎙️ Gemini 语音就绪" : "🔊 本地离线语音"), "chip tiny")
+    );
+    nowCard.append(
+      badgeRow,
       h("h3", track.title),
       p(track.text, "vocab-prompt-text"),
       track.subtext ? p(track.subtext, "tiny") : el("span", "")
     );
+    if (track.sourceUrl) {
+      const srcLink = el("a", "↗ 打开原视频出处", "tiny");
+      srcLink.href = track.sourceUrl;
+      srcLink.target = "_blank";
+      srcLink.rel = "noopener noreferrer";
+      nowCard.append(srcLink);
+    }
   } else {
-    nowCard.append(p("当前学习包暂无可播放条目，请先导入学习包。", "subtle"));
+    nowCard.append(p("当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。", "subtle"));
   }
   panel.append(nowCard);
 
@@ -445,13 +593,29 @@ function renderPocketRadioDrawer() {
 
   const optsRow = div("journey-flow-controls");
   optsRow.append(
-    btn(radioScope === "today" ? "📦 曲库：仅今日包" : "📚 曲库：全历史总曲库", () => {
-      radioScope = radioScope === "today" ? "all" : "today";
-      radioIndex = 0;
-      refreshRadioTracks();
-      if (radioPlaying) playRadioTrackAt(0);
+    btn(radioVoiceMode === "gemini" ? (geminiReady ? "🎙️ 语音：Gemini 优先" : "🎙️ Gemini（未配 Key 将回退本地）") : "🔊 语音：仅本地离线", () => {
+      radioVoiceMode = radioVoiceMode === "gemini" ? "local" : "gemini";
+      notify(radioVoiceMode === "gemini" ? "已切换为 Gemini 语音优先连播（带自动预缓冲）。" : "已切换为本地离线语音模式。");
+      if (radioPlaying) playRadioTrackAt(radioIndex);
       else render();
+    }, radioVoiceMode === "gemini" ? "btn secondary small-btn" : "btn ghost small-btn"),
+    btn(speedPreset.label, () => {
+      const idx = RADIO_SPEED_PRESETS.findIndex(p => Math.abs(p.rate - radioRate) < 0.01);
+      const next = RADIO_SPEED_PRESETS[(idx + 1) % RADIO_SPEED_PRESETS.length];
+      radioRate = next.rate;
+      if (radioAudioEl) try { radioAudioEl.playbackRate = radioRate; } catch {}
+      notify(`随身听语速已切换为 ${next.rate}×`);
+      render();
     }, "btn secondary small-btn"),
+    ...(radioChannel === "weak_sniper" || radioChannel === "sentences_listening" ? [
+      btn(radioScope === "today" ? "📦 曲库：仅今日包" : "📚 曲库：全历史总曲库", () => {
+        radioScope = radioScope === "today" ? "all" : "today";
+        radioIndex = 0;
+        refreshRadioTracks();
+        if (radioPlaying) playRadioTrackAt(0);
+        else render();
+      }, "btn secondary small-btn")
+    ] : []),
     btn(radioStopAfterRound ? "⏹ 播完本轮停播（防重复）" : "🔁 单轮循环播", () => {
       radioStopAfterRound = !radioStopAfterRound;
       render();
@@ -565,7 +729,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (15.2.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (15.4.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -916,7 +1080,7 @@ async function speakNaturalOrDevice(text,segments=null){const values=Array.isArr
 let geminiAudioEl=null;let geminiPlaybackToken=0;const geminiAudioCache=new Map();
 function geminiSpeechChunks(text){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return [];const sentences=clean.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[clean];const chunks=[];let current='';for(const sentence of sentences){const s=sentence.trim();if(!s)continue;const next=current?`${current} ${s}`:s;if(current&&next.length>560){chunks.push(current);current=s;}else current=next;}if(current)chunks.push(current);return chunks;}
 function stopGeminiAudio(){geminiPlaybackToken++;if(geminiAudioEl){try{geminiAudioEl.pause();geminiAudioEl.onended=null;geminiAudioEl.onerror=null;}catch{}geminiAudioEl=null;}}
-async function fetchGeminiAudioUrl(chunkText,cfg){const cacheKey=`${cfg.ttsVoice||'Kore'}|${cfg.ttsModel||GEMINI_TTS_DEFAULT_MODEL}|${chunkText}`;if(geminiAudioCache.has(cacheKey))return geminiAudioCache.get(cacheKey);const result=await synthesizeGeminiSpeech(chunkText,cfg);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=30){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return url;}
+async function fetchGeminiAudioUrl(chunkText,cfg){const cacheKey=`${cfg.ttsVoice||'Kore'}|${cfg.ttsModel||GEMINI_TTS_DEFAULT_MODEL}|${chunkText}`;if(geminiAudioCache.has(cacheKey))return geminiAudioCache.get(cacheKey);const result=await synthesizeGeminiSpeech(chunkText,cfg);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return url;}
 async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{notify('🔊 正在用 Gemini 语音朗读……');let nextPromise=fetchGeminiAudioUrl(chunks[0],cfg);for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const url=await nextPromise;if(token!==geminiPlaybackToken)return false;if(i+1<chunks.length)nextPromise=fetchGeminiAudioUrl(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const audio=new Audio(url);audio.playbackRate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));geminiAudioEl=audio;audio.onended=()=>{if(geminiAudioEl===audio)geminiAudioEl=null;resolve();};audio.onerror=()=>reject(Error('音频解码或播放失败'));audio.play().catch(reject);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂时不可用，已切换本地朗读：${String(error?.message||error).slice(0,60)}`);return speakNaturalOrDevice(clean,segments);}}
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}

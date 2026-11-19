@@ -1,7 +1,7 @@
 /**
- * BYOK AI English Tutor & Gemini TTS Engine (15.1.4)
- * Supports Google AI Studio (Gemini chat + Gemini TTS), OpenRouter free router,
- * and any OpenAI-compatible endpoint.
+ * BYOK AI English Tutor Engine (15.0.0)
+ * Supports zero-cost OpenRouter free router (`openrouter/free`),
+ * Google AI Studio free tier, and any OpenAI-compatible endpoint.
  *
  * SECURITY & PRIVACY RULES:
  * 1. API keys are stored ONLY in isolated localStorage (`yandao-ai-tutor-config.v1`),
@@ -10,21 +10,6 @@
  */
 
 export const AI_CONFIG_KEY = 'yandao-ai-tutor-config.v1';
-
-export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
-export const GEMINI_TTS_FALLBACK_MODEL = 'gemini-2.5-flash-preview-tts';
-export const GEMINI_TTS_DEFAULT_VOICE = 'Kore';
-
-export const GEMINI_TTS_VOICES = Object.freeze([
-  { id: 'Kore', label: 'Kore · 清晰沉稳（推荐）' },
-  { id: 'Aoede', label: 'Aoede · 自然轻快' },
-  { id: 'Sadaltager', label: 'Sadaltager · 学术朗读' },
-  { id: 'Charon', label: 'Charon · 播音男声' },
-  { id: 'Puck', label: 'Puck · 活力口语' },
-  { id: 'Zephyr', label: 'Zephyr · 明亮清晰' },
-  { id: 'Sulafat', label: 'Sulafat · 温暖柔和' },
-  { id: 'Fenrir', label: 'Fenrir · 富有表现力' }
-]);
 
 export const AI_PROVIDERS = Object.freeze({
   openrouter: {
@@ -52,19 +37,12 @@ export const AI_PROVIDERS = Object.freeze({
 
 const cleanAi = value => String(value ?? '').replace(/\r/g, '').trim();
 
-const validVoiceId = voice => {
-  const v = cleanAi(voice);
-  return GEMINI_TTS_VOICES.some(item => item.id === v) ? v : GEMINI_TTS_DEFAULT_VOICE;
-};
-
 export function defaultAiConfig() {
   return {
     provider: 'google_ai',
     apiKey: '',
     model: AI_PROVIDERS.google_ai.defaultModel,
-    customEndpoint: '',
-    ttsVoice: GEMINI_TTS_DEFAULT_VOICE,
-    ttsModel: GEMINI_TTS_DEFAULT_MODEL
+    customEndpoint: ''
   };
 }
 
@@ -80,9 +58,7 @@ export function loadAiConfig(storage = typeof localStorage !== 'undefined' ? loc
       provider,
       apiKey: cleanAi(parsed?.apiKey),
       model: (provider === 'google_ai' && cleanAi(parsed?.model) === 'gemini-2.5-flash' ? AI_PROVIDERS.google_ai.defaultModel : cleanAi(parsed?.model)) || AI_PROVIDERS[provider].defaultModel,
-      customEndpoint: cleanAi(parsed?.customEndpoint),
-      ttsVoice: validVoiceId(parsed?.ttsVoice),
-      ttsModel: cleanAi(parsed?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL
+      customEndpoint: cleanAi(parsed?.customEndpoint)
     };
   } catch {
     return base;
@@ -91,16 +67,12 @@ export function loadAiConfig(storage = typeof localStorage !== 'undefined' ? loc
 
 export function saveAiConfig(config = {}, storage = typeof localStorage !== 'undefined' ? localStorage : null) {
   if (!storage) return false;
-  const prev = loadAiConfig(storage);
-  const merged = { ...prev, ...config };
-  const provider = AI_PROVIDERS[merged.provider] ? merged.provider : 'google_ai';
+  const provider = AI_PROVIDERS[config.provider] ? config.provider : 'google_ai';
   const safe = {
     provider,
-    apiKey: cleanAi(merged.apiKey),
-    model: cleanAi(merged.model) || AI_PROVIDERS[provider].defaultModel,
-    customEndpoint: cleanAi(merged.customEndpoint),
-    ttsVoice: validVoiceId(merged.ttsVoice),
-    ttsModel: cleanAi(merged.ttsModel) || GEMINI_TTS_DEFAULT_MODEL
+    apiKey: cleanAi(config.apiKey),
+    model: cleanAi(config.model) || AI_PROVIDERS[provider].defaultModel,
+    customEndpoint: cleanAi(config.customEndpoint)
   };
   try {
     storage.setItem(AI_CONFIG_KEY, JSON.stringify(safe));
@@ -123,152 +95,6 @@ export function clearAiConfig(storage = typeof localStorage !== 'undefined' ? lo
 export function isAiTutorReady(config = null) {
   const cfg = config || loadAiConfig();
   return Boolean(cfg && cleanAi(cfg.apiKey).length >= 8);
-}
-
-export function isGeminiTtsReady(config = null) {
-  const cfg = config || loadAiConfig();
-  const key = cleanAi(cfg?.apiKey);
-  if (key.length < 8) return false;
-  return cfg?.provider === 'google_ai' || key.startsWith('AQ.') || key.startsWith('AIza');
-}
-
-/**
- * Decodes a base64 string into a Uint8Array in both browser and Node runtimes.
- */
-export function base64ToBytes(b64) {
-  const cleaned = String(b64 || '').replace(/\s+/g, '');
-  if (!cleaned) return new Uint8Array(0);
-  if (typeof atob === 'function') {
-    const binary = atob(cleaned);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-  return new Uint8Array(Buffer.from(cleaned, 'base64'));
-}
-
-/**
- * Wraps raw signed 16-bit little-endian PCM bytes in a standard 44-byte RIFF/WAVE header.
- */
-export function pcm16ToWavBytes(pcmBytes, sampleRate = 24000, channels = 1) {
-  const pcm = pcmBytes instanceof Uint8Array ? pcmBytes : new Uint8Array(pcmBytes || 0);
-  const bitsPerSample = 16;
-  const byteRate = sampleRate * channels * (bitsPerSample / 8);
-  const blockAlign = channels * (bitsPerSample / 8);
-  const wav = new Uint8Array(44 + pcm.byteLength);
-  const view = new DataView(wav.buffer);
-  const writeStr = (offset, str) => {
-    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-  };
-  writeStr(0, 'RIFF');
-  view.setUint32(4, 36 + pcm.byteLength, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, channels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitsPerSample, true);
-  writeStr(36, 'data');
-  view.setUint32(40, pcm.byteLength, true);
-  wav.set(pcm, 44);
-  return wav;
-}
-
-/**
- * Builds the REST request spec for Google AI Studio Gemini TTS (`generateContent` with AUDIO modality).
- */
-export function buildGeminiTtsRequestSpec(text, config = null, modelOverride = '') {
-  const cfg = config || loadAiConfig();
-  const apiKey = cleanAi(cfg?.apiKey);
-  if (!apiKey) throw Error('尚未配置 Google AI Studio API Key，无法调用 Gemini 语音。');
-  const voiceName = validVoiceId(cfg?.ttsVoice);
-  const model = cleanAi(modelOverride) || cleanAi(cfg?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL;
-  const cleanText = cleanAi(text).slice(0, 1800);
-  if (!cleanText) throw Error('没有可朗读的文本。');
-  const url = `${AI_PROVIDERS.google_ai.endpoint}/${encodeURIComponent(model)}:generateContent`;
-  return {
-    url,
-    model,
-    voiceName,
-    init: {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: cleanText }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName }
-            }
-          }
-        }
-      })
-    }
-  };
-}
-
-function hasRiffWavHeader(bytes) {
-  return bytes.byteLength >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
-}
-
-/**
- * Synthesizes natural English speech via Gemini TTS and returns playable WAV/audio bytes.
- * Automatically wraps raw L16/PCM responses in a standard WAV header and falls back to
- * `gemini-2.5-flash-preview-tts` if the primary TTS model returns 404/400/503.
- */
-export async function synthesizeGeminiSpeech(text, config = null, fetchImpl = typeof fetch !== 'undefined' ? fetch : null) {
-  const cfg = config || loadAiConfig();
-  if (!fetchImpl) throw Error('当前环境不支持网络请求。');
-  const primaryModel = cleanAi(cfg?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL;
-  const modelsToTry = primaryModel === GEMINI_TTS_FALLBACK_MODEL
-    ? [primaryModel]
-    : [primaryModel, GEMINI_TTS_FALLBACK_MODEL];
-
-  let lastError = null;
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const model = modelsToTry[i];
-    const spec = buildGeminiTtsRequestSpec(text, cfg, model);
-    const resp = await fetchImpl(spec.url, spec.init);
-    if (!resp.ok) {
-      let errText = '';
-      try { errText = (await resp.text()).slice(0, 180); } catch {}
-      lastError = Error(`Gemini 语音接口返回 ${resp.status}${errText ? `：${errText}` : ''}`);
-      if (i + 1 < modelsToTry.length && (resp.status === 404 || resp.status === 400 || resp.status === 503)) {
-        continue;
-      }
-      throw lastError;
-    }
-    const json = await resp.json();
-    const parts = json?.candidates?.[0]?.content?.parts || [];
-    const audioPart = parts.find(p => p?.inlineData?.data);
-    if (!audioPart?.inlineData?.data) {
-      throw Error('Gemini 语音接口未返回音频数据。');
-    }
-    const rawBytes = base64ToBytes(audioPart.inlineData.data);
-    const rawMime = String(audioPart.inlineData.mimeType || 'audio/wav');
-    const lowerMime = rawMime.toLowerCase();
-    let finalBytes = rawBytes;
-    let finalMime = rawMime;
-    if (lowerMime.includes('audio/l16') || lowerMime.includes('audio/pcm') || (!hasRiffWavHeader(rawBytes) && !lowerMime.includes('mpeg') && !lowerMime.includes('mp3') && !lowerMime.includes('ogg') && !lowerMime.includes('mp4'))) {
-      const rateMatch = lowerMime.match(/rate=(\d+)/);
-      const sampleRate = rateMatch ? Number(rateMatch[1]) || 24000 : 24000;
-      finalBytes = pcm16ToWavBytes(rawBytes, sampleRate, 1);
-      finalMime = 'audio/wav';
-    } else if (hasRiffWavHeader(rawBytes)) {
-      finalMime = 'audio/wav';
-    }
-    return {
-      bytes: finalBytes,
-      mimeType: finalMime,
-      modelUsed: spec.model,
-      voiceUsed: spec.voiceName
-    };
-  }
-  throw lastError || Error('Gemini 语音合成失败。');
 }
 
 /**
@@ -370,6 +196,7 @@ export async function testAiTutorConnection(config = null, fetchImpl = undefined
   );
 }
 
+
 export async function askAiDictionary({ query = '', context = '' } = {}, config = null, fetchImpl = undefined) {
   const sys = 'You are an English-to-English learner dictionary (like Oxford/Longman). Respond IN CLEAR, NATURAL ENGLISH ONLY (no Chinese). Format concisely: 1) Part of speech & plain-English definition 2) 3 natural collocations 3) 2 vivid example sentences 4) 1 easily confused synonym and how it differs.';
   const usr = `Look up: "${cleanAi(query)}"${context ? `\nContext: ${cleanAi(context).slice(0, 300)}` : ''}`;
@@ -379,18 +206,5 @@ export async function askAiDictionary({ query = '', context = '' } = {}, config 
 export async function askAiFreeTutor({ question = '', pageContext = '' } = {}, config = null, fetchImpl = undefined) {
   const sys = 'You are YanDao AI English Coach. Teach English through clear, encouraging English (English-to-English immersion). Be concise, practical, and accurate. Never invent official exam scores.';
   const usr = `${pageContext ? `Current study context: ${cleanAi(pageContext).slice(0, 400)}\n` : ''}Learner question: ${cleanAi(question)}`;
-  return runAiPrompt(sys, usr, config, fetchImpl);
-}
-export async function askAiCheckGrammar({ prompt = '', userAnswer = '', referenceAnswer = '', grammarFocus = '' } = {}, config = null, fetchImpl = undefined) {
-  const sys = 'You are a concise, encouraging English grammar coach. Respond IN CLEAR ENGLISH ONLY (no Chinese unless asked). Structure: 1) Accuracy Verdict (Correct / Minor Fix Needed / Needs Rework) 2) Rule Breakdown (1–2 crisp sentences) 3) Corrected Sentence & 1 Parallel Practice Variation.';
-  const usr = `Grammar Prompt: ${cleanAi(prompt)}${grammarFocus ? `\nGrammar Focus: ${cleanAi(grammarFocus)}` : ''}\nLearner Answer: ${cleanAi(userAnswer)}\nReference Answer: ${cleanAi(referenceAnswer) || 'N/A'}`;
-  return runAiPrompt(sys, usr, config, fetchImpl);
-}
-
-export async function askAiSpeakingDemoCoach({ prompt = '', userTranscript = '', mode = 'ielts_or_demo' } = {}, config = null, fetchImpl = undefined) {
-  const sys = mode === 'kids_demo'
-    ? 'You are a bilingual children-English teaching demo coach. Respond IN CLEAR, NATURAL ENGLISH ONLY. Structure: 1) Classroom Warmth & Pacing 2) Pronunciation / Connected-Speech Tip (including dropped-D or linking where helpful) 3) 2 Kid-Friendly Instruction Upgrades.'
-    : 'You are an encouraging IELTS Speaking & teaching-demo coach. Respond IN CLEAR, NATURAL ENGLISH ONLY (never fabricate an official band score). Structure: 1) Fluency & Clarity Strength 2) Grammar / Naturalness Polish (max 3) 3) 2 Native-Sounding Upgrades + 1 Connected-Speech Tip.';
-  const usr = `Speaking / Demo Prompt: ${cleanAi(prompt)}\nLearner Transcript / Draft: ${cleanAi(userTranscript)}`;
   return runAiPrompt(sys, usr, config, fetchImpl);
 }
