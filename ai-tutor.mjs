@@ -22,9 +22,9 @@ export const AI_PROVIDERS = Object.freeze({
   google_ai: {
     id: 'google_ai',
     label: 'Google AI Studio（免费层）',
-    defaultModel: 'gemini-2.5-flash',
+    defaultModel: 'gemini-flash-latest',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
-    keyHint: 'AIzaSy...'
+    keyHint: 'AQ.Ab8... 或 AIzaSy...'
   },
   openai_compatible: {
     id: 'openai_compatible',
@@ -57,7 +57,7 @@ export function loadAiConfig(storage = typeof localStorage !== 'undefined' ? loc
     return {
       provider,
       apiKey: cleanAi(parsed?.apiKey),
-      model: cleanAi(parsed?.model) || AI_PROVIDERS[provider].defaultModel,
+      model: (provider === 'google_ai' && cleanAi(parsed?.model) === 'gemini-2.5-flash' ? AI_PROVIDERS.google_ai.defaultModel : cleanAi(parsed?.model)) || AI_PROVIDERS[provider].defaultModel,
       customEndpoint: cleanAi(parsed?.customEndpoint)
     };
   } catch {
@@ -107,12 +107,12 @@ export function buildAiRequestSpec(config, { systemPrompt, userPrompt }) {
   if (!apiKey) throw Error('尚未配置 API Key。请先前往「设置 → 随身 AI 导师」粘贴你的免费 Key。');
 
   if (provider === 'google_ai') {
-    const url = `${AI_PROVIDERS.google_ai.endpoint}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const url = `${AI_PROVIDERS.google_ai.endpoint}/${encodeURIComponent(model)}:generateContent`;
     return {
       url,
       init: {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
