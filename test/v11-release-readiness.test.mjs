@@ -37,10 +37,10 @@ test('choice evidence persists in old backups and 10.5 recognition never becomes
  assert.match(app,/countsAsMasteryK:false/);
 });
 
-test('PWA version and offline cache include 14.1.0 plus retained 10.5 and 10.4.2 modules',()=>{
- assert.equal(APP_VERSION,'14.1.0');
- assert.equal(pkg.version,'14.1.0');
- assert.match(sw,/english-cultivation-static-v14\.1\.0/);
+test('PWA version and offline cache include 15.1.0 plus retained 10.5 and 10.4.2 modules',()=>{
+ assert.equal(APP_VERSION,'15.1.0');
+ assert.equal(pkg.version,'15.1.0');
+ assert.match(sw,/english-cultivation-static-v15\.1\.0/);
  for(const asset of ['vocab.mjs','cdtl.mjs','studio.mjs','handover.mjs'])assert.ok(sw.includes("'./"+asset+"'"),'Missing offline asset '+asset);
 });
 
