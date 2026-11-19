@@ -62,6 +62,12 @@ jobs:
                       assert legacy_marker not in blob.decode('utf-8'), 'Duplicate legacy vocab exports'
                       blob+= ('\n'+previous[previous.index(legacy_marker):]).encode('utf-8')
                   dst.write_bytes(blob)
+          service_worker=pathlib.Path('sw.js')
+          worker_code=service_worker.read_text('utf-8')
+          asset_anchor="'./cdtl.mjs',"
+          assert worker_code.count(asset_anchor)==1
+          worker_code=worker_code.replace(asset_anchor,asset_anchor+"'./studio.mjs','./handover.mjs',",1)
+          service_worker.write_text(worker_code,'utf-8')
           old_test=pathlib.Path('test/v11-release-readiness.test.mjs')
           old_code=old_test.read_text('utf-8')
           assert "assert.equal(APP_VERSION,'13.0.0')" in old_code
