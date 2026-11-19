@@ -1,0 +1,2917 @@
+{
+  "schema_version": "1.0",
+  "source": "curated static reference for English Cultivation",
+  "notice": "Reference distinctions are concise learning cues and should be checked against the sentence context.",
+  "entries": [
+    {
+      "id": "lex-001",
+      "target": "accept",
+      "confusable_with": [
+        "except"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "accept and except are distinct English forms. Use accept when its own dictionary meaning and grammatical role fit the sentence, and use except for the contrasting meaning or form.",
+      "natural_collocations": [
+        "accept clearly",
+        "accept in context",
+        "except clearly"
+      ],
+      "sample_context": "The report uses accept precisely and distinguishes it from except."
+    },
+    {
+      "id": "lex-002",
+      "target": "access",
+      "confusable_with": [
+        "excess"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "access and excess are distinct English forms. Use access when its own dictionary meaning and grammatical role fit the sentence, and use excess for the contrasting meaning or form.",
+      "natural_collocations": [
+        "access clearly",
+        "access in context",
+        "excess clearly"
+      ],
+      "sample_context": "The report uses access precisely and distinguishes it from excess."
+    },
+    {
+      "id": "lex-003",
+      "target": "adapt",
+      "confusable_with": [
+        "adopt"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "adapt and adopt are distinct English forms. Use adapt when its own dictionary meaning and grammatical role fit the sentence, and use adopt for the contrasting meaning or form.",
+      "natural_collocations": [
+        "adapt clearly",
+        "adapt in context",
+        "adopt clearly"
+      ],
+      "sample_context": "The report uses adapt precisely and distinguishes it from adopt."
+    },
+    {
+      "id": "lex-004",
+      "target": "adverse",
+      "confusable_with": [
+        "averse"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "adverse and averse are distinct English forms. Use adverse when its own dictionary meaning and grammatical role fit the sentence, and use averse for the contrasting meaning or form.",
+      "natural_collocations": [
+        "adverse clearly",
+        "adverse in context",
+        "averse clearly"
+      ],
+      "sample_context": "The report uses adverse precisely and distinguishes it from averse."
+    },
+    {
+      "id": "lex-005",
+      "target": "affect",
+      "confusable_with": [
+        "effect"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "affect and effect are distinct English forms. Use affect when its own dictionary meaning and grammatical role fit the sentence, and use effect for the contrasting meaning or form.",
+      "natural_collocations": [
+        "affect clearly",
+        "affect in context",
+        "effect clearly"
+      ],
+      "sample_context": "The report uses affect precisely and distinguishes it from effect."
+    },
+    {
+      "id": "lex-006",
+      "target": "allusion",
+      "confusable_with": [
+        "illusion"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "allusion and illusion are distinct English forms. Use allusion when its own dictionary meaning and grammatical role fit the sentence, and use illusion for the contrasting meaning or form.",
+      "natural_collocations": [
+        "allusion clearly",
+        "allusion in context",
+        "illusion clearly"
+      ],
+      "sample_context": "The report uses allusion precisely and distinguishes it from illusion."
+    },
+    {
+      "id": "lex-007",
+      "target": "altar",
+      "confusable_with": [
+        "alter"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "altar and alter are distinct English forms. Use altar when its own dictionary meaning and grammatical role fit the sentence, and use alter for the contrasting meaning or form.",
+      "natural_collocations": [
+        "altar clearly",
+        "altar in context",
+        "alter clearly"
+      ],
+      "sample_context": "The report uses altar precisely and distinguishes it from alter."
+    },
+    {
+      "id": "lex-008",
+      "target": "appraise",
+      "confusable_with": [
+        "apprise"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "appraise and apprise are distinct English forms. Use appraise when its own dictionary meaning and grammatical role fit the sentence, and use apprise for the contrasting meaning or form.",
+      "natural_collocations": [
+        "appraise clearly",
+        "appraise in context",
+        "apprise clearly"
+      ],
+      "sample_context": "The report uses appraise precisely and distinguishes it from apprise."
+    },
+    {
+      "id": "lex-009",
+      "target": "assure",
+      "confusable_with": [
+        "ensure"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "assure and ensure are distinct English forms. Use assure when its own dictionary meaning and grammatical role fit the sentence, and use ensure for the contrasting meaning or form.",
+      "natural_collocations": [
+        "assure clearly",
+        "assure in context",
+        "ensure clearly"
+      ],
+      "sample_context": "The report uses assure precisely and distinguishes it from ensure."
+    },
+    {
+      "id": "lex-010",
+      "target": "beside",
+      "confusable_with": [
+        "besides"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "beside and besides are distinct English forms. Use beside when its own dictionary meaning and grammatical role fit the sentence, and use besides for the contrasting meaning or form.",
+      "natural_collocations": [
+        "beside clearly",
+        "beside in context",
+        "besides clearly"
+      ],
+      "sample_context": "The report uses beside precisely and distinguishes it from besides."
+    },
+    {
+      "id": "lex-011",
+      "target": "breath",
+      "confusable_with": [
+        "breathe"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "breath and breathe are distinct English forms. Use breath when its own dictionary meaning and grammatical role fit the sentence, and use breathe for the contrasting meaning or form.",
+      "natural_collocations": [
+        "breath clearly",
+        "breath in context",
+        "breathe clearly"
+      ],
+      "sample_context": "The report uses breath precisely and distinguishes it from breathe."
+    },
+    {
+      "id": "lex-012",
+      "target": "cite",
+      "confusable_with": [
+        "site"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "cite and site are distinct English forms. Use cite when its own dictionary meaning and grammatical role fit the sentence, and use site for the contrasting meaning or form.",
+      "natural_collocations": [
+        "cite clearly",
+        "cite in context",
+        "site clearly"
+      ],
+      "sample_context": "The report uses cite precisely and distinguishes it from site."
+    },
+    {
+      "id": "lex-013",
+      "target": "coarse",
+      "confusable_with": [
+        "course"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "coarse and course are distinct English forms. Use coarse when its own dictionary meaning and grammatical role fit the sentence, and use course for the contrasting meaning or form.",
+      "natural_collocations": [
+        "coarse clearly",
+        "coarse in context",
+        "course clearly"
+      ],
+      "sample_context": "The report uses coarse precisely and distinguishes it from course."
+    },
+    {
+      "id": "lex-014",
+      "target": "complement",
+      "confusable_with": [
+        "compliment"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "complement and compliment are distinct English forms. Use complement when its own dictionary meaning and grammatical role fit the sentence, and use compliment for the contrasting meaning or form.",
+      "natural_collocations": [
+        "complement clearly",
+        "complement in context",
+        "compliment clearly"
+      ],
+      "sample_context": "The report uses complement precisely and distinguishes it from compliment."
+    },
+    {
+      "id": "lex-015",
+      "target": "comprehensive",
+      "confusable_with": [
+        "comprehensible"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "comprehensive and comprehensible are distinct English forms. Use comprehensive when its own dictionary meaning and grammatical role fit the sentence, and use comprehensible for the contrasting meaning or form.",
+      "natural_collocations": [
+        "comprehensive clearly",
+        "comprehensive in context",
+        "comprehensible clearly"
+      ],
+      "sample_context": "The report uses comprehensive precisely and distinguishes it from comprehensible."
+    },
+    {
+      "id": "lex-016",
+      "target": "conscious",
+      "confusable_with": [
+        "conscientious"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "conscious and conscientious are distinct English forms. Use conscious when its own dictionary meaning and grammatical role fit the sentence, and use conscientious for the contrasting meaning or form.",
+      "natural_collocations": [
+        "conscious clearly",
+        "conscious in context",
+        "conscientious clearly"
+      ],
+      "sample_context": "The report uses conscious precisely and distinguishes it from conscientious."
+    },
+    {
+      "id": "lex-017",
+      "target": "credible",
+      "confusable_with": [
+        "creditable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "credible and creditable are distinct English forms. Use credible when its own dictionary meaning and grammatical role fit the sentence, and use creditable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "credible clearly",
+        "credible in context",
+        "creditable clearly"
+      ],
+      "sample_context": "The report uses credible precisely and distinguishes it from creditable."
+    },
+    {
+      "id": "lex-018",
+      "target": "decent",
+      "confusable_with": [
+        "descent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "decent and descent are distinct English forms. Use decent when its own dictionary meaning and grammatical role fit the sentence, and use descent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "decent clearly",
+        "decent in context",
+        "descent clearly"
+      ],
+      "sample_context": "The report uses decent precisely and distinguishes it from descent."
+    },
+    {
+      "id": "lex-019",
+      "target": "device",
+      "confusable_with": [
+        "devise"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "device and devise are distinct English forms. Use device when its own dictionary meaning and grammatical role fit the sentence, and use devise for the contrasting meaning or form.",
+      "natural_collocations": [
+        "device clearly",
+        "device in context",
+        "devise clearly"
+      ],
+      "sample_context": "The report uses device precisely and distinguishes it from devise."
+    },
+    {
+      "id": "lex-020",
+      "target": "discreet",
+      "confusable_with": [
+        "discrete"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "discreet and discrete are distinct English forms. Use discreet when its own dictionary meaning and grammatical role fit the sentence, and use discrete for the contrasting meaning or form.",
+      "natural_collocations": [
+        "discreet clearly",
+        "discreet in context",
+        "discrete clearly"
+      ],
+      "sample_context": "The report uses discreet precisely and distinguishes it from discrete."
+    },
+    {
+      "id": "lex-021",
+      "target": "disinterested",
+      "confusable_with": [
+        "uninterested"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "disinterested and uninterested are distinct English forms. Use disinterested when its own dictionary meaning and grammatical role fit the sentence, and use uninterested for the contrasting meaning or form.",
+      "natural_collocations": [
+        "disinterested clearly",
+        "disinterested in context",
+        "uninterested clearly"
+      ],
+      "sample_context": "The report uses disinterested precisely and distinguishes it from uninterested."
+    },
+    {
+      "id": "lex-022",
+      "target": "economic",
+      "confusable_with": [
+        "economical"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "economic and economical are distinct English forms. Use economic when its own dictionary meaning and grammatical role fit the sentence, and use economical for the contrasting meaning or form.",
+      "natural_collocations": [
+        "economic clearly",
+        "economic in context",
+        "economical clearly"
+      ],
+      "sample_context": "The report uses economic precisely and distinguishes it from economical."
+    },
+    {
+      "id": "lex-023",
+      "target": "emigrate",
+      "confusable_with": [
+        "immigrate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "emigrate and immigrate are distinct English forms. Use emigrate when its own dictionary meaning and grammatical role fit the sentence, and use immigrate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "emigrate clearly",
+        "emigrate in context",
+        "immigrate clearly"
+      ],
+      "sample_context": "The report uses emigrate precisely and distinguishes it from immigrate."
+    },
+    {
+      "id": "lex-024",
+      "target": "eminent",
+      "confusable_with": [
+        "imminent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "eminent and imminent are distinct English forms. Use eminent when its own dictionary meaning and grammatical role fit the sentence, and use imminent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "eminent clearly",
+        "eminent in context",
+        "imminent clearly"
+      ],
+      "sample_context": "The report uses eminent precisely and distinguishes it from imminent."
+    },
+    {
+      "id": "lex-025",
+      "target": "explicit",
+      "confusable_with": [
+        "implicit"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "explicit and implicit are distinct English forms. Use explicit when its own dictionary meaning and grammatical role fit the sentence, and use implicit for the contrasting meaning or form.",
+      "natural_collocations": [
+        "explicit clearly",
+        "explicit in context",
+        "implicit clearly"
+      ],
+      "sample_context": "The report uses explicit precisely and distinguishes it from implicit."
+    },
+    {
+      "id": "lex-026",
+      "target": "farther",
+      "confusable_with": [
+        "further"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "farther and further are distinct English forms. Use farther when its own dictionary meaning and grammatical role fit the sentence, and use further for the contrasting meaning or form.",
+      "natural_collocations": [
+        "farther clearly",
+        "farther in context",
+        "further clearly"
+      ],
+      "sample_context": "The report uses farther precisely and distinguishes it from further."
+    },
+    {
+      "id": "lex-027",
+      "target": "fewer",
+      "confusable_with": [
+        "less"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "fewer and less are distinct English forms. Use fewer when its own dictionary meaning and grammatical role fit the sentence, and use less for the contrasting meaning or form.",
+      "natural_collocations": [
+        "fewer clearly",
+        "fewer in context",
+        "less clearly"
+      ],
+      "sample_context": "The report uses fewer precisely and distinguishes it from less."
+    },
+    {
+      "id": "lex-028",
+      "target": "formally",
+      "confusable_with": [
+        "formerly"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "formally and formerly are distinct English forms. Use formally when its own dictionary meaning and grammatical role fit the sentence, and use formerly for the contrasting meaning or form.",
+      "natural_collocations": [
+        "formally clearly",
+        "formally in context",
+        "formerly clearly"
+      ],
+      "sample_context": "The report uses formally precisely and distinguishes it from formerly."
+    },
+    {
+      "id": "lex-029",
+      "target": "historic",
+      "confusable_with": [
+        "historical"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "historic and historical are distinct English forms. Use historic when its own dictionary meaning and grammatical role fit the sentence, and use historical for the contrasting meaning or form.",
+      "natural_collocations": [
+        "historic clearly",
+        "historic in context",
+        "historical clearly"
+      ],
+      "sample_context": "The report uses historic precisely and distinguishes it from historical."
+    },
+    {
+      "id": "lex-030",
+      "target": "human",
+      "confusable_with": [
+        "humane"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "human and humane are distinct English forms. Use human when its own dictionary meaning and grammatical role fit the sentence, and use humane for the contrasting meaning or form.",
+      "natural_collocations": [
+        "human clearly",
+        "human in context",
+        "humane clearly"
+      ],
+      "sample_context": "The report uses human precisely and distinguishes it from humane."
+    },
+    {
+      "id": "lex-031",
+      "target": "imply",
+      "confusable_with": [
+        "infer"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "imply and infer are distinct English forms. Use imply when its own dictionary meaning and grammatical role fit the sentence, and use infer for the contrasting meaning or form.",
+      "natural_collocations": [
+        "imply clearly",
+        "imply in context",
+        "infer clearly"
+      ],
+      "sample_context": "The report uses imply precisely and distinguishes it from infer."
+    },
+    {
+      "id": "lex-032",
+      "target": "ingenious",
+      "confusable_with": [
+        "ingenuous"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "ingenious and ingenuous are distinct English forms. Use ingenious when its own dictionary meaning and grammatical role fit the sentence, and use ingenuous for the contrasting meaning or form.",
+      "natural_collocations": [
+        "ingenious clearly",
+        "ingenious in context",
+        "ingenuous clearly"
+      ],
+      "sample_context": "The report uses ingenious precisely and distinguishes it from ingenuous."
+    },
+    {
+      "id": "lex-033",
+      "target": "intense",
+      "confusable_with": [
+        "intensive"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "intense and intensive are distinct English forms. Use intense when its own dictionary meaning and grammatical role fit the sentence, and use intensive for the contrasting meaning or form.",
+      "natural_collocations": [
+        "intense clearly",
+        "intense in context",
+        "intensive clearly"
+      ],
+      "sample_context": "The report uses intense precisely and distinguishes it from intensive."
+    },
+    {
+      "id": "lex-034",
+      "target": "lay",
+      "confusable_with": [
+        "lie"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "lay and lie are distinct English forms. Use lay when its own dictionary meaning and grammatical role fit the sentence, and use lie for the contrasting meaning or form.",
+      "natural_collocations": [
+        "lay clearly",
+        "lay in context",
+        "lie clearly"
+      ],
+      "sample_context": "The report uses lay precisely and distinguishes it from lie."
+    },
+    {
+      "id": "lex-035",
+      "target": "loose",
+      "confusable_with": [
+        "lose"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "loose and lose are distinct English forms. Use loose when its own dictionary meaning and grammatical role fit the sentence, and use lose for the contrasting meaning or form.",
+      "natural_collocations": [
+        "loose clearly",
+        "loose in context",
+        "lose clearly"
+      ],
+      "sample_context": "The report uses loose precisely and distinguishes it from lose."
+    },
+    {
+      "id": "lex-036",
+      "target": "moral",
+      "confusable_with": [
+        "morale"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "moral and morale are distinct English forms. Use moral when its own dictionary meaning and grammatical role fit the sentence, and use morale for the contrasting meaning or form.",
+      "natural_collocations": [
+        "moral clearly",
+        "moral in context",
+        "morale clearly"
+      ],
+      "sample_context": "The report uses moral precisely and distinguishes it from morale."
+    },
+    {
+      "id": "lex-037",
+      "target": "personal",
+      "confusable_with": [
+        "personnel"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "personal and personnel are distinct English forms. Use personal when its own dictionary meaning and grammatical role fit the sentence, and use personnel for the contrasting meaning or form.",
+      "natural_collocations": [
+        "personal clearly",
+        "personal in context",
+        "personnel clearly"
+      ],
+      "sample_context": "The report uses personal precisely and distinguishes it from personnel."
+    },
+    {
+      "id": "lex-038",
+      "target": "precede",
+      "confusable_with": [
+        "proceed"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "precede and proceed are distinct English forms. Use precede when its own dictionary meaning and grammatical role fit the sentence, and use proceed for the contrasting meaning or form.",
+      "natural_collocations": [
+        "precede clearly",
+        "precede in context",
+        "proceed clearly"
+      ],
+      "sample_context": "The report uses precede precisely and distinguishes it from proceed."
+    },
+    {
+      "id": "lex-039",
+      "target": "principal",
+      "confusable_with": [
+        "principle"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "principal and principle are distinct English forms. Use principal when its own dictionary meaning and grammatical role fit the sentence, and use principle for the contrasting meaning or form.",
+      "natural_collocations": [
+        "principal clearly",
+        "principal in context",
+        "principle clearly"
+      ],
+      "sample_context": "The report uses principal precisely and distinguishes it from principle."
+    },
+    {
+      "id": "lex-040",
+      "target": "raise",
+      "confusable_with": [
+        "rise"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "raise and rise are distinct English forms. Use raise when its own dictionary meaning and grammatical role fit the sentence, and use rise for the contrasting meaning or form.",
+      "natural_collocations": [
+        "raise clearly",
+        "raise in context",
+        "rise clearly"
+      ],
+      "sample_context": "The report uses raise precisely and distinguishes it from rise."
+    },
+    {
+      "id": "lex-041",
+      "target": "stationary",
+      "confusable_with": [
+        "stationery"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "stationary and stationery are distinct English forms. Use stationary when its own dictionary meaning and grammatical role fit the sentence, and use stationery for the contrasting meaning or form.",
+      "natural_collocations": [
+        "stationary clearly",
+        "stationary in context",
+        "stationery clearly"
+      ],
+      "sample_context": "The report uses stationary precisely and distinguishes it from stationery."
+    },
+    {
+      "id": "lex-042",
+      "target": "than",
+      "confusable_with": [
+        "then"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "than and then are distinct English forms. Use than when its own dictionary meaning and grammatical role fit the sentence, and use then for the contrasting meaning or form.",
+      "natural_collocations": [
+        "than clearly",
+        "than in context",
+        "then clearly"
+      ],
+      "sample_context": "The report uses than precisely and distinguishes it from then."
+    },
+    {
+      "id": "lex-043",
+      "target": "there",
+      "confusable_with": [
+        "their"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "there and their are distinct English forms. Use there when its own dictionary meaning and grammatical role fit the sentence, and use their for the contrasting meaning or form.",
+      "natural_collocations": [
+        "there clearly",
+        "there in context",
+        "their clearly"
+      ],
+      "sample_context": "The report uses there precisely and distinguishes it from their."
+    },
+    {
+      "id": "lex-044",
+      "target": "transitive",
+      "confusable_with": [
+        "transitional"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "transitive and transitional are distinct English forms. Use transitive when its own dictionary meaning and grammatical role fit the sentence, and use transitional for the contrasting meaning or form.",
+      "natural_collocations": [
+        "transitive clearly",
+        "transitive in context",
+        "transitional clearly"
+      ],
+      "sample_context": "The report uses transitive precisely and distinguishes it from transitional."
+    },
+    {
+      "id": "lex-045",
+      "target": "use",
+      "confusable_with": [
+        "utilize"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "use and utilize are distinct English forms. Use use when its own dictionary meaning and grammatical role fit the sentence, and use utilize for the contrasting meaning or form.",
+      "natural_collocations": [
+        "use clearly",
+        "use in context",
+        "utilize clearly"
+      ],
+      "sample_context": "The report uses use precisely and distinguishes it from utilize."
+    },
+    {
+      "id": "lex-046",
+      "target": "weather",
+      "confusable_with": [
+        "whether"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "weather and whether are distinct English forms. Use weather when its own dictionary meaning and grammatical role fit the sentence, and use whether for the contrasting meaning or form.",
+      "natural_collocations": [
+        "weather clearly",
+        "weather in context",
+        "whether clearly"
+      ],
+      "sample_context": "The report uses weather precisely and distinguishes it from whether."
+    },
+    {
+      "id": "lex-047",
+      "target": "who",
+      "confusable_with": [
+        "whom"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "who and whom are distinct English forms. Use who when its own dictionary meaning and grammatical role fit the sentence, and use whom for the contrasting meaning or form.",
+      "natural_collocations": [
+        "who clearly",
+        "who in context",
+        "whom clearly"
+      ],
+      "sample_context": "The report uses who precisely and distinguishes it from whom."
+    },
+    {
+      "id": "lex-048",
+      "target": "whose",
+      "confusable_with": [
+        "who's"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "whose and who's are distinct English forms. Use whose when its own dictionary meaning and grammatical role fit the sentence, and use who's for the contrasting meaning or form.",
+      "natural_collocations": [
+        "whose clearly",
+        "whose in context",
+        "who's clearly"
+      ],
+      "sample_context": "The report uses whose precisely and distinguishes it from who's."
+    },
+    {
+      "id": "lex-049",
+      "target": "advice",
+      "confusable_with": [
+        "advise"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "advice and advise are distinct English forms. Use advice when its own dictionary meaning and grammatical role fit the sentence, and use advise for the contrasting meaning or form.",
+      "natural_collocations": [
+        "advice clearly",
+        "advice in context",
+        "advise clearly"
+      ],
+      "sample_context": "The report uses advice precisely and distinguishes it from advise."
+    },
+    {
+      "id": "lex-050",
+      "target": "breach",
+      "confusable_with": [
+        "breech"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "breach and breech are distinct English forms. Use breach when its own dictionary meaning and grammatical role fit the sentence, and use breech for the contrasting meaning or form.",
+      "natural_collocations": [
+        "breach clearly",
+        "breach in context",
+        "breech clearly"
+      ],
+      "sample_context": "The report uses breach precisely and distinguishes it from breech."
+    },
+    {
+      "id": "lex-051",
+      "target": "canvas",
+      "confusable_with": [
+        "canvass"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "canvas and canvass are distinct English forms. Use canvas when its own dictionary meaning and grammatical role fit the sentence, and use canvass for the contrasting meaning or form.",
+      "natural_collocations": [
+        "canvas clearly",
+        "canvas in context",
+        "canvass clearly"
+      ],
+      "sample_context": "The report uses canvas precisely and distinguishes it from canvass."
+    },
+    {
+      "id": "lex-052",
+      "target": "council",
+      "confusable_with": [
+        "counsel"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "council and counsel are distinct English forms. Use council when its own dictionary meaning and grammatical role fit the sentence, and use counsel for the contrasting meaning or form.",
+      "natural_collocations": [
+        "council clearly",
+        "council in context",
+        "counsel clearly"
+      ],
+      "sample_context": "The report uses council precisely and distinguishes it from counsel."
+    },
+    {
+      "id": "lex-053",
+      "target": "defuse",
+      "confusable_with": [
+        "diffuse"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "defuse and diffuse are distinct English forms. Use defuse when its own dictionary meaning and grammatical role fit the sentence, and use diffuse for the contrasting meaning or form.",
+      "natural_collocations": [
+        "defuse clearly",
+        "defuse in context",
+        "diffuse clearly"
+      ],
+      "sample_context": "The report uses defuse precisely and distinguishes it from diffuse."
+    },
+    {
+      "id": "lex-054",
+      "target": "dependant",
+      "confusable_with": [
+        "dependent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "dependant and dependent are distinct English forms. Use dependant when its own dictionary meaning and grammatical role fit the sentence, and use dependent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "dependant clearly",
+        "dependant in context",
+        "dependent clearly"
+      ],
+      "sample_context": "The report uses dependant precisely and distinguishes it from dependent."
+    },
+    {
+      "id": "lex-055",
+      "target": "desert",
+      "confusable_with": [
+        "dessert"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "desert and dessert are distinct English forms. Use desert when its own dictionary meaning and grammatical role fit the sentence, and use dessert for the contrasting meaning or form.",
+      "natural_collocations": [
+        "desert clearly",
+        "desert in context",
+        "dessert clearly"
+      ],
+      "sample_context": "The report uses desert precisely and distinguishes it from dessert."
+    },
+    {
+      "id": "lex-056",
+      "target": "dual",
+      "confusable_with": [
+        "duel"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "dual and duel are distinct English forms. Use dual when its own dictionary meaning and grammatical role fit the sentence, and use duel for the contrasting meaning or form.",
+      "natural_collocations": [
+        "dual clearly",
+        "dual in context",
+        "duel clearly"
+      ],
+      "sample_context": "The report uses dual precisely and distinguishes it from duel."
+    },
+    {
+      "id": "lex-057",
+      "target": "elicit",
+      "confusable_with": [
+        "illicit"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "elicit and illicit are distinct English forms. Use elicit when its own dictionary meaning and grammatical role fit the sentence, and use illicit for the contrasting meaning or form.",
+      "natural_collocations": [
+        "elicit clearly",
+        "elicit in context",
+        "illicit clearly"
+      ],
+      "sample_context": "The report uses elicit precisely and distinguishes it from illicit."
+    },
+    {
+      "id": "lex-058",
+      "target": "flair",
+      "confusable_with": [
+        "flare"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "flair and flare are distinct English forms. Use flair when its own dictionary meaning and grammatical role fit the sentence, and use flare for the contrasting meaning or form.",
+      "natural_collocations": [
+        "flair clearly",
+        "flair in context",
+        "flare clearly"
+      ],
+      "sample_context": "The report uses flair precisely and distinguishes it from flare."
+    },
+    {
+      "id": "lex-059",
+      "target": "flaunt",
+      "confusable_with": [
+        "flout"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "flaunt and flout are distinct English forms. Use flaunt when its own dictionary meaning and grammatical role fit the sentence, and use flout for the contrasting meaning or form.",
+      "natural_collocations": [
+        "flaunt clearly",
+        "flaunt in context",
+        "flout clearly"
+      ],
+      "sample_context": "The report uses flaunt precisely and distinguishes it from flout."
+    },
+    {
+      "id": "lex-060",
+      "target": "foreword",
+      "confusable_with": [
+        "forward"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "foreword and forward are distinct English forms. Use foreword when its own dictionary meaning and grammatical role fit the sentence, and use forward for the contrasting meaning or form.",
+      "natural_collocations": [
+        "foreword clearly",
+        "foreword in context",
+        "forward clearly"
+      ],
+      "sample_context": "The report uses foreword precisely and distinguishes it from forward."
+    },
+    {
+      "id": "lex-061",
+      "target": "herd",
+      "confusable_with": [
+        "heard"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "herd and heard are distinct English forms. Use herd when its own dictionary meaning and grammatical role fit the sentence, and use heard for the contrasting meaning or form.",
+      "natural_collocations": [
+        "herd clearly",
+        "herd in context",
+        "heard clearly"
+      ],
+      "sample_context": "The report uses herd precisely and distinguishes it from heard."
+    },
+    {
+      "id": "lex-062",
+      "target": "hoard",
+      "confusable_with": [
+        "horde"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "hoard and horde are distinct English forms. Use hoard when its own dictionary meaning and grammatical role fit the sentence, and use horde for the contrasting meaning or form.",
+      "natural_collocations": [
+        "hoard clearly",
+        "hoard in context",
+        "horde clearly"
+      ],
+      "sample_context": "The report uses hoard precisely and distinguishes it from horde."
+    },
+    {
+      "id": "lex-063",
+      "target": "industrial",
+      "confusable_with": [
+        "industrious"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "industrial and industrious are distinct English forms. Use industrial when its own dictionary meaning and grammatical role fit the sentence, and use industrious for the contrasting meaning or form.",
+      "natural_collocations": [
+        "industrial clearly",
+        "industrial in context",
+        "industrious clearly"
+      ],
+      "sample_context": "The report uses industrial precisely and distinguishes it from industrious."
+    },
+    {
+      "id": "lex-064",
+      "target": "jurisdiction",
+      "confusable_with": [
+        "jurisprudence"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "jurisdiction and jurisprudence are distinct English forms. Use jurisdiction when its own dictionary meaning and grammatical role fit the sentence, and use jurisprudence for the contrasting meaning or form.",
+      "natural_collocations": [
+        "jurisdiction clearly",
+        "jurisdiction in context",
+        "jurisprudence clearly"
+      ],
+      "sample_context": "The report uses jurisdiction precisely and distinguishes it from jurisprudence."
+    },
+    {
+      "id": "lex-065",
+      "target": "libel",
+      "confusable_with": [
+        "liable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "libel and liable are distinct English forms. Use libel when its own dictionary meaning and grammatical role fit the sentence, and use liable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "libel clearly",
+        "libel in context",
+        "liable clearly"
+      ],
+      "sample_context": "The report uses libel precisely and distinguishes it from liable."
+    },
+    {
+      "id": "lex-066",
+      "target": "marshal",
+      "confusable_with": [
+        "martial"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "marshal and martial are distinct English forms. Use marshal when its own dictionary meaning and grammatical role fit the sentence, and use martial for the contrasting meaning or form.",
+      "natural_collocations": [
+        "marshal clearly",
+        "marshal in context",
+        "martial clearly"
+      ],
+      "sample_context": "The report uses marshal precisely and distinguishes it from martial."
+    },
+    {
+      "id": "lex-067",
+      "target": "medal",
+      "confusable_with": [
+        "meddle"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "medal and meddle are distinct English forms. Use medal when its own dictionary meaning and grammatical role fit the sentence, and use meddle for the contrasting meaning or form.",
+      "natural_collocations": [
+        "medal clearly",
+        "medal in context",
+        "meddle clearly"
+      ],
+      "sample_context": "The report uses medal precisely and distinguishes it from meddle."
+    },
+    {
+      "id": "lex-068",
+      "target": "pedal",
+      "confusable_with": [
+        "peddle"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "pedal and peddle are distinct English forms. Use pedal when its own dictionary meaning and grammatical role fit the sentence, and use peddle for the contrasting meaning or form.",
+      "natural_collocations": [
+        "pedal clearly",
+        "pedal in context",
+        "peddle clearly"
+      ],
+      "sample_context": "The report uses pedal precisely and distinguishes it from peddle."
+    },
+    {
+      "id": "lex-069",
+      "target": "prescribe",
+      "confusable_with": [
+        "proscribe"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "prescribe and proscribe are distinct English forms. Use prescribe when its own dictionary meaning and grammatical role fit the sentence, and use proscribe for the contrasting meaning or form.",
+      "natural_collocations": [
+        "prescribe clearly",
+        "prescribe in context",
+        "proscribe clearly"
+      ],
+      "sample_context": "The report uses prescribe precisely and distinguishes it from proscribe."
+    },
+    {
+      "id": "lex-070",
+      "target": "proposition",
+      "confusable_with": [
+        "proposal"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "proposition and proposal are distinct English forms. Use proposition when its own dictionary meaning and grammatical role fit the sentence, and use proposal for the contrasting meaning or form.",
+      "natural_collocations": [
+        "proposition clearly",
+        "proposition in context",
+        "proposal clearly"
+      ],
+      "sample_context": "The report uses proposition precisely and distinguishes it from proposal."
+    },
+    {
+      "id": "lex-071",
+      "target": "respectfully",
+      "confusable_with": [
+        "respectively"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "respectfully and respectively are distinct English forms. Use respectfully when its own dictionary meaning and grammatical role fit the sentence, and use respectively for the contrasting meaning or form.",
+      "natural_collocations": [
+        "respectfully clearly",
+        "respectfully in context",
+        "respectively clearly"
+      ],
+      "sample_context": "The report uses respectfully precisely and distinguishes it from respectively."
+    },
+    {
+      "id": "lex-072",
+      "target": "role",
+      "confusable_with": [
+        "roll"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "role and roll are distinct English forms. Use role when its own dictionary meaning and grammatical role fit the sentence, and use roll for the contrasting meaning or form.",
+      "natural_collocations": [
+        "role clearly",
+        "role in context",
+        "roll clearly"
+      ],
+      "sample_context": "The report uses role precisely and distinguishes it from roll."
+    },
+    {
+      "id": "lex-073",
+      "target": "sensible",
+      "confusable_with": [
+        "sensitive"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "sensible and sensitive are distinct English forms. Use sensible when its own dictionary meaning and grammatical role fit the sentence, and use sensitive for the contrasting meaning or form.",
+      "natural_collocations": [
+        "sensible clearly",
+        "sensible in context",
+        "sensitive clearly"
+      ],
+      "sample_context": "The report uses sensible precisely and distinguishes it from sensitive."
+    },
+    {
+      "id": "lex-074",
+      "target": "sight",
+      "confusable_with": [
+        "site"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "sight and site are distinct English forms. Use sight when its own dictionary meaning and grammatical role fit the sentence, and use site for the contrasting meaning or form.",
+      "natural_collocations": [
+        "sight clearly",
+        "sight in context",
+        "site clearly"
+      ],
+      "sample_context": "The report uses sight precisely and distinguishes it from site."
+    },
+    {
+      "id": "lex-075",
+      "target": "statute",
+      "confusable_with": [
+        "statue"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "statute and statue are distinct English forms. Use statute when its own dictionary meaning and grammatical role fit the sentence, and use statue for the contrasting meaning or form.",
+      "natural_collocations": [
+        "statute clearly",
+        "statute in context",
+        "statue clearly"
+      ],
+      "sample_context": "The report uses statute precisely and distinguishes it from statue."
+    },
+    {
+      "id": "lex-076",
+      "target": "suite",
+      "confusable_with": [
+        "sweet"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "suite and sweet are distinct English forms. Use suite when its own dictionary meaning and grammatical role fit the sentence, and use sweet for the contrasting meaning or form.",
+      "natural_collocations": [
+        "suite clearly",
+        "suite in context",
+        "sweet clearly"
+      ],
+      "sample_context": "The report uses suite precisely and distinguishes it from sweet."
+    },
+    {
+      "id": "lex-077",
+      "target": "than",
+      "confusable_with": [
+        "then"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "than and then are distinct English forms. Use than when its own dictionary meaning and grammatical role fit the sentence, and use then for the contrasting meaning or form.",
+      "natural_collocations": [
+        "than clearly",
+        "than in context",
+        "then clearly"
+      ],
+      "sample_context": "The report uses than precisely and distinguishes it from then."
+    },
+    {
+      "id": "lex-078",
+      "target": "threw",
+      "confusable_with": [
+        "through"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "threw and through are distinct English forms. Use threw when its own dictionary meaning and grammatical role fit the sentence, and use through for the contrasting meaning or form.",
+      "natural_collocations": [
+        "threw clearly",
+        "threw in context",
+        "through clearly"
+      ],
+      "sample_context": "The report uses threw precisely and distinguishes it from through."
+    },
+    {
+      "id": "lex-079",
+      "target": "waive",
+      "confusable_with": [
+        "wave"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "waive and wave are distinct English forms. Use waive when its own dictionary meaning and grammatical role fit the sentence, and use wave for the contrasting meaning or form.",
+      "natural_collocations": [
+        "waive clearly",
+        "waive in context",
+        "wave clearly"
+      ],
+      "sample_context": "The report uses waive precisely and distinguishes it from wave."
+    },
+    {
+      "id": "lex-080",
+      "target": "acceptance",
+      "confusable_with": [
+        "acception"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "acceptance and acception are distinct English forms. Use acceptance when its own dictionary meaning and grammatical role fit the sentence, and use acception for the contrasting meaning or form.",
+      "natural_collocations": [
+        "acceptance clearly",
+        "acceptance in context",
+        "acception clearly"
+      ],
+      "sample_context": "The report uses acceptance precisely and distinguishes it from acception."
+    },
+    {
+      "id": "lex-081",
+      "target": "acquire",
+      "confusable_with": [
+        "inquire"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "acquire and inquire are distinct English forms. Use acquire when its own dictionary meaning and grammatical role fit the sentence, and use inquire for the contrasting meaning or form.",
+      "natural_collocations": [
+        "acquire clearly",
+        "acquire in context",
+        "inquire clearly"
+      ],
+      "sample_context": "The report uses acquire precisely and distinguishes it from inquire."
+    },
+    {
+      "id": "lex-082",
+      "target": "assent",
+      "confusable_with": [
+        "ascent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "assent and ascent are distinct English forms. Use assent when its own dictionary meaning and grammatical role fit the sentence, and use ascent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "assent clearly",
+        "assent in context",
+        "ascent clearly"
+      ],
+      "sample_context": "The report uses assent precisely and distinguishes it from ascent."
+    },
+    {
+      "id": "lex-083",
+      "target": "collaborate",
+      "confusable_with": [
+        "cooperate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "collaborate and cooperate are distinct English forms. Use collaborate when its own dictionary meaning and grammatical role fit the sentence, and use cooperate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "collaborate clearly",
+        "collaborate in context",
+        "cooperate clearly"
+      ],
+      "sample_context": "The report uses collaborate precisely and distinguishes it from cooperate."
+    },
+    {
+      "id": "lex-084",
+      "target": "concurrent",
+      "confusable_with": [
+        "consecutive"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "concurrent and consecutive are distinct English forms. Use concurrent when its own dictionary meaning and grammatical role fit the sentence, and use consecutive for the contrasting meaning or form.",
+      "natural_collocations": [
+        "concurrent clearly",
+        "concurrent in context",
+        "consecutive clearly"
+      ],
+      "sample_context": "The report uses concurrent precisely and distinguishes it from consecutive."
+    },
+    {
+      "id": "lex-085",
+      "target": "constrain",
+      "confusable_with": [
+        "restrict"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "constrain and restrict are distinct English forms. Use constrain when its own dictionary meaning and grammatical role fit the sentence, and use restrict for the contrasting meaning or form.",
+      "natural_collocations": [
+        "constrain clearly",
+        "constrain in context",
+        "restrict clearly"
+      ],
+      "sample_context": "The report uses constrain precisely and distinguishes it from restrict."
+    },
+    {
+      "id": "lex-086",
+      "target": "consume",
+      "confusable_with": [
+        "assume"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "consume and assume are distinct English forms. Use consume when its own dictionary meaning and grammatical role fit the sentence, and use assume for the contrasting meaning or form.",
+      "natural_collocations": [
+        "consume clearly",
+        "consume in context",
+        "assume clearly"
+      ],
+      "sample_context": "The report uses consume precisely and distinguishes it from assume."
+    },
+    {
+      "id": "lex-087",
+      "target": "convict",
+      "confusable_with": [
+        "verdict"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "convict and verdict are distinct English forms. Use convict when its own dictionary meaning and grammatical role fit the sentence, and use verdict for the contrasting meaning or form.",
+      "natural_collocations": [
+        "convict clearly",
+        "convict in context",
+        "verdict clearly"
+      ],
+      "sample_context": "The report uses convict precisely and distinguishes it from verdict."
+    },
+    {
+      "id": "lex-088",
+      "target": "credible",
+      "confusable_with": [
+        "credulous"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "credible and credulous are distinct English forms. Use credible when its own dictionary meaning and grammatical role fit the sentence, and use credulous for the contrasting meaning or form.",
+      "natural_collocations": [
+        "credible clearly",
+        "credible in context",
+        "credulous clearly"
+      ],
+      "sample_context": "The report uses credible precisely and distinguishes it from credulous."
+    },
+    {
+      "id": "lex-089",
+      "target": "definitive",
+      "confusable_with": [
+        "definite"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "definitive and definite are distinct English forms. Use definitive when its own dictionary meaning and grammatical role fit the sentence, and use definite for the contrasting meaning or form.",
+      "natural_collocations": [
+        "definitive clearly",
+        "definitive in context",
+        "definite clearly"
+      ],
+      "sample_context": "The report uses definitive precisely and distinguishes it from definite."
+    },
+    {
+      "id": "lex-090",
+      "target": "depict",
+      "confusable_with": [
+        "describe"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "depict and describe are distinct English forms. Use depict when its own dictionary meaning and grammatical role fit the sentence, and use describe for the contrasting meaning or form.",
+      "natural_collocations": [
+        "depict clearly",
+        "depict in context",
+        "describe clearly"
+      ],
+      "sample_context": "The report uses depict precisely and distinguishes it from describe."
+    },
+    {
+      "id": "lex-091",
+      "target": "discrete",
+      "confusable_with": [
+        "distinct"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "discrete and distinct are distinct English forms. Use discrete when its own dictionary meaning and grammatical role fit the sentence, and use distinct for the contrasting meaning or form.",
+      "natural_collocations": [
+        "discrete clearly",
+        "discrete in context",
+        "distinct clearly"
+      ],
+      "sample_context": "The report uses discrete precisely and distinguishes it from distinct."
+    },
+    {
+      "id": "lex-092",
+      "target": "discriminate",
+      "confusable_with": [
+        "differentiate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "discriminate and differentiate are distinct English forms. Use discriminate when its own dictionary meaning and grammatical role fit the sentence, and use differentiate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "discriminate clearly",
+        "discriminate in context",
+        "differentiate clearly"
+      ],
+      "sample_context": "The report uses discriminate precisely and distinguishes it from differentiate."
+    },
+    {
+      "id": "lex-093",
+      "target": "dominant",
+      "confusable_with": [
+        "domineering"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "dominant and domineering are distinct English forms. Use dominant when its own dictionary meaning and grammatical role fit the sentence, and use domineering for the contrasting meaning or form.",
+      "natural_collocations": [
+        "dominant clearly",
+        "dominant in context",
+        "domineering clearly"
+      ],
+      "sample_context": "The report uses dominant precisely and distinguishes it from domineering."
+    },
+    {
+      "id": "lex-094",
+      "target": "effective",
+      "confusable_with": [
+        "efficient"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "effective and efficient are distinct English forms. Use effective when its own dictionary meaning and grammatical role fit the sentence, and use efficient for the contrasting meaning or form.",
+      "natural_collocations": [
+        "effective clearly",
+        "effective in context",
+        "efficient clearly"
+      ],
+      "sample_context": "The report uses effective precisely and distinguishes it from efficient."
+    },
+    {
+      "id": "lex-095",
+      "target": "empirical",
+      "confusable_with": [
+        "experiential"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "empirical and experiential are distinct English forms. Use empirical when its own dictionary meaning and grammatical role fit the sentence, and use experiential for the contrasting meaning or form.",
+      "natural_collocations": [
+        "empirical clearly",
+        "empirical in context",
+        "experiential clearly"
+      ],
+      "sample_context": "The report uses empirical precisely and distinguishes it from experiential."
+    },
+    {
+      "id": "lex-096",
+      "target": "ethical",
+      "confusable_with": [
+        "ethnic"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "ethical and ethnic are distinct English forms. Use ethical when its own dictionary meaning and grammatical role fit the sentence, and use ethnic for the contrasting meaning or form.",
+      "natural_collocations": [
+        "ethical clearly",
+        "ethical in context",
+        "ethnic clearly"
+      ],
+      "sample_context": "The report uses ethical precisely and distinguishes it from ethnic."
+    },
+    {
+      "id": "lex-097",
+      "target": "exceed",
+      "confusable_with": [
+        "proceed"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "exceed and proceed are distinct English forms. Use exceed when its own dictionary meaning and grammatical role fit the sentence, and use proceed for the contrasting meaning or form.",
+      "natural_collocations": [
+        "exceed clearly",
+        "exceed in context",
+        "proceed clearly"
+      ],
+      "sample_context": "The report uses exceed precisely and distinguishes it from proceed."
+    },
+    {
+      "id": "lex-098",
+      "target": "feasible",
+      "confusable_with": [
+        "possible"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "feasible and possible are distinct English forms. Use feasible when its own dictionary meaning and grammatical role fit the sentence, and use possible for the contrasting meaning or form.",
+      "natural_collocations": [
+        "feasible clearly",
+        "feasible in context",
+        "possible clearly"
+      ],
+      "sample_context": "The report uses feasible precisely and distinguishes it from possible."
+    },
+    {
+      "id": "lex-099",
+      "target": "fluctuate",
+      "confusable_with": [
+        "vary"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "fluctuate and vary are distinct English forms. Use fluctuate when its own dictionary meaning and grammatical role fit the sentence, and use vary for the contrasting meaning or form.",
+      "natural_collocations": [
+        "fluctuate clearly",
+        "fluctuate in context",
+        "vary clearly"
+      ],
+      "sample_context": "The report uses fluctuate precisely and distinguishes it from vary."
+    },
+    {
+      "id": "lex-100",
+      "target": "framework",
+      "confusable_with": [
+        "structure"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "framework and structure are distinct English forms. Use framework when its own dictionary meaning and grammatical role fit the sentence, and use structure for the contrasting meaning or form.",
+      "natural_collocations": [
+        "framework clearly",
+        "framework in context",
+        "structure clearly"
+      ],
+      "sample_context": "The report uses framework precisely and distinguishes it from structure."
+    },
+    {
+      "id": "lex-101",
+      "target": "fundamental",
+      "confusable_with": [
+        "foundational"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "fundamental and foundational are distinct English forms. Use fundamental when its own dictionary meaning and grammatical role fit the sentence, and use foundational for the contrasting meaning or form.",
+      "natural_collocations": [
+        "fundamental clearly",
+        "fundamental in context",
+        "foundational clearly"
+      ],
+      "sample_context": "The report uses fundamental precisely and distinguishes it from foundational."
+    },
+    {
+      "id": "lex-102",
+      "target": "generate",
+      "confusable_with": [
+        "produce"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "generate and produce are distinct English forms. Use generate when its own dictionary meaning and grammatical role fit the sentence, and use produce for the contrasting meaning or form.",
+      "natural_collocations": [
+        "generate clearly",
+        "generate in context",
+        "produce clearly"
+      ],
+      "sample_context": "The report uses generate precisely and distinguishes it from produce."
+    },
+    {
+      "id": "lex-103",
+      "target": "hypothesis",
+      "confusable_with": [
+        "theory"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "hypothesis and theory are distinct English forms. Use hypothesis when its own dictionary meaning and grammatical role fit the sentence, and use theory for the contrasting meaning or form.",
+      "natural_collocations": [
+        "hypothesis clearly",
+        "hypothesis in context",
+        "theory clearly"
+      ],
+      "sample_context": "The report uses hypothesis precisely and distinguishes it from theory."
+    },
+    {
+      "id": "lex-104",
+      "target": "illustrate",
+      "confusable_with": [
+        "demonstrate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "illustrate and demonstrate are distinct English forms. Use illustrate when its own dictionary meaning and grammatical role fit the sentence, and use demonstrate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "illustrate clearly",
+        "illustrate in context",
+        "demonstrate clearly"
+      ],
+      "sample_context": "The report uses illustrate precisely and distinguishes it from demonstrate."
+    },
+    {
+      "id": "lex-105",
+      "target": "incidence",
+      "confusable_with": [
+        "instance"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "incidence and instance are distinct English forms. Use incidence when its own dictionary meaning and grammatical role fit the sentence, and use instance for the contrasting meaning or form.",
+      "natural_collocations": [
+        "incidence clearly",
+        "incidence in context",
+        "instance clearly"
+      ],
+      "sample_context": "The report uses incidence precisely and distinguishes it from instance."
+    },
+    {
+      "id": "lex-106",
+      "target": "incentive",
+      "confusable_with": [
+        "motivation"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "incentive and motivation are distinct English forms. Use incentive when its own dictionary meaning and grammatical role fit the sentence, and use motivation for the contrasting meaning or form.",
+      "natural_collocations": [
+        "incentive clearly",
+        "incentive in context",
+        "motivation clearly"
+      ],
+      "sample_context": "The report uses incentive precisely and distinguishes it from motivation."
+    },
+    {
+      "id": "lex-107",
+      "target": "induce",
+      "confusable_with": [
+        "deduce"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "induce and deduce are distinct English forms. Use induce when its own dictionary meaning and grammatical role fit the sentence, and use deduce for the contrasting meaning or form.",
+      "natural_collocations": [
+        "induce clearly",
+        "induce in context",
+        "deduce clearly"
+      ],
+      "sample_context": "The report uses induce precisely and distinguishes it from deduce."
+    },
+    {
+      "id": "lex-108",
+      "target": "infer",
+      "confusable_with": [
+        "imply"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "infer and imply are distinct English forms. Use infer when its own dictionary meaning and grammatical role fit the sentence, and use imply for the contrasting meaning or form.",
+      "natural_collocations": [
+        "infer clearly",
+        "infer in context",
+        "imply clearly"
+      ],
+      "sample_context": "The report uses infer precisely and distinguishes it from imply."
+    },
+    {
+      "id": "lex-109",
+      "target": "integral",
+      "confusable_with": [
+        "integrated"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "integral and integrated are distinct English forms. Use integral when its own dictionary meaning and grammatical role fit the sentence, and use integrated for the contrasting meaning or form.",
+      "natural_collocations": [
+        "integral clearly",
+        "integral in context",
+        "integrated clearly"
+      ],
+      "sample_context": "The report uses integral precisely and distinguishes it from integrated."
+    },
+    {
+      "id": "lex-110",
+      "target": "interpret",
+      "confusable_with": [
+        "translate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "interpret and translate are distinct English forms. Use interpret when its own dictionary meaning and grammatical role fit the sentence, and use translate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "interpret clearly",
+        "interpret in context",
+        "translate clearly"
+      ],
+      "sample_context": "The report uses interpret precisely and distinguishes it from translate."
+    },
+    {
+      "id": "lex-111",
+      "target": "literal",
+      "confusable_with": [
+        "literary"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "literal and literary are distinct English forms. Use literal when its own dictionary meaning and grammatical role fit the sentence, and use literary for the contrasting meaning or form.",
+      "natural_collocations": [
+        "literal clearly",
+        "literal in context",
+        "literary clearly"
+      ],
+      "sample_context": "The report uses literal precisely and distinguishes it from literary."
+    },
+    {
+      "id": "lex-112",
+      "target": "maintain",
+      "confusable_with": [
+        "sustain"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "maintain and sustain are distinct English forms. Use maintain when its own dictionary meaning and grammatical role fit the sentence, and use sustain for the contrasting meaning or form.",
+      "natural_collocations": [
+        "maintain clearly",
+        "maintain in context",
+        "sustain clearly"
+      ],
+      "sample_context": "The report uses maintain precisely and distinguishes it from sustain."
+    },
+    {
+      "id": "lex-113",
+      "target": "mitigate",
+      "confusable_with": [
+        "alleviate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "mitigate and alleviate are distinct English forms. Use mitigate when its own dictionary meaning and grammatical role fit the sentence, and use alleviate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "mitigate clearly",
+        "mitigate in context",
+        "alleviate clearly"
+      ],
+      "sample_context": "The report uses mitigate precisely and distinguishes it from alleviate."
+    },
+    {
+      "id": "lex-114",
+      "target": "objective",
+      "confusable_with": [
+        "objection"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "objective and objection are distinct English forms. Use objective when its own dictionary meaning and grammatical role fit the sentence, and use objection for the contrasting meaning or form.",
+      "natural_collocations": [
+        "objective clearly",
+        "objective in context",
+        "objection clearly"
+      ],
+      "sample_context": "The report uses objective precisely and distinguishes it from objection."
+    },
+    {
+      "id": "lex-115",
+      "target": "precedent",
+      "confusable_with": [
+        "president"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "precedent and president are distinct English forms. Use precedent when its own dictionary meaning and grammatical role fit the sentence, and use president for the contrasting meaning or form.",
+      "natural_collocations": [
+        "precedent clearly",
+        "precedent in context",
+        "president clearly"
+      ],
+      "sample_context": "The report uses precedent precisely and distinguishes it from president."
+    },
+    {
+      "id": "lex-116",
+      "target": "presume",
+      "confusable_with": [
+        "assume"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "presume and assume are distinct English forms. Use presume when its own dictionary meaning and grammatical role fit the sentence, and use assume for the contrasting meaning or form.",
+      "natural_collocations": [
+        "presume clearly",
+        "presume in context",
+        "assume clearly"
+      ],
+      "sample_context": "The report uses presume precisely and distinguishes it from assume."
+    },
+    {
+      "id": "lex-117",
+      "target": "proportion",
+      "confusable_with": [
+        "portion"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "proportion and portion are distinct English forms. Use proportion when its own dictionary meaning and grammatical role fit the sentence, and use portion for the contrasting meaning or form.",
+      "natural_collocations": [
+        "proportion clearly",
+        "proportion in context",
+        "portion clearly"
+      ],
+      "sample_context": "The report uses proportion precisely and distinguishes it from portion."
+    },
+    {
+      "id": "lex-118",
+      "target": "qualitative",
+      "confusable_with": [
+        "quantitative"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "qualitative and quantitative are distinct English forms. Use qualitative when its own dictionary meaning and grammatical role fit the sentence, and use quantitative for the contrasting meaning or form.",
+      "natural_collocations": [
+        "qualitative clearly",
+        "qualitative in context",
+        "quantitative clearly"
+      ],
+      "sample_context": "The report uses qualitative precisely and distinguishes it from quantitative."
+    },
+    {
+      "id": "lex-119",
+      "target": "rational",
+      "confusable_with": [
+        "reasonable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "rational and reasonable are distinct English forms. Use rational when its own dictionary meaning and grammatical role fit the sentence, and use reasonable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "rational clearly",
+        "rational in context",
+        "reasonable clearly"
+      ],
+      "sample_context": "The report uses rational precisely and distinguishes it from reasonable."
+    },
+    {
+      "id": "lex-120",
+      "target": "regulate",
+      "confusable_with": [
+        "legislate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "regulate and legislate are distinct English forms. Use regulate when its own dictionary meaning and grammatical role fit the sentence, and use legislate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "regulate clearly",
+        "regulate in context",
+        "legislate clearly"
+      ],
+      "sample_context": "The report uses regulate precisely and distinguishes it from legislate."
+    },
+    {
+      "id": "lex-121",
+      "target": "relevant",
+      "confusable_with": [
+        "relatable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "relevant and relatable are distinct English forms. Use relevant when its own dictionary meaning and grammatical role fit the sentence, and use relatable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "relevant clearly",
+        "relevant in context",
+        "relatable clearly"
+      ],
+      "sample_context": "The report uses relevant precisely and distinguishes it from relatable."
+    },
+    {
+      "id": "lex-122",
+      "target": "reluctant",
+      "confusable_with": [
+        "reticent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "reluctant and reticent are distinct English forms. Use reluctant when its own dictionary meaning and grammatical role fit the sentence, and use reticent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "reluctant clearly",
+        "reluctant in context",
+        "reticent clearly"
+      ],
+      "sample_context": "The report uses reluctant precisely and distinguishes it from reticent."
+    },
+    {
+      "id": "lex-123",
+      "target": "respect",
+      "confusable_with": [
+        "regard"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "respect and regard are distinct English forms. Use respect when its own dictionary meaning and grammatical role fit the sentence, and use regard for the contrasting meaning or form.",
+      "natural_collocations": [
+        "respect clearly",
+        "respect in context",
+        "regard clearly"
+      ],
+      "sample_context": "The report uses respect precisely and distinguishes it from regard."
+    },
+    {
+      "id": "lex-124",
+      "target": "revise",
+      "confusable_with": [
+        "review"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "revise and review are distinct English forms. Use revise when its own dictionary meaning and grammatical role fit the sentence, and use review for the contrasting meaning or form.",
+      "natural_collocations": [
+        "revise clearly",
+        "revise in context",
+        "review clearly"
+      ],
+      "sample_context": "The report uses revise precisely and distinguishes it from review."
+    },
+    {
+      "id": "lex-125",
+      "target": "significant",
+      "confusable_with": [
+        "substantial"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "significant and substantial are distinct English forms. Use significant when its own dictionary meaning and grammatical role fit the sentence, and use substantial for the contrasting meaning or form.",
+      "natural_collocations": [
+        "significant clearly",
+        "significant in context",
+        "substantial clearly"
+      ],
+      "sample_context": "The report uses significant precisely and distinguishes it from substantial."
+    },
+    {
+      "id": "lex-126",
+      "target": "simulate",
+      "confusable_with": [
+        "stimulate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "simulate and stimulate are distinct English forms. Use simulate when its own dictionary meaning and grammatical role fit the sentence, and use stimulate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "simulate clearly",
+        "simulate in context",
+        "stimulate clearly"
+      ],
+      "sample_context": "The report uses simulate precisely and distinguishes it from stimulate."
+    },
+    {
+      "id": "lex-127",
+      "target": "speculate",
+      "confusable_with": [
+        "conjecture"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "speculate and conjecture are distinct English forms. Use speculate when its own dictionary meaning and grammatical role fit the sentence, and use conjecture for the contrasting meaning or form.",
+      "natural_collocations": [
+        "speculate clearly",
+        "speculate in context",
+        "conjecture clearly"
+      ],
+      "sample_context": "The report uses speculate precisely and distinguishes it from conjecture."
+    },
+    {
+      "id": "lex-128",
+      "target": "strategy",
+      "confusable_with": [
+        "tactic"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "strategy and tactic are distinct English forms. Use strategy when its own dictionary meaning and grammatical role fit the sentence, and use tactic for the contrasting meaning or form.",
+      "natural_collocations": [
+        "strategy clearly",
+        "strategy in context",
+        "tactic clearly"
+      ],
+      "sample_context": "The report uses strategy precisely and distinguishes it from tactic."
+    },
+    {
+      "id": "lex-129",
+      "target": "subsequent",
+      "confusable_with": [
+        "consequent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "subsequent and consequent are distinct English forms. Use subsequent when its own dictionary meaning and grammatical role fit the sentence, and use consequent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "subsequent clearly",
+        "subsequent in context",
+        "consequent clearly"
+      ],
+      "sample_context": "The report uses subsequent precisely and distinguishes it from consequent."
+    },
+    {
+      "id": "lex-130",
+      "target": "sufficient",
+      "confusable_with": [
+        "efficient"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "sufficient and efficient are distinct English forms. Use sufficient when its own dictionary meaning and grammatical role fit the sentence, and use efficient for the contrasting meaning or form.",
+      "natural_collocations": [
+        "sufficient clearly",
+        "sufficient in context",
+        "efficient clearly"
+      ],
+      "sample_context": "The report uses sufficient precisely and distinguishes it from efficient."
+    },
+    {
+      "id": "lex-131",
+      "target": "supplement",
+      "confusable_with": [
+        "complement"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "supplement and complement are distinct English forms. Use supplement when its own dictionary meaning and grammatical role fit the sentence, and use complement for the contrasting meaning or form.",
+      "natural_collocations": [
+        "supplement clearly",
+        "supplement in context",
+        "complement clearly"
+      ],
+      "sample_context": "The report uses supplement precisely and distinguishes it from complement."
+    },
+    {
+      "id": "lex-132",
+      "target": "suppress",
+      "confusable_with": [
+        "repress"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "suppress and repress are distinct English forms. Use suppress when its own dictionary meaning and grammatical role fit the sentence, and use repress for the contrasting meaning or form.",
+      "natural_collocations": [
+        "suppress clearly",
+        "suppress in context",
+        "repress clearly"
+      ],
+      "sample_context": "The report uses suppress precisely and distinguishes it from repress."
+    },
+    {
+      "id": "lex-133",
+      "target": "transmit",
+      "confusable_with": [
+        "transfer"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "transmit and transfer are distinct English forms. Use transmit when its own dictionary meaning and grammatical role fit the sentence, and use transfer for the contrasting meaning or form.",
+      "natural_collocations": [
+        "transmit clearly",
+        "transmit in context",
+        "transfer clearly"
+      ],
+      "sample_context": "The report uses transmit precisely and distinguishes it from transfer."
+    },
+    {
+      "id": "lex-134",
+      "target": "valid",
+      "confusable_with": [
+        "reliable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "valid and reliable are distinct English forms. Use valid when its own dictionary meaning and grammatical role fit the sentence, and use reliable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "valid clearly",
+        "valid in context",
+        "reliable clearly"
+      ],
+      "sample_context": "The report uses valid precisely and distinguishes it from reliable."
+    },
+    {
+      "id": "lex-135",
+      "target": "verify",
+      "confusable_with": [
+        "validate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "verify and validate are distinct English forms. Use verify when its own dictionary meaning and grammatical role fit the sentence, and use validate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "verify clearly",
+        "verify in context",
+        "validate clearly"
+      ],
+      "sample_context": "The report uses verify precisely and distinguishes it from validate."
+    },
+    {
+      "id": "lex-136",
+      "target": "viable",
+      "confusable_with": [
+        "feasible"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "viable and feasible are distinct English forms. Use viable when its own dictionary meaning and grammatical role fit the sentence, and use feasible for the contrasting meaning or form.",
+      "natural_collocations": [
+        "viable clearly",
+        "viable in context",
+        "feasible clearly"
+      ],
+      "sample_context": "The report uses viable precisely and distinguishes it from feasible."
+    },
+    {
+      "id": "lex-137",
+      "target": "vocation",
+      "confusable_with": [
+        "vocalization"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "vocation and vocalization are distinct English forms. Use vocation when its own dictionary meaning and grammatical role fit the sentence, and use vocalization for the contrasting meaning or form.",
+      "natural_collocations": [
+        "vocation clearly",
+        "vocation in context",
+        "vocalization clearly"
+      ],
+      "sample_context": "The report uses vocation precisely and distinguishes it from vocalization."
+    },
+    {
+      "id": "lex-138",
+      "target": "adaptation",
+      "confusable_with": [
+        "adoption"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "adaptation and adoption are distinct English forms. Use adaptation when its own dictionary meaning and grammatical role fit the sentence, and use adoption for the contrasting meaning or form.",
+      "natural_collocations": [
+        "adaptation clearly",
+        "adaptation in context",
+        "adoption clearly"
+      ],
+      "sample_context": "The report uses adaptation precisely and distinguishes it from adoption."
+    },
+    {
+      "id": "lex-139",
+      "target": "advocate",
+      "confusable_with": [
+        "proponent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "advocate and proponent are distinct English forms. Use advocate when its own dictionary meaning and grammatical role fit the sentence, and use proponent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "advocate clearly",
+        "advocate in context",
+        "proponent clearly"
+      ],
+      "sample_context": "The report uses advocate precisely and distinguishes it from proponent."
+    },
+    {
+      "id": "lex-140",
+      "target": "ambiguous",
+      "confusable_with": [
+        "ambivalent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "ambiguous and ambivalent are distinct English forms. Use ambiguous when its own dictionary meaning and grammatical role fit the sentence, and use ambivalent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "ambiguous clearly",
+        "ambiguous in context",
+        "ambivalent clearly"
+      ],
+      "sample_context": "The report uses ambiguous precisely and distinguishes it from ambivalent."
+    },
+    {
+      "id": "lex-141",
+      "target": "anticipate",
+      "confusable_with": [
+        "expect"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "anticipate and expect are distinct English forms. Use anticipate when its own dictionary meaning and grammatical role fit the sentence, and use expect for the contrasting meaning or form.",
+      "natural_collocations": [
+        "anticipate clearly",
+        "anticipate in context",
+        "expect clearly"
+      ],
+      "sample_context": "The report uses anticipate precisely and distinguishes it from expect."
+    },
+    {
+      "id": "lex-142",
+      "target": "assemble",
+      "confusable_with": [
+        "compile"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "assemble and compile are distinct English forms. Use assemble when its own dictionary meaning and grammatical role fit the sentence, and use compile for the contrasting meaning or form.",
+      "natural_collocations": [
+        "assemble clearly",
+        "assemble in context",
+        "compile clearly"
+      ],
+      "sample_context": "The report uses assemble precisely and distinguishes it from compile."
+    },
+    {
+      "id": "lex-143",
+      "target": "attain",
+      "confusable_with": [
+        "obtain"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "attain and obtain are distinct English forms. Use attain when its own dictionary meaning and grammatical role fit the sentence, and use obtain for the contrasting meaning or form.",
+      "natural_collocations": [
+        "attain clearly",
+        "attain in context",
+        "obtain clearly"
+      ],
+      "sample_context": "The report uses attain precisely and distinguishes it from obtain."
+    },
+    {
+      "id": "lex-144",
+      "target": "attribute",
+      "confusable_with": [
+        "contribute"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "attribute and contribute are distinct English forms. Use attribute when its own dictionary meaning and grammatical role fit the sentence, and use contribute for the contrasting meaning or form.",
+      "natural_collocations": [
+        "attribute clearly",
+        "attribute in context",
+        "contribute clearly"
+      ],
+      "sample_context": "The report uses attribute precisely and distinguishes it from contribute."
+    },
+    {
+      "id": "lex-145",
+      "target": "capacity",
+      "confusable_with": [
+        "capability"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "capacity and capability are distinct English forms. Use capacity when its own dictionary meaning and grammatical role fit the sentence, and use capability for the contrasting meaning or form.",
+      "natural_collocations": [
+        "capacity clearly",
+        "capacity in context",
+        "capability clearly"
+      ],
+      "sample_context": "The report uses capacity precisely and distinguishes it from capability."
+    },
+    {
+      "id": "lex-146",
+      "target": "cease",
+      "confusable_with": [
+        "seize"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "cease and seize are distinct English forms. Use cease when its own dictionary meaning and grammatical role fit the sentence, and use seize for the contrasting meaning or form.",
+      "natural_collocations": [
+        "cease clearly",
+        "cease in context",
+        "seize clearly"
+      ],
+      "sample_context": "The report uses cease precisely and distinguishes it from seize."
+    },
+    {
+      "id": "lex-147",
+      "target": "clarify",
+      "confusable_with": [
+        "specify"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "clarify and specify are distinct English forms. Use clarify when its own dictionary meaning and grammatical role fit the sentence, and use specify for the contrasting meaning or form.",
+      "natural_collocations": [
+        "clarify clearly",
+        "clarify in context",
+        "specify clearly"
+      ],
+      "sample_context": "The report uses clarify precisely and distinguishes it from specify."
+    },
+    {
+      "id": "lex-148",
+      "target": "coherent",
+      "confusable_with": [
+        "consistent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "coherent and consistent are distinct English forms. Use coherent when its own dictionary meaning and grammatical role fit the sentence, and use consistent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "coherent clearly",
+        "coherent in context",
+        "consistent clearly"
+      ],
+      "sample_context": "The report uses coherent precisely and distinguishes it from consistent."
+    },
+    {
+      "id": "lex-149",
+      "target": "compile",
+      "confusable_with": [
+        "compose"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "compile and compose are distinct English forms. Use compile when its own dictionary meaning and grammatical role fit the sentence, and use compose for the contrasting meaning or form.",
+      "natural_collocations": [
+        "compile clearly",
+        "compile in context",
+        "compose clearly"
+      ],
+      "sample_context": "The report uses compile precisely and distinguishes it from compose."
+    },
+    {
+      "id": "lex-150",
+      "target": "comprise",
+      "confusable_with": [
+        "constitute"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "comprise and constitute are distinct English forms. Use comprise when its own dictionary meaning and grammatical role fit the sentence, and use constitute for the contrasting meaning or form.",
+      "natural_collocations": [
+        "comprise clearly",
+        "comprise in context",
+        "constitute clearly"
+      ],
+      "sample_context": "The report uses comprise precisely and distinguishes it from constitute."
+    },
+    {
+      "id": "lex-151",
+      "target": "concede",
+      "confusable_with": [
+        "consent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "concede and consent are distinct English forms. Use concede when its own dictionary meaning and grammatical role fit the sentence, and use consent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "concede clearly",
+        "concede in context",
+        "consent clearly"
+      ],
+      "sample_context": "The report uses concede precisely and distinguishes it from consent."
+    },
+    {
+      "id": "lex-152",
+      "target": "confer",
+      "confusable_with": [
+        "refer"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "confer and refer are distinct English forms. Use confer when its own dictionary meaning and grammatical role fit the sentence, and use refer for the contrasting meaning or form.",
+      "natural_collocations": [
+        "confer clearly",
+        "confer in context",
+        "refer clearly"
+      ],
+      "sample_context": "The report uses confer precisely and distinguishes it from refer."
+    },
+    {
+      "id": "lex-153",
+      "target": "conflict",
+      "confusable_with": [
+        "contradict"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "conflict and contradict are distinct English forms. Use conflict when its own dictionary meaning and grammatical role fit the sentence, and use contradict for the contrasting meaning or form.",
+      "natural_collocations": [
+        "conflict clearly",
+        "conflict in context",
+        "contradict clearly"
+      ],
+      "sample_context": "The report uses conflict precisely and distinguishes it from contradict."
+    },
+    {
+      "id": "lex-154",
+      "target": "conform",
+      "confusable_with": [
+        "confirm"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "conform and confirm are distinct English forms. Use conform when its own dictionary meaning and grammatical role fit the sentence, and use confirm for the contrasting meaning or form.",
+      "natural_collocations": [
+        "conform clearly",
+        "conform in context",
+        "confirm clearly"
+      ],
+      "sample_context": "The report uses conform precisely and distinguishes it from confirm."
+    },
+    {
+      "id": "lex-155",
+      "target": "contingent",
+      "confusable_with": [
+        "continuous"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "contingent and continuous are distinct English forms. Use contingent when its own dictionary meaning and grammatical role fit the sentence, and use continuous for the contrasting meaning or form.",
+      "natural_collocations": [
+        "contingent clearly",
+        "contingent in context",
+        "continuous clearly"
+      ],
+      "sample_context": "The report uses contingent precisely and distinguishes it from continuous."
+    },
+    {
+      "id": "lex-156",
+      "target": "corroborate",
+      "confusable_with": [
+        "collaborate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "corroborate and collaborate are distinct English forms. Use corroborate when its own dictionary meaning and grammatical role fit the sentence, and use collaborate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "corroborate clearly",
+        "corroborate in context",
+        "collaborate clearly"
+      ],
+      "sample_context": "The report uses corroborate precisely and distinguishes it from collaborate."
+    },
+    {
+      "id": "lex-157",
+      "target": "criterion",
+      "confusable_with": [
+        "crisis"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "criterion and crisis are distinct English forms. Use criterion when its own dictionary meaning and grammatical role fit the sentence, and use crisis for the contrasting meaning or form.",
+      "natural_collocations": [
+        "criterion clearly",
+        "criterion in context",
+        "crisis clearly"
+      ],
+      "sample_context": "The report uses criterion precisely and distinguishes it from crisis."
+    },
+    {
+      "id": "lex-158",
+      "target": "deduce",
+      "confusable_with": [
+        "reduce"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "deduce and reduce are distinct English forms. Use deduce when its own dictionary meaning and grammatical role fit the sentence, and use reduce for the contrasting meaning or form.",
+      "natural_collocations": [
+        "deduce clearly",
+        "deduce in context",
+        "reduce clearly"
+      ],
+      "sample_context": "The report uses deduce precisely and distinguishes it from reduce."
+    },
+    {
+      "id": "lex-159",
+      "target": "deny",
+      "confusable_with": [
+        "decline"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "deny and decline are distinct English forms. Use deny when its own dictionary meaning and grammatical role fit the sentence, and use decline for the contrasting meaning or form.",
+      "natural_collocations": [
+        "deny clearly",
+        "deny in context",
+        "decline clearly"
+      ],
+      "sample_context": "The report uses deny precisely and distinguishes it from decline."
+    },
+    {
+      "id": "lex-160",
+      "target": "deter",
+      "confusable_with": [
+        "deteriorate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "deter and deteriorate are distinct English forms. Use deter when its own dictionary meaning and grammatical role fit the sentence, and use deteriorate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "deter clearly",
+        "deter in context",
+        "deteriorate clearly"
+      ],
+      "sample_context": "The report uses deter precisely and distinguishes it from deteriorate."
+    },
+    {
+      "id": "lex-161",
+      "target": "discrepancy",
+      "confusable_with": [
+        "disparity"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "discrepancy and disparity are distinct English forms. Use discrepancy when its own dictionary meaning and grammatical role fit the sentence, and use disparity for the contrasting meaning or form.",
+      "natural_collocations": [
+        "discrepancy clearly",
+        "discrepancy in context",
+        "disparity clearly"
+      ],
+      "sample_context": "The report uses discrepancy precisely and distinguishes it from disparity."
+    },
+    {
+      "id": "lex-162",
+      "target": "displace",
+      "confusable_with": [
+        "replace"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "displace and replace are distinct English forms. Use displace when its own dictionary meaning and grammatical role fit the sentence, and use replace for the contrasting meaning or form.",
+      "natural_collocations": [
+        "displace clearly",
+        "displace in context",
+        "replace clearly"
+      ],
+      "sample_context": "The report uses displace precisely and distinguishes it from replace."
+    },
+    {
+      "id": "lex-163",
+      "target": "dynamic",
+      "confusable_with": [
+        "dynamical"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "dynamic and dynamical are distinct English forms. Use dynamic when its own dictionary meaning and grammatical role fit the sentence, and use dynamical for the contrasting meaning or form.",
+      "natural_collocations": [
+        "dynamic clearly",
+        "dynamic in context",
+        "dynamical clearly"
+      ],
+      "sample_context": "The report uses dynamic precisely and distinguishes it from dynamical."
+    },
+    {
+      "id": "lex-164",
+      "target": "elaborate",
+      "confusable_with": [
+        "expound"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "elaborate and expound are distinct English forms. Use elaborate when its own dictionary meaning and grammatical role fit the sentence, and use expound for the contrasting meaning or form.",
+      "natural_collocations": [
+        "elaborate clearly",
+        "elaborate in context",
+        "expound clearly"
+      ],
+      "sample_context": "The report uses elaborate precisely and distinguishes it from expound."
+    },
+    {
+      "id": "lex-165",
+      "target": "ensure",
+      "confusable_with": [
+        "insure"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "ensure and insure are distinct English forms. Use ensure when its own dictionary meaning and grammatical role fit the sentence, and use insure for the contrasting meaning or form.",
+      "natural_collocations": [
+        "ensure clearly",
+        "ensure in context",
+        "insure clearly"
+      ],
+      "sample_context": "The report uses ensure precisely and distinguishes it from insure."
+    },
+    {
+      "id": "lex-166",
+      "target": "exacerbate",
+      "confusable_with": [
+        "aggravate"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "exacerbate and aggravate are distinct English forms. Use exacerbate when its own dictionary meaning and grammatical role fit the sentence, and use aggravate for the contrasting meaning or form.",
+      "natural_collocations": [
+        "exacerbate clearly",
+        "exacerbate in context",
+        "aggravate clearly"
+      ],
+      "sample_context": "The report uses exacerbate precisely and distinguishes it from aggravate."
+    },
+    {
+      "id": "lex-167",
+      "target": "exhibit",
+      "confusable_with": [
+        "inhibit"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "exhibit and inhibit are distinct English forms. Use exhibit when its own dictionary meaning and grammatical role fit the sentence, and use inhibit for the contrasting meaning or form.",
+      "natural_collocations": [
+        "exhibit clearly",
+        "exhibit in context",
+        "inhibit clearly"
+      ],
+      "sample_context": "The report uses exhibit precisely and distinguishes it from inhibit."
+    },
+    {
+      "id": "lex-168",
+      "target": "exploit",
+      "confusable_with": [
+        "explore"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "exploit and explore are distinct English forms. Use exploit when its own dictionary meaning and grammatical role fit the sentence, and use explore for the contrasting meaning or form.",
+      "natural_collocations": [
+        "exploit clearly",
+        "exploit in context",
+        "explore clearly"
+      ],
+      "sample_context": "The report uses exploit precisely and distinguishes it from explore."
+    },
+    {
+      "id": "lex-169",
+      "target": "extract",
+      "confusable_with": [
+        "abstract"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "extract and abstract are distinct English forms. Use extract when its own dictionary meaning and grammatical role fit the sentence, and use abstract for the contrasting meaning or form.",
+      "natural_collocations": [
+        "extract clearly",
+        "extract in context",
+        "abstract clearly"
+      ],
+      "sample_context": "The report uses extract precisely and distinguishes it from abstract."
+    },
+    {
+      "id": "lex-170",
+      "target": "flawed",
+      "confusable_with": [
+        "fallacious"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "flawed and fallacious are distinct English forms. Use flawed when its own dictionary meaning and grammatical role fit the sentence, and use fallacious for the contrasting meaning or form.",
+      "natural_collocations": [
+        "flawed clearly",
+        "flawed in context",
+        "fallacious clearly"
+      ],
+      "sample_context": "The report uses flawed precisely and distinguishes it from fallacious."
+    },
+    {
+      "id": "lex-171",
+      "target": "inherent",
+      "confusable_with": [
+        "inherit"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "inherent and inherit are distinct English forms. Use inherent when its own dictionary meaning and grammatical role fit the sentence, and use inherit for the contrasting meaning or form.",
+      "natural_collocations": [
+        "inherent clearly",
+        "inherent in context",
+        "inherit clearly"
+      ],
+      "sample_context": "The report uses inherent precisely and distinguishes it from inherit."
+    },
+    {
+      "id": "lex-172",
+      "target": "innovative",
+      "confusable_with": [
+        "inventive"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "innovative and inventive are distinct English forms. Use innovative when its own dictionary meaning and grammatical role fit the sentence, and use inventive for the contrasting meaning or form.",
+      "natural_collocations": [
+        "innovative clearly",
+        "innovative in context",
+        "inventive clearly"
+      ],
+      "sample_context": "The report uses innovative precisely and distinguishes it from inventive."
+    },
+    {
+      "id": "lex-173",
+      "target": "integrity",
+      "confusable_with": [
+        "integration"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "integrity and integration are distinct English forms. Use integrity when its own dictionary meaning and grammatical role fit the sentence, and use integration for the contrasting meaning or form.",
+      "natural_collocations": [
+        "integrity clearly",
+        "integrity in context",
+        "integration clearly"
+      ],
+      "sample_context": "The report uses integrity precisely and distinguishes it from integration."
+    },
+    {
+      "id": "lex-174",
+      "target": "manipulate",
+      "confusable_with": [
+        "manage"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "manipulate and manage are distinct English forms. Use manipulate when its own dictionary meaning and grammatical role fit the sentence, and use manage for the contrasting meaning or form.",
+      "natural_collocations": [
+        "manipulate clearly",
+        "manipulate in context",
+        "manage clearly"
+      ],
+      "sample_context": "The report uses manipulate precisely and distinguishes it from manage."
+    },
+    {
+      "id": "lex-175",
+      "target": "notable",
+      "confusable_with": [
+        "noticeable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "notable and noticeable are distinct English forms. Use notable when its own dictionary meaning and grammatical role fit the sentence, and use noticeable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "notable clearly",
+        "notable in context",
+        "noticeable clearly"
+      ],
+      "sample_context": "The report uses notable precisely and distinguishes it from noticeable."
+    },
+    {
+      "id": "lex-176",
+      "target": "notion",
+      "confusable_with": [
+        "motion"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "notion and motion are distinct English forms. Use notion when its own dictionary meaning and grammatical role fit the sentence, and use motion for the contrasting meaning or form.",
+      "natural_collocations": [
+        "notion clearly",
+        "notion in context",
+        "motion clearly"
+      ],
+      "sample_context": "The report uses notion precisely and distinguishes it from motion."
+    },
+    {
+      "id": "lex-177",
+      "target": "persist",
+      "confusable_with": [
+        "resist"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "persist and resist are distinct English forms. Use persist when its own dictionary meaning and grammatical role fit the sentence, and use resist for the contrasting meaning or form.",
+      "natural_collocations": [
+        "persist clearly",
+        "persist in context",
+        "resist clearly"
+      ],
+      "sample_context": "The report uses persist precisely and distinguishes it from resist."
+    },
+    {
+      "id": "lex-178",
+      "target": "pragmatic",
+      "confusable_with": [
+        "dogmatic"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "pragmatic and dogmatic are distinct English forms. Use pragmatic when its own dictionary meaning and grammatical role fit the sentence, and use dogmatic for the contrasting meaning or form.",
+      "natural_collocations": [
+        "pragmatic clearly",
+        "pragmatic in context",
+        "dogmatic clearly"
+      ],
+      "sample_context": "The report uses pragmatic precisely and distinguishes it from dogmatic."
+    },
+    {
+      "id": "lex-179",
+      "target": "preceding",
+      "confusable_with": [
+        "proceeding"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "preceding and proceeding are distinct English forms. Use preceding when its own dictionary meaning and grammatical role fit the sentence, and use proceeding for the contrasting meaning or form.",
+      "natural_collocations": [
+        "preceding clearly",
+        "preceding in context",
+        "proceeding clearly"
+      ],
+      "sample_context": "The report uses preceding precisely and distinguishes it from proceeding."
+    },
+    {
+      "id": "lex-180",
+      "target": "profound",
+      "confusable_with": [
+        "proficient"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "profound and proficient are distinct English forms. Use profound when its own dictionary meaning and grammatical role fit the sentence, and use proficient for the contrasting meaning or form.",
+      "natural_collocations": [
+        "profound clearly",
+        "profound in context",
+        "proficient clearly"
+      ],
+      "sample_context": "The report uses profound precisely and distinguishes it from proficient."
+    },
+    {
+      "id": "lex-181",
+      "target": "prosecute",
+      "confusable_with": [
+        "persecute"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "prosecute and persecute are distinct English forms. Use prosecute when its own dictionary meaning and grammatical role fit the sentence, and use persecute for the contrasting meaning or form.",
+      "natural_collocations": [
+        "prosecute clearly",
+        "prosecute in context",
+        "persecute clearly"
+      ],
+      "sample_context": "The report uses prosecute precisely and distinguishes it from persecute."
+    },
+    {
+      "id": "lex-182",
+      "target": "recede",
+      "confusable_with": [
+        "reseed"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "recede and reseed are distinct English forms. Use recede when its own dictionary meaning and grammatical role fit the sentence, and use reseed for the contrasting meaning or form.",
+      "natural_collocations": [
+        "recede clearly",
+        "recede in context",
+        "reseed clearly"
+      ],
+      "sample_context": "The report uses recede precisely and distinguishes it from reseed."
+    },
+    {
+      "id": "lex-183",
+      "target": "reinforce",
+      "confusable_with": [
+        "strengthen"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "reinforce and strengthen are distinct English forms. Use reinforce when its own dictionary meaning and grammatical role fit the sentence, and use strengthen for the contrasting meaning or form.",
+      "natural_collocations": [
+        "reinforce clearly",
+        "reinforce in context",
+        "strengthen clearly"
+      ],
+      "sample_context": "The report uses reinforce precisely and distinguishes it from strengthen."
+    },
+    {
+      "id": "lex-184",
+      "target": "resilient",
+      "confusable_with": [
+        "resistant"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "resilient and resistant are distinct English forms. Use resilient when its own dictionary meaning and grammatical role fit the sentence, and use resistant for the contrasting meaning or form.",
+      "natural_collocations": [
+        "resilient clearly",
+        "resilient in context",
+        "resistant clearly"
+      ],
+      "sample_context": "The report uses resilient precisely and distinguishes it from resistant."
+    },
+    {
+      "id": "lex-185",
+      "target": "rigorous",
+      "confusable_with": [
+        "vigorous"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "rigorous and vigorous are distinct English forms. Use rigorous when its own dictionary meaning and grammatical role fit the sentence, and use vigorous for the contrasting meaning or form.",
+      "natural_collocations": [
+        "rigorous clearly",
+        "rigorous in context",
+        "vigorous clearly"
+      ],
+      "sample_context": "The report uses rigorous precisely and distinguishes it from vigorous."
+    },
+    {
+      "id": "lex-186",
+      "target": "scenario",
+      "confusable_with": [
+        "scenery"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "scenario and scenery are distinct English forms. Use scenario when its own dictionary meaning and grammatical role fit the sentence, and use scenery for the contrasting meaning or form.",
+      "natural_collocations": [
+        "scenario clearly",
+        "scenario in context",
+        "scenery clearly"
+      ],
+      "sample_context": "The report uses scenario precisely and distinguishes it from scenery."
+    },
+    {
+      "id": "lex-187",
+      "target": "severe",
+      "confusable_with": [
+        "several"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "severe and several are distinct English forms. Use severe when its own dictionary meaning and grammatical role fit the sentence, and use several for the contrasting meaning or form.",
+      "natural_collocations": [
+        "severe clearly",
+        "severe in context",
+        "several clearly"
+      ],
+      "sample_context": "The report uses severe precisely and distinguishes it from several."
+    },
+    {
+      "id": "lex-188",
+      "target": "subtle",
+      "confusable_with": [
+        "submissive"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "subtle and submissive are distinct English forms. Use subtle when its own dictionary meaning and grammatical role fit the sentence, and use submissive for the contrasting meaning or form.",
+      "natural_collocations": [
+        "subtle clearly",
+        "subtle in context",
+        "submissive clearly"
+      ],
+      "sample_context": "The report uses subtle precisely and distinguishes it from submissive."
+    },
+    {
+      "id": "lex-189",
+      "target": "transparent",
+      "confusable_with": [
+        "translucent"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "transparent and translucent are distinct English forms. Use transparent when its own dictionary meaning and grammatical role fit the sentence, and use translucent for the contrasting meaning or form.",
+      "natural_collocations": [
+        "transparent clearly",
+        "transparent in context",
+        "translucent clearly"
+      ],
+      "sample_context": "The report uses transparent precisely and distinguishes it from translucent."
+    },
+    {
+      "id": "lex-190",
+      "target": "underlie",
+      "confusable_with": [
+        "undermine"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "underlie and undermine are distinct English forms. Use underlie when its own dictionary meaning and grammatical role fit the sentence, and use undermine for the contrasting meaning or form.",
+      "natural_collocations": [
+        "underlie clearly",
+        "underlie in context",
+        "undermine clearly"
+      ],
+      "sample_context": "The report uses underlie precisely and distinguishes it from undermine."
+    },
+    {
+      "id": "lex-191",
+      "target": "unprecedented",
+      "confusable_with": [
+        "unpredictable"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "unprecedented and unpredictable are distinct English forms. Use unprecedented when its own dictionary meaning and grammatical role fit the sentence, and use unpredictable for the contrasting meaning or form.",
+      "natural_collocations": [
+        "unprecedented clearly",
+        "unprecedented in context",
+        "unpredictable clearly"
+      ],
+      "sample_context": "The report uses unprecedented precisely and distinguishes it from unpredictable."
+    },
+    {
+      "id": "lex-192",
+      "target": "usage",
+      "confusable_with": [
+        "use"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "usage and use are distinct English forms. Use usage when its own dictionary meaning and grammatical role fit the sentence, and use use for the contrasting meaning or form.",
+      "natural_collocations": [
+        "usage clearly",
+        "usage in context",
+        "use clearly"
+      ],
+      "sample_context": "The report uses usage precisely and distinguishes it from use."
+    },
+    {
+      "id": "lex-193",
+      "target": "whereas",
+      "confusable_with": [
+        "wherever"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "whereas and wherever are distinct English forms. Use whereas when its own dictionary meaning and grammatical role fit the sentence, and use wherever for the contrasting meaning or form.",
+      "natural_collocations": [
+        "whereas clearly",
+        "whereas in context",
+        "wherever clearly"
+      ],
+      "sample_context": "The report uses whereas precisely and distinguishes it from wherever."
+    },
+    {
+      "id": "lex-194",
+      "target": "withdraw",
+      "confusable_with": [
+        "withhold"
+      ],
+      "part_of_speech": "varies by sense",
+      "english_distinction": "withdraw and withhold are distinct English forms. Use withdraw when its own dictionary meaning and grammatical role fit the sentence, and use withhold for the contrasting meaning or form.",
+      "natural_collocations": [
+        "withdraw clearly",
+        "withdraw in context",
+        "withhold clearly"
+      ],
+      "sample_context": "The report uses withdraw precisely and distinguishes it from withhold."
+    }
+  ]
+}
