@@ -397,7 +397,7 @@ function renderPocketRadioDrawer() {
   const head = div("journey-flow-top");
   head.append(
     el("span", "🎧 随身磨耳朵电台 · POCKET RADIO (13.0)", "eyebrow"),
-    btn("关闭", () => stopPocketRadio(false), "btn ghost small-btn")
+    btn("关闭 ✕", () => stopPocketRadio(false), "btn secondary small-btn")
   );
   panel.append(head, p("戴上 AirPods 即可闭眼连播；支持锁屏切句、影子跟读自动留白与睡前定时。被动收听仅计入磨耳朵曝光，绝不冒充 K。", "tiny"));
 
@@ -505,6 +505,53 @@ function renderPwaUpdateBanner() {
 
 let aiDictReplyText = "";
 let aiDictLoading = false;
+let aiDictAutoRunQuery = "";
+let lastGlobalSelectionText = "";
+let lastGlobalSelectionAt = 0;
+
+if (typeof document !== "undefined") {
+  document.addEventListener("selectionchange", () => {
+    try {
+      const picked = String(window.getSelection?.()?.toString() || "").trim();
+      if (picked && picked.length <= 200) {
+        lastGlobalSelectionText = picked;
+        lastGlobalSelectionAt = Date.now();
+      }
+    } catch {}
+  });
+}
+
+function captureCurrentSelectionText() {
+  try {
+    const live = String(window.getSelection?.()?.toString() || "").trim();
+    if (live && live.length <= 200) {
+      lastGlobalSelectionText = live;
+      lastGlobalSelectionAt = Date.now();
+      return live;
+    }
+  } catch {}
+  if (lastGlobalSelectionText && Date.now() - lastGlobalSelectionAt < 30000) return lastGlobalSelectionText;
+  return "";
+}
+
+function openAiLexiconDrawer(explicitText = "") {
+  const picked = String(explicitText || captureCurrentSelectionText() || selectedText || "").trim();
+  if (picked) {
+    if (picked !== lexiconQuery) aiDictReplyText = "";
+    lexiconQuery = picked;
+    aiDictAutoRunQuery = picked;
+  }
+  lexiconDrawerOpen = true;
+  render();
+}
+
+function makeAiLookupTriggerButton(className = "btn ghost small-btn") {
+  const b = btn("🔍 AI 查词", () => openAiLexiconDrawer(), className);
+  const snap = () => captureCurrentSelectionText();
+  b.addEventListener("pointerdown", snap);
+  b.addEventListener("touchstart", snap, { passive: true });
+  return b;
+}
 
 function renderOfflineLexiconDrawer() {
   if (!lexiconDrawerOpen) return el("span", "");
@@ -512,10 +559,10 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与提问 · AI DICTIONARY (15.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与提问 · AI DICTIONARY (15.1.3)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
-  const input = textInput(lexiconQuery, "输入英文单词、短语或直接用英文向 AI 导师提问……");
+  const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
   input.setAttribute("aria-label", "AI 全英文词典输入框");
   const aiOut = div("ai-tutor-output");
   aiOut.hidden = !aiDictReplyText && !aiDictLoading;
@@ -524,10 +571,15 @@ function renderOfflineLexiconDrawer() {
     if (aiDictLoading) {
       aiOut.replaceChildren(p("🤖 正在连线你的 Google AI 导师生成纯英文词典精讲……", "tiny"));
     } else if (aiDictReplyText) {
-      aiOut.replaceChildren(
+      const headRow = div("ai-tutor-head-row");
+      headRow.append(
         el("div", "🤖 AI 全英文释义与搭配 · ENGLISH-TO-ENGLISH", "eyebrow"),
-        p(aiDictReplyText, "ai-tutor-text"),
-        btn("🔊 朗读英文释义", () => speakEnglish(aiDictReplyText.slice(0, 320)), "btn ghost small-btn")
+        btn("收起 ✕", () => { aiDictReplyText = ""; renderAiOut(); }, "btn ghost small-btn")
+      );
+      aiOut.replaceChildren(
+        headRow,
+        renderFormattedAiText(aiDictReplyText),
+        btn("🔊 朗读英文释义", () => speakEnglish(String(aiDictReplyText || "").replace(/[#*`_-]+/g, " ").slice(0, 420)), "btn ghost small-btn")
       );
     }
   };
@@ -563,6 +615,10 @@ function renderOfflineLexiconDrawer() {
     btn("🔊 朗读查询词", () => { if (input.value.trim()) speakEnglish(input.value.trim()); }, "btn ghost small-btn")
   );
   input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); runAiLookup(); } });
+  if (aiDictAutoRunQuery && aiDictAutoRunQuery === lexiconQuery && !aiDictLoading) {
+    aiDictAutoRunQuery = "";
+    setTimeout(() => runAiLookup(), 0);
+  }
 
   const listBox = div("lexicon-results-list");
   const updateList = q => {
@@ -773,7 +829,7 @@ function renderJourneyFlowRibbon(activeStage = "") {
   );
   const saveBadge = el("span", "🔒 每步自动存盘", "chip tiny");
   topRow.append(titleSpan, div("journey-flow-controls"));
-  const lexBtn = btn('🔍 AI 查词', () => { lexiconDrawerOpen = true; render(); }, 'btn ghost small-btn');
+  const lexBtn = makeAiLookupTriggerButton('btn ghost small-btn');
   const zenBtn = btn(zenFocusMode ? '🧘 退出专注' : '🧘 专注', toggleZenFocusMode, 'btn ghost small-btn');
   topRow.lastChild.append(autoPlayBtn, lexBtn, zenBtn, saveBadge);
   const pills = div("journey-flow-pills");
@@ -924,6 +980,8 @@ function render(){
     if(page==='summary')return renderSummary();
   }catch(error){renderError(error);}
   finally{
+    if(lexiconDrawerOpen){const d=renderOfflineLexiconDrawer();if(d&&d.tagName!=='SPAN')app.append(d);}
+    if(radioOpen){const r=renderPocketRadioDrawer();if(r&&r.tagName!=='SPAN')app.append(r);}
     previouslyRenderedPage=page;
     if(viewport)restoreStableViewport(app,viewport,window);
     app.style.minHeight=previousMinHeight;
@@ -2365,7 +2423,7 @@ function renderReadingRetelling(reading){
 function renderReading(){app.append(el('div','英语阅读 · READING CHAMBER','eyebrow'),h('h1','阅读英语材料'),p('文章只保存在本机。双击或长按选中英文词语后，可以标记并批量保存为复习卡片。原生复制、Look Up 和滚动仍然可用。','lead'),lines(btn('打开阅读生词本',()=>setPage('readingVocabulary'),'btn secondary')));
 const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){app.append(renderJourneyFlowRibbon('reading'));const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('阅读正文、必要时标记生词。读完后主动点击确认；计时正向累计，达到建议分钟数不会自动结束。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));const recallActive=Boolean(readingJourney.readingRecallQueue?.length);box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(recallActive?'完成即时回忆后继续':remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning||recallActive)));app.append(box);}
-if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const article=div(readingBlurMode?'reading-article is-blind-blur':'reading-article');article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);article.append(node);});article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');toolbar.append(speechControls(reading.text,splitSpeechSegments(reading.text)),btn(readingBlurMode?'👁️ 恢复清晰正文':'🙈 盲听模糊正文',()=>{readingBlurMode=!readingBlurMode;render();},'btn ghost'),btn('🔍 AI 查词',()=>{lexiconDrawerOpen=true;render();},'btn ghost'),renderAiReplyWidget('🤖 AI 拆解选中长难句',()=>askAiExplainSentence({sentence:window.getSelection?.()?.toString().trim()||selectedText||reading.text.slice(0,260),context:selectedParagraphText||reading.text.slice(0,500)})),btn('标记选中生词',()=>toggleReadingMark(reading,paragraphs),'btn secondary'),btn(`保存已标记生词（${pending}）`,()=>saveMarkedReadingWords(reading),'btn primary',pending===0),btn('保存选中文本为卡片',()=>saveSelectedReadingText(reading,paragraphs),'btn ghost'));list.append(article,toolbar);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
+if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const article=div(readingBlurMode?'reading-article is-blind-blur':'reading-article');article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);article.append(node);});article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');toolbar.append(speechControls(reading.text,splitSpeechSegments(reading.text)),btn(readingBlurMode?'👁️ 恢复清晰正文':'🙈 盲听模糊正文',()=>{readingBlurMode=!readingBlurMode;render();},'btn ghost'),makeAiLookupTriggerButton('btn ghost'),renderAiReplyWidget('🤖 AI 拆解选中长难句',()=>askAiExplainSentence({sentence:window.getSelection?.()?.toString().trim()||selectedText||reading.text.slice(0,260),context:selectedParagraphText||reading.text.slice(0,500)})),btn('标记选中生词',()=>toggleReadingMark(reading,paragraphs),'btn secondary'),btn(`保存已标记生词（${pending}）`,()=>saveMarkedReadingWords(reading),'btn primary',pending===0),btn('保存选中文本为卡片',()=>saveSelectedReadingText(reading,paragraphs),'btn ghost'));list.append(article,toolbar);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
 function trendSummary(days){const endDay=dateKeyInTimeZone(new Date());const startDay=dateKeyInTimeZone(new Date(Date.now()-(Math.max(1,days)-1)*86400000));const sessions=data.sessions.filter(x=>{const day=dateKeyInTimeZone(x.endedAt);return day&&day>=startDay&&day<=endDay;});const time=summarizeSessionTime(data.sessions,startDay,endDay);return {minutes:Math.round(time.knownMs/60000),unallocatedMs:time.unknownMs,sessions:sessions.length,attempts:sessions.reduce((sum,x)=>sum+Number(x.count||0),0)};}
 /** Non-destructive local audit: IndexedDB recording metadata and StorageManager are read only. */
 function dataSafetyPanel(){
