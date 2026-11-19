@@ -1,4 +1,4 @@
-const CACHE='english-cultivation-static-v15.5.0';
+const CACHE='english-cultivation-static-v16.0.0';
 const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './discourse.mjs',
   './immersion.mjs',
@@ -13,7 +13,26 @@ self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
   // Never double-cache large ONNX/WASM assets in the app shell cache.
   if(url.pathname.includes('/kokoro-preview/runtime/')||url.pathname.includes('/kokoro-preview/live.'))return;
-  event.respondWith(caches.match(event.request).then(cached=>cached || fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy));}return response;})));
+  // Network-First for HTML navigation so fresh deploys appear immediately on iOS Safari.
+  if(event.request.mode==='navigate'||url.pathname.endsWith('/index.html')){
+    event.respondWith(
+      fetch(event.request).then(response=>{
+        if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy));}
+        return response;
+      }).catch(()=>caches.match(event.request).then(cached=>cached||caches.match('./index.html')))
+    );
+    return;
+  }
+  // Stale-While-Revalidate for core static assets (instant paint + background refresh).
+  event.respondWith(
+    caches.match(event.request).then(cached=>{
+      const networkFetch=fetch(event.request).then(response=>{
+        if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy));}
+        return response;
+      }).catch(()=>cached);
+      return cached||networkFetch;
+    })
+  );
 });
 
 self.addEventListener('message', event => { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });

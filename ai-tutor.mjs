@@ -211,6 +211,37 @@ export function buildGeminiTtsRequestSpec(text, config = null, modelOverride = '
   };
 }
 
+/**
+ * Resilient fetch wrapper with AbortController timeout and single automatic retry
+ * on transient 429/502/503/504 responses or network blips (subway/mobile safe).
+ */
+export async function fetchWithTimeoutAndRetry(fetchImpl, url, init = {}, { timeoutMs = 22000, retries = 1, retryDelayMs = 450 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => { try { controller.abort(); } catch {} }, timeoutMs) : null;
+    try {
+      const reqInit = controller ? { ...init, signal: init.signal || controller.signal } : init;
+      const resp = await fetchImpl(url, reqInit);
+      if (timer) clearTimeout(timer);
+      if (!resp.ok && attempt < retries && [429, 502, 503, 504].includes(resp.status)) {
+        await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
+        continue;
+      }
+      return resp;
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      lastErr = err?.name === 'AbortError' ? Error('网络请求超时，请检查网络或稍后重试。') : err;
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || Error('网络请求失败。');
+}
+
 function hasRiffWavHeader(bytes) {
   return bytes.byteLength >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
 }
@@ -232,7 +263,7 @@ export async function synthesizeGeminiSpeech(text, config = null, fetchImpl = ty
   for (let i = 0; i < modelsToTry.length; i++) {
     const model = modelsToTry[i];
     const spec = buildGeminiTtsRequestSpec(text, cfg, model);
-    const resp = await fetchImpl(spec.url, spec.init);
+    const resp = await fetchWithTimeoutAndRetry(fetchImpl, spec.url, spec.init, { timeoutMs: 22000, retries: 1 });
     if (!resp.ok) {
       let errText = '';
       try { errText = (await resp.text()).slice(0, 180); } catch {}
@@ -331,7 +362,7 @@ async function runAiPrompt(systemPrompt, userPrompt, config = null, fetchImpl = 
   const cfg = config || loadAiConfig();
   if (!fetchImpl) throw Error('当前环境不支持网络请求。');
   const spec = buildAiRequestSpec(cfg, { systemPrompt, userPrompt });
-  const resp = await fetchImpl(spec.url, spec.init);
+  const resp = await fetchWithTimeoutAndRetry(fetchImpl, spec.url, spec.init, { timeoutMs: 22000, retries: 1 });
   if (!resp.ok) {
     let errText = '';
     try { errText = (await resp.text()).slice(0, 180); } catch {}
