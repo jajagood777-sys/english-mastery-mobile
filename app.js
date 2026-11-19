@@ -24,6 +24,36 @@ const el=(tag,text='',cls='')=>{const node=document.createElement(tag);if(cls)no
 const app=document.getElementById('app');let page='home';let draft=null;let filter='all';let searchTerm='';let showHint=false;let lastSessionSummary=null;let toastTimer;let lastPersistedRaw=null;
 let readingVocabSearchTerm='';let readingVocabStatusFilter='all';let activeAudio=null;let speechObjectUrl=null;let activeLocalAudio=null;let naturalSpeechPlayer=null;
 let spellingTouchMode=false;
+let mediaSessionNextHandler=null;
+let mediaSessionPreviousHandler=null;
+function updateMediaSession({module='言道修炼殿',title='',index='',audio=null,next=null,previous=null}={}){
+  if(!('mediaSession' in navigator))return;
+  const label=[module,title,index].filter(Boolean).join(' · ');
+  try{navigator.mediaSession.metadata=new MediaMetadata({title:label||'今日完整学习',artist:'言道修炼殿',album:'English Cultivation'});}catch{}
+  mediaSessionNextHandler=typeof next==='function'?next:null; mediaSessionPreviousHandler=typeof previous==='function'?previous:null;
+  const run=(action,fn)=>{try{navigator.mediaSession.setActionHandler(action,fn);}catch{}};
+  run('play',()=>audio?.play?.()); run('pause',()=>audio?.pause?.());
+  run('seekbackward',()=>{if(audio)audio.currentTime=Math.max(0,(audio.currentTime||0)-5);});
+  run('seekforward',()=>{if(audio)audio.currentTime=Math.min(Number.isFinite(audio.duration)?audio.duration:Infinity,(audio.currentTime||0)+5);});
+  run('previoustrack',()=>mediaSessionPreviousHandler?.()); run('nexttrack',()=>mediaSessionNextHandler?.());
+}
+function clearMediaSession(){if(!('mediaSession' in navigator))return;mediaSessionNextHandler=null;mediaSessionPreviousHandler=null;try{navigator.mediaSession.metadata=null;}catch{}}
+function showUpdateBanner(reg){
+  let banner=document.getElementById('update-banner'); if(!banner){banner=el('button','发现新版本，点击无损更新','update-banner');banner.type='button';document.body.prepend(banner);}
+  banner.hidden=false; banner.onclick=()=>{banner.disabled=true;banner.textContent='正在无损更新……';reg.waiting?.postMessage({type:'SKIP_WAITING'});};
+}
+function setupServiceWorker(reg){
+  if(reg.waiting)showUpdateBanner(reg);
+  reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)showUpdateBanner(reg);});});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(window.__swRefreshing)return;window.__swRefreshing=true;window.location.reload();});
+}
+async function cleanupHistoricalAudioCache(){
+  if(!('caches' in window))return {deleted:0,kept:0};
+  const active=new Set(); const walk=value=>{if(!value)return;if(typeof value==='string'){if(/\.mp3(?:[?#]|$)/i.test(value))active.add(new URL(value,location.href).href);return;}if(Array.isArray(value))value.forEach(walk);else if(typeof value==='object')Object.values(value).forEach(walk);};
+  walk(data.dailyPack?.sourcePack?.raw||data.dailyPack); let deleted=0,kept=0;
+  for(const name of await caches.keys()){const cache=await caches.open(name);for(const request of await cache.keys()){if(!/\.mp3(?:[?#]|$)/i.test(request.url))continue;if(active.has(request.url)){kept++;continue;}if(await cache.delete(request))deleted++;}}
+  return {deleted,kept};
+}
 let lastAutoPlayedKey = "";
 function triggerAutoPlayIfEnabled(key, text, audioUrl = "") {
   if (!data?.settings?.autoPlayAudio || !key || lastAutoPlayedKey === key) return;
@@ -110,7 +140,7 @@ function speechChunks(text){const sentences=String(text||'').replace(/\s+/g,' ')
 function playSpeechChunk(){if(!('speechSynthesis'in window)||speechPaused||speechQueueIndex>=speechQueue.length)return;const value=speechQueue[speechQueueIndex];const utter=new SpeechSynthesisUtterance(value);const voice=selectedSpeechVoice();utter.lang=voice?.lang||'en-US';if(voice)utter.voice=voice;utter.rate=Math.max(.5,Math.min(1.5,Number(data.settings.speechRate)||.9));utter.onend=()=>{speechQueueIndex++;playSpeechChunk();};utter.onerror=()=>{speechQueue=[];speechQueueIndex=0;notify('朗读失败，仍可继续文字学习。');};window.speechSynthesis.speak(utter);}
 function speakDevice(text){const value=String(text||'').trim();if(!value)return false;if(!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined'){notify('当前文字没有自然配音，且此浏览器不支持设备朗读。');return false;}stopSpeech();initSpeechVoices();speechQueue=speechChunks(value);speechQueueIndex=0;speechPaused=false;playSpeechChunk();return true;}
 async function speakNaturalOrDevice(text,segments=null){const values=Array.isArray(segments)&&segments.length?segments.filter(Boolean):[String(text||'').trim()];if(!values.some(Boolean))return false;stopSpeech();try{naturalSpeechPlayer??=createClipPlayer({onStatus:message=>notify(message)});const result=await naturalSpeechPlayer.speakSegments(values,'af_heart');if(result==='playing'||result==='ready'||result==='paused')return true;if(result==='cancelled')return false;if(result==='missing')notify('这段内容尚未准备自然语音，已切换设备朗读。');}catch(error){notify(`自然语音播放失败，已切换设备朗读：${error.message}`);}return speakDevice(values.join(' '));}
-function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
+function speakEnglish(text,voiceOverride=null,segments=null){updateMediaSession({module:'设备朗读',title:String(text||'').slice(0,80)});return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}}
 function resumeSpeech(){naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}}
 function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
@@ -341,8 +371,8 @@ function startWeaknessTransfer(weakness){const contextIndex=0;data.activeTransfe
 function activeWeaknessTransfer(){const state=data.activeTransfer;if(!state)return null;const weakness=inferredWeaknesses().find(row=>row.id===state.weaknessId);const context=weakness?.contexts?.[Number(state.contextIndex)||0];return weakness&&context?{state,weakness,context}:null;}
 function transferHintText(context,weakness,level){const hints=context.hints||[];if(level<=0)return '';if(level<=hints.length)return hints[level-1];if(level===hints.length+1&&weakness.targetExpression)return `目标表达：${weakness.targetExpression}`;return '改变人物、时间或目的，用自己的英文重新组织。';}
 let recordingController=null;
-function stopLocalAudio(){if(activeLocalAudio){activeLocalAudio.pause();activeLocalAudio.onended=null;activeLocalAudio=null;}}
-function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;audio.onended=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;};audio.onerror=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
+function stopLocalAudio(){if(activeLocalAudio){activeLocalAudio.pause();activeLocalAudio.onended=null;activeLocalAudio=null;}clearMediaSession();}
+function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){updateMediaSession({module:'参考音频',title:text});speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;updateMediaSession({module:'参考音频',title:text,audio});audio.onended=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;clearMediaSession();};audio.onerror=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;clearMediaSession();notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
 function recordingPanelKey(meta){return JSON.stringify([meta.weaknessId||'',meta.taskId||'',meta.attemptId||'',meta.role||'']);}
 function activeRecordingPanel(meta){const key=recordingPanelKey(meta);return Array.from(app.querySelectorAll('.recording-panel')).find(panel=>panel.dataset.recordingKey===key)||null;}
 function refreshRecordingPanel(meta){const panel=activeRecordingPanel(meta);if(panel)panel.replaceWith(renderRecordingControls(meta));}
@@ -1532,7 +1562,7 @@ function renderSpeechChamber(){
   const blob=await getSpeechClip(speech.scriptEn,speech.audioVoice||'af_heart');
   if(!blob){status.textContent='本机没有该演讲的完整 MP3；请在下份私人 ZIP 中加入 speeches 音频。';return;}
   if(activeAudio!==audio||!audio.isConnected)return;
-  speechObjectUrl=URL.createObjectURL(blob);audio.src=speechObjectUrl;audio.load();play.disabled=false;
+  speechObjectUrl=URL.createObjectURL(blob);audio.src=speechObjectUrl;updateMediaSession({module:'英语演讲',title:speech.title,audio});audio.load();play.disabled=false;
   status.textContent='真实整篇音频已就绪；手动点击播放以兼容 iPhone Safari。';
  }catch(error){if(activeAudio===audio)status.textContent='演讲音频不可用：'+error.message;}})();
 }
@@ -1597,6 +1627,8 @@ function dataSafetyPanel(){
     renderEntries();list.append(entries);
     if(sorted.length>8)list.append(btn('查看全部 '+sorted.length+' 条录音',()=>renderEntries(true),'btn ghost'));
   }).catch(error=>{count.textContent='录音数据库暂不可读取：'+String(error?.message||'未知原因')+'。并不代表录音数量是零。';});
+  const cleanup=btn('清理历史旧 MP3 缓存',async()=>{cleanup.disabled=true;try{const result=await cleanupHistoricalAudioCache();notify(`已清理 ${result.deleted} 个历史 MP3 缓存，保留当前学习包 ${result.kept} 个。录音、学习记录和 K/V/N 未触碰。`);}catch(error){notify(`缓存清理失败：${error.message}`);}finally{cleanup.disabled=false;}},'btn secondary');
+  box.append(p('此操作只处理浏览器 Cache Storage 中、且不属于当前 active dailyPack 的 .mp3。不会删除 IndexedDB 录音或结构化学习记录。','tiny'),cleanup);
   const check=btn('检查Safari本地存储状态',async()=>{
     if(!navigator.storage?.estimate){disk.textContent='当前浏览器未开放StorageManager信息；不能确认持久存储状态。';return;}
     try{
@@ -1657,7 +1689,7 @@ window.addEventListener('pagehide',()=>{if(data.dailyJourney?.readingRunning)pau
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 const themeToggle=document.getElementById('theme-toggle');if(themeToggle)themeToggle.addEventListener('click',()=>setTheme(data.settings.theme==='night'?'day':'night'));
 const helpButton=document.getElementById('help-button');if(helpButton)helpButton.addEventListener('click',showGuide);
-if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{setupServiceWorker(reg);return reg.update();}).catch(()=>{});
 render();
 if(migrationNotice){notify(migrationNotice);migrationNotice='';}
 

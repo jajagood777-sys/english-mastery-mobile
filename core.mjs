@@ -4,7 +4,7 @@ import {buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discourse.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '11.0.0';
+export const APP_VERSION = '11.1.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {

@@ -1,11 +1,13 @@
 {
   "name": "english-mastery-mobile",
-  "version": "11.0.0",
+  "version": "11.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check app.js && node --check core.mjs && npm test"
+    "check": "node --check app.js && node --check core.mjs && npm test",
+    "validate:pack": "node scripts/validate-pack.mjs",
+    "test:e2e:mobile": "node scripts/test-11-1-mobile-e2e.mjs"
   },
   "engines": {
     "node": ">=18"
