@@ -48,7 +48,7 @@ export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=
     {name:'manifest.json',bytes:encoder.encode(JSON.stringify(manifest,null,2)+'\n')},
     {name:'battle-report.json',bytes:encoder.encode(JSON.stringify(report||{},null,2)+'\n')},
     {name:'central-feedback.json',bytes:encoder.encode(JSON.stringify(feedback||{},null,2)+'\n')},
-    {name:'README.txt',bytes:encoder.encode('English Cultivation Central Handover\n\nUpload this package manually to the Central Immortal Aperture. The website does not automatically sync to ChatGPT, Notion, Drive or Sheets.\n\nRecordings are included only when you explicitly chose the recording export.\n')}
+    {name:'README.txt',bytes:encoder.encode('English Cultivation Central Handover\n\nUpload this package manually to the Central Immortal Aperture (Gemini). The website does not automatically sync to Google Drive or Google Sheets. Includes 11.0.1 Battle Report (Smart Vocabulary, Interference Radar, Objective Expression X-Ray, and FSRS 6.3.2 Shadow Stability).\n\nRecordings are included only when you explicitly chose the recording export.\n')}
   ];
   if(sourceIncluded)entries.push({name:'learning-pack.json',bytes:sourceBytes});
   for(const recording of recordings){const id=clean(recording.id).replace(/[^A-Za-z0-9._-]/g,'_')||'recording';const ext=String(recording.mimeType||'').includes('mp4')?'m4a':String(recording.mimeType||'').includes('ogg')?'ogg':'webm';entries.push({name:`recordings/${id}.${ext}`,bytes:recording.bytes instanceof Uint8Array?recording.bytes:new Uint8Array(recording.bytes||[])});}

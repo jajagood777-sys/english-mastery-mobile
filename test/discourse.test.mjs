@@ -129,3 +129,76 @@ test('interference radar aggregates confused target-distractor pairs with contra
   assert.equal(radar.pairs[0].target, 'vortex');
   assert.equal(radar.pairs[0].distractor, 'expertise');
 });
+
+import { buildBattleReport, battleReportMarkdown, buildCentralLearningFeedback } from '../core.mjs';
+
+test('11.0.1 battle report, markdown, and central feedback include discourse X-Ray, interference radar, reading metrics, and FSRS shadow', () => {
+  const archive = [
+    { id: 'W-1', target: 'vortex', definition_en: 'Rotating mass of water.', example: 'A vortex formed.' },
+    { id: 'W-2', target: 'expertise', definition_en: 'Specialist skill.', example: 'Geological expertise.' }
+  ];
+  const vocabTasks = [
+    {
+      id: 'V-1',
+      sourceItemId: 'W-1',
+      type: 'contextual_cloze',
+      target: 'vortex',
+      targetSense: 'Rotating mass of water.',
+      prompt: 'A _____ formed.',
+      options: [{ id: 'A', text: 'expertise' }, { id: 'C', text: 'vortex' }],
+      correctOptionIds: ['C'],
+      explanationEn: 'Source meaning: Rotating mass of water.'
+    }
+  ];
+  const vocabAttempts = [
+    { taskId: 'V-1', selectedOptionId: 'A', correct: false, firstCheck: { correct: false }, rehearsalCompleted: true, rehearsalPassed: true }
+  ];
+  const transferAttempts = [
+    {
+      id: 'ta-1',
+      taskId: 't-1',
+      taskType: 'writing',
+      prompt: 'Explain flood control.',
+      firstAnswer: 'Although floodwaters create a dangerous vortex, engineers rely on expertise. Therefore, the bridge remains safe.',
+      referenceAnswer: 'Although floodwaters form a vortex, engineering expertise keeps the structure resilient.',
+      targetPhrases: ['vortex', 'expertise', 'resilient'],
+      rating: 'K'
+    }
+  ];
+  const readings = [
+    { id: 'r-1', title: 'Bridge Hydraulics', text: 'A vortex formed beneath the bridge. Engineers used geological expertise to study the flow.' }
+  ];
+  const report = buildBattleReport({
+    session: { id: 'sess-1101', startedAt: '2026-11-18T10:00:00Z', endedAt: '2026-11-18T10:20:00Z', activeMs: 1200000, mode: 'journey' },
+    attempts: [],
+    items: [],
+    readings,
+    transferAttempts,
+    vocabularyTasks: vocabTasks,
+    vocabularyAttempts: vocabAttempts,
+    originalWordArchive: archive
+  });
+
+  assert.equal(report.app_version, '11.1.0');
+  assert.equal(report.discourse_summary.analyzedResponses, 1);
+  assert.ok(report.discourse_summary.targetHits.includes('vortex'));
+  assert.ok(report.discourse_summary.targetMissed.includes('resilient'));
+  assert.ok(report.discourse_summary.cohesionMarkersUsed.includes('although'));
+  assert.equal(report.reading_analysis.passage_metrics.length, 1);
+  assert.equal(report.reading_analysis.passage_metrics[0].matchedPackCount, 2);
+  assert.equal(report.vocabulary_practice_evidence.interferenceRadar.totalConfusedPairs, 1);
+
+  const md = battleReportMarkdown(report);
+  assert.match(md, /Objective Expression X-Ray/);
+  assert.match(md, /Smart Vocabulary & Interference Radar/);
+  assert.match(md, /FSRS 6\.3\.2 Shadow Stability/);
+  assert.match(md, /YANDAO-PACK-GEN-11\.0/);
+  assert.doesNotMatch(md, /保存到原有 Notion/);
+
+  const feedback = buildCentralLearningFeedback({ report });
+  assert.equal(feedback.feedback_schema_version, '1.0');
+  assert.equal(feedback.vocabulary_recognition_evidence.counts_as_mastery_K, false);
+  assert.equal(feedback.vocabulary_recognition_evidence.interference_radar.totalConfusedPairs, 1);
+  assert.equal(feedback.discourse_summary.analyzedResponses, 1);
+  assert.ok(feedback.fsrs_shadow_summary);
+});
