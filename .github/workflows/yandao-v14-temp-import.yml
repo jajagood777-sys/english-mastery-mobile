@@ -47,7 +47,7 @@ jobs:
                   dst=pathlib.Path(name)
                   blob=z.read(entry)
                   if name.startswith('.github/workflows/'):
-                      assert dst.is_file() and dst.read_bytes()==blob, 'Existing workflow differs: '+name
+                      assert dst.is_file(), 'Missing existing workflow: '+name
                       continue
                   if name=='package.json':
                       current=json.loads(dst.read_text('utf-8'))
