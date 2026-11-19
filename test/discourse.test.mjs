@@ -179,7 +179,7 @@ test('11.0.1 battle report, markdown, and central feedback include discourse X-R
     originalWordArchive: archive
   });
 
-  assert.equal(report.app_version, '11.1.0');
+  assert.equal(report.app_version, '13.0.0');
   assert.equal(report.discourse_summary.analyzedResponses, 1);
   assert.ok(report.discourse_summary.targetHits.includes('vortex'));
   assert.ok(report.discourse_summary.targetMissed.includes('resilient'));

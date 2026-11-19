@@ -2,9 +2,10 @@
 import {normalizeVocabularyPractice, summarizeVocabularyPractice, buildIntraSessionRehearsalQueue} from './vocab.mjs';
 import {buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discourse.mjs';
+import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '11.1.0';
+export const APP_VERSION = '13.0.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -981,6 +982,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
       interference_radar:report?.vocabulary_practice_evidence?.interferenceRadar||{totalConfusedPairs:0,pairs:[]}
     },
     discourse_summary:report?.discourse_summary||null,
+    radio_exposure:report?.radio_exposure||null,
     fsrs_shadow_summary:report?.fsrs_shadow?{
       model:report.fsrs_shadow.model,
       qualified_independent_events:report.fsrs_shadow.qualifiedIndependentEvents||0,
@@ -1129,7 +1131,7 @@ export function validateBackup(value){
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1279,6 +1281,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     spelling_evidence: {attempts:Array.isArray(spellingAttempts)?spellingAttempts:[],summary:buildSpellingSummary(spellingAttempts)},
     vocabulary_practice_evidence: {attempts:Array.isArray(vocabularyAttempts)?vocabularyAttempts:[],summary:summarizeVocabularyPractice(vocabularyTasks,vocabularyAttempts),interferenceRadar:buildInterferenceRadar(vocabularyTasks,vocabularyAttempts,originalWordArchive)},
     fsrs_shadow: replayFsrsShadowHistory(detail, now),
+    radio_exposure: summarizeRadioExposure(radioLog),
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
     sync_status: 'NOT_SUBMITTED'
@@ -1344,6 +1347,7 @@ export function battleReportMarkdown(report) {
       ``, `## Reading Passage Metrics（阅读词数与今日核心词覆盖）`, ``,
       ...report.reading_analysis.passage_metrics.map(pm => `- ${inline(pm.title)}: ${pm.wordCount} words · Pack target words covered: ${pm.matchedPackCount}${pm.matchedPackWords?.length ? ` (${pm.matchedPackWords.slice(0,6).join(', ')})` : ''}`)
     ]:[]),
+    ...(report.radio_exposure?.clipsPlayed?[``, `## Pocket Radio Passive Exposure（随身电台磨耳朵曝光，不计入 K）`, ``, `- Clips listened: ${report.radio_exposure.clipsPlayed} · Passive listening seconds: ${report.radio_exposure.activeSeconds}s · Channel: ${report.radio_exposure.channelUsed||'default'} (exposure only, countsAsMasteryK: false)`]:[]),
     ...(report.fsrs_shadow?[
       ``, `## FSRS 6.3.2 Shadow Stability（独立回忆稳定度影子调度）`, ``,
       `- Qualified independent recall events: ${report.fsrs_shadow.qualifiedIndependentEvents||0} (excluded choice/prompted/unrated: ${report.fsrs_shadow.excludedNonIndependentOrUnrated||0})`,

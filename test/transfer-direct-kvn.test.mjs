@@ -43,7 +43,7 @@ test('first-answer evidence survives and the reference is marked displayed only 
   assert.equal((app.match(/referenceDisplayedAutomatically:true/g)||[]).length,4);
 });
 test('new app and PWA cache versions match',()=>{
-  assert.match(core,/APP_VERSION = '11\.1\.0'/);
+  assert.match(core,/APP_VERSION = '13\.0\.0'/);
   assert.match(core,/referencePrompted=Boolean\(attempt.referenceViewed&&!attempt.referenceDisplayedAutomatically\)/);
-  assert.match(sw,/english-cultivation-static-v11\.1\.0/);
+  assert.match(sw,/english-cultivation-static-v13\.0\.0/);
 });
