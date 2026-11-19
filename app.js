@@ -534,7 +534,7 @@ function renderPocketRadioDrawer() {
   const panel = section("lexicon-drawer-panel pocket-radio-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🎧 随身磨耳朵电台 · POCKET RADIO (15.4.0)", "eyebrow"),
+    el("span", "🎧 随身磨耳朵电台 · POCKET RADIO (15.5.0)", "eyebrow"),
     btn("关闭 ✕", () => stopPocketRadio(false), "btn secondary small-btn")
   );
   panel.append(
@@ -729,7 +729,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (15.4.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (15.5.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
