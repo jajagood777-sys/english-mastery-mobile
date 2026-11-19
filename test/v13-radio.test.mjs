@@ -43,7 +43,7 @@ test('weak_sniper channel prioritizes missed vocabulary choices and N/V weak car
   assert.equal(tracks.every(t => t.exposureOnly === true), true);
 });
 
-test('14.1.0 battle report logs passive radio exposure honestly without counting as mastery K', () => {
+test('15.1.0 battle report logs passive radio exposure honestly without counting as mastery K', () => {
   const summary = summarizeRadioExposure({ clipsPlayed: 12, activeMs: 185000, lastChannel: 'weak_sniper' });
   assert.equal(summary.clipsPlayed, 12);
   assert.equal(summary.activeSeconds, 185);
@@ -55,7 +55,7 @@ test('14.1.0 battle report logs passive radio exposure honestly without counting
     items: [],
     radioLog: { clipsPlayed: 12, activeMs: 185000, lastChannel: 'weak_sniper' }
   });
-  assert.equal(report.app_version, '14.1.0');
+  assert.equal(report.app_version, '15.1.0');
   assert.equal(report.radio_exposure.clipsPlayed, 12);
   assert.equal(report.radio_exposure.countsAsMasteryK, false);
 
@@ -64,7 +64,7 @@ test('14.1.0 battle report logs passive radio exposure honestly without counting
   assert.match(md, /countsAsMasteryK: false/);
 });
 
-test("14.1.0 radio playlist emits exact single-unit segments for Kokoro af_heart matching and respects scope", () => {
+test("15.1.0 radio playlist emits exact single-unit segments for Kokoro af_heart matching and respects scope", () => {
   const items = [
     { id: "w1", packId: "P-TODAY", kind: "word", target: "vortex", example: "A vortex formed.", status: "N" },
     { id: "w2", packId: "P-OLD", kind: "word", target: "valve", example: "Open the valve.", status: "N" }

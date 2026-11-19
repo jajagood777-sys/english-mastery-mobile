@@ -954,3 +954,36 @@ html[data-theme="night"] .cdtl-anchor-pill {
 .vocab-option-btn:active:not(:disabled) {
   transform: scale(0.985);
 }
+
+
+/* === 15.0.0 BYOK AI Tutor Styles === */
+.ai-tutor-widget {
+  margin-top: 10px;
+}
+.ai-tutor-output {
+  margin-top: 10px;
+  padding: 13px 15px;
+  border-radius: 13px;
+  border: 1px solid var(--antique-gold);
+  background: color-mix(in srgb, var(--antique-gold) 10%, var(--theme-card));
+  color: var(--theme-text);
+}
+.ai-tutor-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 !important;
+  color: var(--theme-text) !important;
+}
+
+/* === 15.1.0 Mobile Safe Bottom Padding & Retelling Ref Box === */
+.reading-retelling-panel {
+  padding-bottom: 92px;
+}
+.retelling-ref-box {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-bg);
+}
