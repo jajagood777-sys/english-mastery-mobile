@@ -381,3 +381,16 @@ export async function askAiFreeTutor({ question = '', pageContext = '' } = {}, c
   const usr = `${pageContext ? `Current study context: ${cleanAi(pageContext).slice(0, 400)}\n` : ''}Learner question: ${cleanAi(question)}`;
   return runAiPrompt(sys, usr, config, fetchImpl);
 }
+export async function askAiCheckGrammar({ prompt = '', userAnswer = '', referenceAnswer = '', grammarFocus = '' } = {}, config = null, fetchImpl = undefined) {
+  const sys = 'You are a concise, encouraging English grammar coach. Respond IN CLEAR ENGLISH ONLY (no Chinese unless asked). Structure: 1) Accuracy Verdict (Correct / Minor Fix Needed / Needs Rework) 2) Rule Breakdown (1–2 crisp sentences) 3) Corrected Sentence & 1 Parallel Practice Variation.';
+  const usr = `Grammar Prompt: ${cleanAi(prompt)}${grammarFocus ? `\nGrammar Focus: ${cleanAi(grammarFocus)}` : ''}\nLearner Answer: ${cleanAi(userAnswer)}\nReference Answer: ${cleanAi(referenceAnswer) || 'N/A'}`;
+  return runAiPrompt(sys, usr, config, fetchImpl);
+}
+
+export async function askAiSpeakingDemoCoach({ prompt = '', userTranscript = '', mode = 'ielts_or_demo' } = {}, config = null, fetchImpl = undefined) {
+  const sys = mode === 'kids_demo'
+    ? 'You are a bilingual children-English teaching demo coach. Respond IN CLEAR, NATURAL ENGLISH ONLY. Structure: 1) Classroom Warmth & Pacing 2) Pronunciation / Connected-Speech Tip (including dropped-D or linking where helpful) 3) 2 Kid-Friendly Instruction Upgrades.'
+    : 'You are an encouraging IELTS Speaking & teaching-demo coach. Respond IN CLEAR, NATURAL ENGLISH ONLY (never fabricate an official band score). Structure: 1) Fluency & Clarity Strength 2) Grammar / Naturalness Polish (max 3) 3) 2 Native-Sounding Upgrades + 1 Connected-Speech Tip.';
+  const usr = `Speaking / Demo Prompt: ${cleanAi(prompt)}\nLearner Transcript / Draft: ${cleanAi(userTranscript)}`;
+  return runAiPrompt(sys, usr, config, fetchImpl);
+}

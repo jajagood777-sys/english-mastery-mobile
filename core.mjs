@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '15.1.4';
+export const APP_VERSION = '15.2.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -181,7 +181,8 @@ export function normalizeStoryPractice(value={},packId=''){
       const writing=writingRaw?(Array.isArray(writingRaw)?writingRaw:[writingRaw]).map((x,i)=>normalizeStoryTask(x,'writing',storyId,sectionId,i)).filter(Boolean):[];
       const retellingRaw=rawSection.retelling||rawSection.story_retelling||rawSection.storyRetelling;
       const retelling=retellingRaw?normalizeStoryTask(typeof retellingRaw==='string'?{prompt:retellingRaw}:retellingRaw,'retelling',storyId,sectionId,0):null;
-      normalizedSections.push({id:sectionId,title:sectionTitle,order:Number.isFinite(Number(rawSection.order??rawSection.section_order))?Number(rawSection.order??rawSection.section_order):sectionIndex+1,paperFirst:rawSection.paper_first!==false&&rawSection.paperFirst!==false,storyId,source:clean(rawSection.source||rawStory.source)||null,sourceReference:clean(rawSection.source_reference||rawSection.sourceReference||rawStory.source_reference||rawStory.sourceReference)||null,availability:{vocabulary:vocabulary.length,cloze:cloze.length,grammar:grammar.length,comprehension:comprehension.length,spokenPhrases:phrases.filter(x=>x.practiceEligible).length,deferredPhrases:phrases.filter(x=>!x.practiceEligible).length,goldenSentences:golden.length,speaking:speaking.length,writing:writing.length,retelling:retelling?1:0,audioSegments:audioSegments.length},vocabulary,cloze,grammar,comprehension,spokenPhrases:phrases,goldenSentences:golden,speakingQuestions:speaking,writing,retelling,audioSegments,storyBeats:listValue(rawSection.story_beats||rawSection.storyBeats)});
+      const storyText=clean(rawSection.story_text||rawSection.storyText||rawSection.text||rawSection.passage);
+      normalizedSections.push({id:sectionId,title:sectionTitle,storyText:storyText||null,order:Number.isFinite(Number(rawSection.order??rawSection.section_order))?Number(rawSection.order??rawSection.section_order):sectionIndex+1,paperFirst:rawSection.paper_first!==false&&rawSection.paperFirst!==false,storyId,source:clean(rawSection.source||rawStory.source)||null,sourceReference:clean(rawSection.source_reference||rawSection.sourceReference||rawStory.source_reference||rawStory.sourceReference)||null,availability:{vocabulary:vocabulary.length,cloze:cloze.length,grammar:grammar.length,comprehension:comprehension.length,spokenPhrases:phrases.filter(x=>x.practiceEligible).length,deferredPhrases:phrases.filter(x=>!x.practiceEligible).length,goldenSentences:golden.length,speaking:speaking.length,writing:writing.length,retelling:retelling?1:0,audioSegments:audioSegments.length},vocabulary,cloze,grammar,comprehension,spokenPhrases:phrases,goldenSentences:golden,speakingQuestions:speaking,writing,retelling,audioSegments,storyBeats:listValue(rawSection.story_beats||rawSection.storyBeats)});
     }
     normalizedSections.sort((a,b)=>a.order-b.order);
     if(normalizedSections.length)stories.push({id:storyId,title:clean(rawStory.title||rawStory.story_title||rawStory.storyTitle)||storyId,source:clean(rawStory.source)||null,sourceReference:clean(rawStory.source_reference||rawStory.sourceReference)||null,packId,sections:normalizedSections});
@@ -248,7 +249,7 @@ export function normalizeTransferAttempt(raw={}) {
   const id=clean(raw.id)||`transfer-attempt:${stableHash([raw.weaknessId||raw.weakness_id||'',taskId||'',at,firstAnswer].join('|'))}`;
   const sourceSnapshot=raw.sourceSnapshot||raw.source_snapshot||null;
   const status=normalizeTransferStatus(raw);
-  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,status,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),recordingIds:Array.isArray(raw.recordingIds)?raw.recordingIds.filter(Boolean):Array.isArray(raw.recording_ids)?raw.recording_ids.filter(Boolean):[],skipped:Boolean(raw.skipped)};
+  return {...raw,id,weaknessId:clean(raw.weaknessId||raw.weakness_id)||null,contextId:clean(raw.contextId||raw.context_id)||null,taskId,packId:pick(raw.packId,raw.pack_id)||null,journeyId:pick(raw.journeyId,raw.journey_id)||null,taskType:pick(raw.taskType,raw.task_type,sourceSnapshot?.taskType,sourceSnapshot?.task_type)||'general_transfer',...normalizeExamMeta(raw),...normalizeReviewMeta(raw),prompt:pick(raw.prompt,raw.question)||null,targetExpression:pick(raw.targetExpression,raw.target_expression)||null,firstAnswer,firstSubmittedAt:pick(raw.firstSubmittedAt,raw.first_submitted_at,raw.at)||at,hintUsed:Boolean(raw.hintUsed??raw.hint_used??raw.promptUsed??raw.prompt_used),hintEvents:Array.isArray(raw.hintEvents)?raw.hintEvents:Array.isArray(raw.hint_events)?raw.hint_events:[],referenceViewed:Boolean(raw.referenceViewed??raw.reference_viewed??raw.modelAnswerViewed??raw.model_answer_viewed),referenceViewedAt:pick(raw.referenceViewedAt,raw.reference_viewed_at,raw.modelAnswerViewedAt,raw.model_answer_viewed_at)||null,referenceAnswer:pick(raw.referenceAnswer,raw.reference_answer,raw.modelAnswer,raw.model_answer)||null,retryAnswer,retrySubmittedAt:pick(raw.retrySubmittedAt,raw.retry_submitted_at,raw.selfCorrectedAt,raw.self_corrected_at)||null,rating:['K','V','N'].includes(raw.rating)?raw.rating:null,evidenceType:clean(raw.evidenceType||raw.evidence_type)||null,status,autoCheck:raw.autoCheck||raw.auto_check||null,at,delayed:Boolean(raw.delayed),sourceSnapshot,recordingOnly:Boolean(raw.recordingOnly||raw.recording_only),recordingIds:Array.isArray(raw.recordingIds)?raw.recordingIds.filter(Boolean):Array.isArray(raw.recording_ids)?raw.recording_ids.filter(Boolean):[],aiCritique:pick(raw.aiCritique,raw.ai_critique)||null,skipped:Boolean(raw.skipped)};
 }
 export function normalizeTransferStatus(raw={}) {
   const explicit=clean(raw.status||raw.state).toLowerCase();
@@ -327,7 +328,7 @@ export function buildSpellingSummary(attempts=[]) {
 }
 export function mergeTransferAttempts(existing=[],incoming=[]) {
   const out=[]; const byId=new Map();
-  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){const item=normalizeTransferAttempt(raw),prior=byId.get(item.id);if(!prior){byId.set(item.id,item);out.push(item);continue;}for(const key of ['weaknessId','contextId','taskId','packId','journeyId','taskType','examSource','examType','testNumber','skill','questionId','questionNumbers','questionType','answerConstraints','sourcePage','practiceRole','reviewId','reviewOf','previousReportId','previousAttemptId','previousDate','previousStatus','weaknessType','reviewRound','reviewInstruction','prompt','targetExpression','firstAnswer','firstSubmittedAt','referenceViewedAt','referenceAnswer','retryAnswer','retrySubmittedAt','rating','evidenceType','autoCheck','sourceSnapshot'])if(!prior[key]&&item[key])prior[key]=item[key];prior.hintUsed=prior.hintUsed||item.hintUsed;prior.referenceViewed=prior.referenceViewed||item.referenceViewed;prior.delayed=prior.delayed||item.delayed;prior.recordingOnly=prior.recordingOnly||item.recordingOnly;prior.skipped=prior.skipped||item.skipped;prior.recordingIds=[...(prior.recordingIds||[]),...(item.recordingIds||[])].filter((id,index,array)=>array.indexOf(id)===index);prior.hintEvents=[...prior.hintEvents,...item.hintEvents];}
+  for(const raw of [...(Array.isArray(existing)?existing:[]),...(Array.isArray(incoming)?incoming:[])]){const item=normalizeTransferAttempt(raw),prior=byId.get(item.id);if(!prior){byId.set(item.id,item);out.push(item);continue;}for(const key of ['weaknessId','contextId','taskId','packId','journeyId','taskType','examSource','examType','testNumber','skill','questionId','questionNumbers','questionType','answerConstraints','sourcePage','practiceRole','reviewId','reviewOf','previousReportId','previousAttemptId','previousDate','previousStatus','weaknessType','reviewRound','reviewInstruction','prompt','targetExpression','firstAnswer','firstSubmittedAt','referenceViewedAt','referenceAnswer','retryAnswer','retrySubmittedAt','rating','evidenceType','autoCheck','aiCritique','sourceSnapshot'])if(!prior[key]&&item[key])prior[key]=item[key];prior.hintUsed=prior.hintUsed||item.hintUsed;prior.referenceViewed=prior.referenceViewed||item.referenceViewed;prior.delayed=prior.delayed||item.delayed;prior.recordingOnly=prior.recordingOnly||item.recordingOnly;prior.skipped=prior.skipped||item.skipped;prior.recordingIds=[...(prior.recordingIds||[]),...(item.recordingIds||[])].filter((id,index,array)=>array.indexOf(id)===index);prior.hintEvents=[...prior.hintEvents,...item.hintEvents];}
   return out;
 }
 export function transferEvidenceStatus(attempt={}) {
@@ -587,6 +588,7 @@ export function mergeBackupState(current={}, restored={}) {
     listeningDiagnosticAttempts,
     vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
     manualReviewMarks:uniqueBy([...(current.manualReviewMarks||[]), ...(restored.manualReviewMarks||[])], 'word'),
+    microLessonProgress:{...(restored.microLessonProgress||{}),...(current.microLessonProgress||{})},
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -695,6 +697,22 @@ export function readingVocabularyHandoff(rows = [], {exportedAt = ''} = {}) {
   return lines.join('\n').trim() + '\n';
 }
 
+export function normalizeMicroLessons(raw=[], packId='') {
+  if(!Array.isArray(raw)) return [];
+  const lessons=[];
+  for(const [i,row] of raw.entries()){
+    if(!row||typeof row!=='object') continue;
+    const title=clean(row.title);
+    const ruleSummary=clean(row.rule_summary||row.ruleSummary||row.summary||row.explanation);
+    if(!title||!ruleSummary) continue;
+    const id=clean(row.id||row.lesson_id||row.lessonId)||`micro:${stableHash(packId+'|'+title+'|'+(i+1))}`;
+    const examples=(Array.isArray(row.examples)?row.examples:[]).slice(0,20).map(ex=>typeof ex==='string'?{word:clean(ex),contrast:'',note:''}:{word:clean(ex?.word||ex?.phrase||ex?.expression||ex?.en),contrast:clean(ex?.contrast||ex?.ipa||ex?.pronunciation),note:clean(ex?.note||ex?.meaning||ex?.tip)}).filter(ex=>ex.word);
+    const miniQuiz=(Array.isArray(row.mini_quiz||row.miniQuiz)?(row.mini_quiz||row.miniQuiz):[]).slice(0,10).map((q,qIdx)=>({id:clean(q?.id)||`${id}:q${qIdx+1}`,prompt:clean(q?.prompt||q?.question),options:Array.isArray(q?.options)?q.options.map(clean).filter(Boolean).slice(0,6):[],answer:clean(q?.answer||q?.correct_answer||q?.correctAnswer),explanation:clean(q?.explanation)})).filter(q=>q.prompt);
+    lessons.push({id,packId,title,category:clean(row.category||row.kind)||'pronunciation',sourceTitle:clean(row.source_title||row.sourceTitle)||null,sourceUrl:safeSourceUrl(row.source_url||row.sourceUrl)||null,ruleSummary,examples,miniQuiz});
+  }
+  return lessons;
+}
+
 /** One source manuscript, one stable speech identity; never infer spoken mastery. */
 export function normalizeSpeechEntries(raw=[],packId='') {
   const errors=[],speeches=[],seenIds=new Set(),seenTexts=new Set();
@@ -737,7 +755,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const hasStoryPayload=Boolean(value.story_practice||value.storyPractice||(Array.isArray(value.stories)&&value.stories.length));
   const hasSpeechPayload=Array.isArray(value.speeches)&&value.speeches.length>0;
   const hasVocabPayload=Array.isArray(value.vocabulary_practice||value.vocabularyPractice)&&(value.vocabulary_practice||value.vocabularyPractice).length>0;
-  if(!Array.isArray(value.items)&&!hasStoryPayload&&!hasSpeechPayload&&!hasVocabPayload) throw Error('学习包 JSON 缺少 items 或有效练习模块。');
+  const hasMicroPayload=Array.isArray(value.micro_lessons||value.microLessons)&&(value.micro_lessons||value.microLessons).length>0;
+  if(!Array.isArray(value.items)&&!hasStoryPayload&&!hasSpeechPayload&&!hasVocabPayload&&!hasMicroPayload) throw Error('学习包 JSON 缺少 items 或有效练习模块。');
   const rawItems=Array.isArray(value.items)?value.items:[];
   if(rawItems.length>1000)throw Error('单份学习包最多包含 1000 项卡片。');
   if(value.readings!==undefined&&!Array.isArray(value.readings))throw Error('readings 必须是阅读文章数组。');
@@ -750,6 +769,7 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
   const speeches=speechSource.speeches;
   errors.push(...speechSource.errors);
   const storyPractice=normalizeStoryPractice(value.story_practice||value.storyPractice||value.stories,packId);
+  const microLessons=normalizeMicroLessons(value.micro_lessons||value.microLessons||[],packId);
   const dialogueScenarios=normalizeDialogueScenarios(value.dialogue_scenarios||value.dialogueScenarios,packId);
   const listeningDiagnostics=normalizeListeningDiagnostics(value.listening_diagnostics||value.listeningDiagnostics,packId);
   const archiveWords=Array.isArray(value.original_word_items_read_only_archive||value.originalWordItemsReadOnlyArchive)?(value.original_word_items_read_only_archive||value.originalWordItemsReadOnlyArchive):[];
@@ -826,8 +846,8 @@ export function recordsFromLearningPack(value, {source='Central Immortal Apertur
     if(seenReading.has(key)){errors.push(`重复阅读：${reading.title}`);continue;}
     seenReading.add(key);uniqueReadings.push(reading);
   }
-  if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length&&!speeches.length&&!vocabularyPractice.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
-  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length+vocabularyPractice.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
+  if(!unique.length&&!uniqueReadings.length&&!storyPractice&&!transferTasks.length&&!spellingTasks.length&&!speeches.length&&!vocabularyPractice.length&&!microLessons.length)throw Error(`学习包没有可导入项目。${errors[0]||''}`);
+  return {items:unique,readings:uniqueReadings,speeches,transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,microLessons,dialogueScenarios,listeningDiagnostics,errors,sourceType:'pack',sourceRows:rawItems.length+vocabularyPractice.length,pack:{packId,title,createdAt:clean(value.created_at)||null,source:clean(value.source)||source,language:clean(value.language)||'en',recommendedMinutes,readingIds:uniqueReadings.map(x=>x.id),speechIds:speeches.map(x=>x.id),listeningIds:unique.filter(x=>x.module==='listening').map(x=>x.id),transferTasks,spellingTasks,vocabularyPractice,originalWordArchive:archiveWords,originalSpellingArchive:archiveSpellings,storyPractice,microLessons,dialogueScenarios,listeningDiagnostics,schemaVersion:clean(value.schema_version)||'1'}};
 }
 
 export function normalizeAnswer(value) {
@@ -925,7 +945,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
   const p1=attempts.filter(attempt=>attempt.rating==='V'||attempt.prompt_used||attempt.retried_after_error).map(attempt=>candidate(attempt,'P1',attempt.rating==='V'?'V · 模糊，需要独立复测':'使用提示或经历重练，掌握程度仍待核验'));
   const p2=attempts.filter(attempt=>attempt.rating==='K').map(attempt=>candidate(attempt,'P2','已记录 K，可安排保持性复测而非历史错题'));
   const unmeasured=attempts.filter(attempt=>attempt.rating==='UNRATED'||!attempt.rating).map(attempt=>candidate(attempt,'UNKNOWN','没有 K/V/N 或自动判定证据，不能推断掌握状态'));
-  const transferEvidence=transfers.map(attempt=>({attempt_id:attempt.id||null,task_id:attempt.taskId||attempt.contextId||null,task_type:attempt.taskType||'general_transfer',prompt:attempt.prompt||null,first_answer:attempt.firstAnswer||'',retry_answer:attempt.retryAnswer||'',first_submitted_at:attempt.firstSubmittedAt||null,retry_submitted_at:attempt.retrySubmittedAt||null,hint_used:Boolean(attempt.hintUsed),reference_viewed:Boolean(attempt.referenceViewed),reference_displayed_after_submit:Boolean(attempt.referenceDisplayedAutomatically),rating:attempt.rating||'UNRATED',recording_only:Boolean(attempt.recordingOnly),recording_ids:Array.isArray(attempt.recordingIds)?attempt.recordingIds:[],evidence_type:attempt.evidenceType||null,review_of:attempt.reviewOf||null,previous_report_id:attempt.previousReportId||null}));
+  const transferEvidence=transfers.map(attempt=>({attempt_id:attempt.id||null,task_id:attempt.taskId||attempt.contextId||null,task_type:attempt.taskType||'general_transfer',prompt:attempt.prompt||null,first_answer:attempt.firstAnswer||'',retry_answer:attempt.retryAnswer||'',first_submitted_at:attempt.firstSubmittedAt||null,retry_submitted_at:attempt.retrySubmittedAt||null,hint_used:Boolean(attempt.hintUsed),reference_viewed:Boolean(attempt.referenceViewed),reference_displayed_after_submit:Boolean(attempt.referenceDisplayedAutomatically),rating:attempt.rating||'UNRATED',recording_only:Boolean(attempt.recordingOnly),recording_ids:Array.isArray(attempt.recordingIds)?attempt.recordingIds:[],ai_critique:attempt.aiCritique||null,evidence_type:attempt.evidenceType||null,review_of:attempt.reviewOf||null,previous_report_id:attempt.previousReportId||null}));
   return {
     feedback_schema_version:'1.0',
     is_learning_pack:false,
@@ -1108,7 +1128,8 @@ export function validateBackup(value){
   return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],
-    manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],
+    microLessonProgress:value.microLessonProgress&&typeof value.microLessonProgress==='object'&&!Array.isArray(value.microLessonProgress)?value.microLessonProgress:{},reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[]}) {
@@ -1286,6 +1307,7 @@ export function battleReportMarkdown(report) {
     `- 参考答案：${inline(attempt.referenceAnswer||'未记录')}`,
     `- 修改稿：${attempt.retryAnswer?`已提交（${attempt.retrySubmittedAt||'时间未记录'}）`:'未提交'}`, ...(attempt.retryAnswer?[block(attempt.retryAnswer)]:[]),
     `- K/V/N 自评：${attempt.rating||'未自评'} · AI 评分：未评分，待中央仙窍批改`,
+    ...(attempt.aiCritique?[`- 站内 AI 导师辅导记录（非官方评分）：`, block(attempt.aiCritique)]:[]),
     `- 状态：${attempt.skipped?'跳过':attempt.firstAnswer||attempt.recordingOnly?'已提交':'未提交'} · 录音：${attempt.recordingOnly?'已保存但未转写':'无文字录音记录'}`,
     ''
   ]);
