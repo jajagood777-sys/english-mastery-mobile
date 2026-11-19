@@ -89,16 +89,58 @@ function renderRealmAndGritPanel() {
   return box;
 }
 
+function renderFormattedAiText(rawText) {
+  const box = div("ai-tutor-text");
+  const appendInline = (parent, text) => {
+    const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
+    parts.forEach(part => {
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        const strong = document.createElement("strong");
+        strong.textContent = part.slice(2, -2);
+        parent.append(strong);
+      } else if (part) {
+        parent.append(document.createTextNode(part));
+      }
+    });
+  };
+  String(rawText || "").replace(/\r/g, "").split("\n").forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || /^-{3,}$/.test(trimmed)) return;
+    if (/^#{1,4}\s+/.test(trimmed)) {
+      const heading = el("div", "", "ai-tutor-heading");
+      appendInline(heading, trimmed.replace(/^#{1,4}\s+/, ""));
+      box.append(heading);
+    } else if (/^[-*•]\s+/.test(trimmed)) {
+      const bullet = el("div", "", "ai-tutor-bullet");
+      bullet.append(document.createTextNode("• "));
+      appendInline(bullet, trimmed.replace(/^[-*•]\s+/, ""));
+      box.append(bullet);
+    } else {
+      const para = el("div", "", "ai-tutor-para");
+      appendInline(para, trimmed);
+      box.append(para);
+    }
+  });
+  return box;
+}
+
 function renderAiReplyWidget(buttonLabel, runner) {
   const wrap = div("ai-tutor-widget");
   const out = div("ai-tutor-output");
   out.hidden = true;
+  const closeOut = () => {
+    out.hidden = true;
+    out.replaceChildren();
+  };
   const trigger = btn(buttonLabel, async () => {
     if (!isAiTutorReady()) {
       out.hidden = false;
       out.replaceChildren(
-        p("尚未配置随身 AI 导师 API Key。请前往「设置 → 随身 AI 导师」粘贴你自己的免费 Key（仅保存在本机，绝不上传 GitHub）。", "tiny"),
-        btn("去设置配置免费 Key →", () => setPage("settings"), "btn secondary small-btn")
+        lines(
+          p("尚未配置随身 AI 导师 API Key。请前往「我的 → 随身 AI 导师」粘贴你的 Key（仅保存在本机）。", "tiny"),
+          btn("关闭 ✕", closeOut, "btn ghost small-btn")
+        ),
+        btn("去设置配置 Key →", () => setPage("settings"), "btn secondary small-btn")
       );
       return;
     }
@@ -106,15 +148,29 @@ function renderAiReplyWidget(buttonLabel, runner) {
     const orig = trigger.textContent;
     trigger.textContent = "🤖 AI 导师思考中……";
     out.hidden = false;
-    out.replaceChildren(p("正在连线你的随身 AI 导师，请稍候 2–5 秒……", "tiny"));
+    out.replaceChildren(
+      lines(
+        p("正在连线你的随身 AI 导师，请稍候 2–5 秒……", "tiny"),
+        btn("取消 ✕", closeOut, "btn ghost small-btn")
+      )
+    );
     try {
       const reply = await runner();
-      out.replaceChildren(
-        el("div", "🤖 随身 AI 导师辅导 · BYOK COACHING（仅供参考，不替代 K/V/N）", "eyebrow"),
-        p(reply, "ai-tutor-text")
+      const headRow = div("ai-tutor-head-row");
+      headRow.append(
+        el("div", "🤖 随身 AI 导师辅导 · BYOK COACHING", "eyebrow"),
+        btn("收起 ✕", closeOut, "btn ghost small-btn")
       );
+      const footRow = lines(
+        btn("🔊 朗读英文解析", () => speakEnglish(String(reply || "").replace(/[#*`_-]+/g, " ")), "btn ghost small-btn"),
+        btn("收起解析 ✕", closeOut, "btn secondary small-btn")
+      );
+      out.replaceChildren(headRow, renderFormattedAiText(reply), footRow);
     } catch (err) {
-      out.replaceChildren(p(`AI 导师暂时无法响应：${String(err?.message || err)}`, "error tiny"));
+      out.replaceChildren(
+        p(`AI 导师暂时无法响应：${String(err?.message || err)}`, "error tiny"),
+        btn("关闭 ✕", closeOut, "btn ghost small-btn")
+      );
     } finally {
       trigger.disabled = false;
       trigger.textContent = orig;
