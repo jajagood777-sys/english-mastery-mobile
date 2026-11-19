@@ -11,8 +11,8 @@ import {
 } from '../radio.mjs';
 import { APP_VERSION } from '../core.mjs';
 
-test('15.5.0 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
-  assert.equal(APP_VERSION, '15.5.0');
+test('15.6.0 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
+  assert.equal(APP_VERSION, '15.6.0');
   assert.equal(RADIO_CHANNELS.length, 4);
   const ids = RADIO_CHANNELS.map(c => c.id);
   assert.deepEqual(ids, ['weak_sniper', 'youtube_speeches', 'sentences_listening', 'notebook_spoken']);
@@ -20,7 +20,7 @@ test('15.5.0 Walkman channels replace legacy buttons with YouTube Motivational S
   assert.ok(RADIO_SPEED_PRESETS.some(p => p.rate === 0.8));
 });
 
-test('15.5.0 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
+test('15.6.0 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
   assert.ok(BUILT_IN_YOUTUBE_SPEECHES.length >= 14);
   assert.ok(BUILT_IN_NOTEBOOK_SPOKEN.length >= 10);
 
@@ -37,7 +37,7 @@ test('15.5.0 YouTube motivational speeches and Notebook spoken playlists populat
   assert.equal(nbTracks.every(t => t.exposureOnly === true), true);
 });
 
-test('15.5.0 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
+test('15.6.0 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
   const shortMs = computeSegmentWatchdogMs('follow through', 0.9);
   const slowLongMs = computeSegmentWatchdogMs('If you make your bed every morning you will have accomplished the first task of the day and it will encourage you to do another task.', 0.8);
   assert.ok(shortMs >= 12000);
@@ -45,12 +45,12 @@ test('15.5.0 watchdog timeout scales safely and prevents iOS Safari track-3 dead
   assert.ok(slowLongMs <= 45000);
 });
 
-test('15.5.0 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
+test('15.6.0 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
   const appCode = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(appCode, /unlockRadioAudio/);
   assert.match(appCode, /navigator\.audioSession/);
   assert.match(appCode, /fetchGeminiAudioUrl/);
   assert.match(appCode, /prefetchNextRadioTrack/);
   assert.match(appCode, /computeSegmentWatchdogMs/);
-  assert.match(appCode, /POCKET RADIO \(15\.5\.0\)/);
+  assert.match(appCode, /POCKET RADIO/);
 });

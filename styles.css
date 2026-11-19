@@ -1,5 +1,5 @@
 /*
- * YanDao Cultivation Palace — 15.5.0 Flagship Design System
+ * YanDao Cultivation Palace — 15.6.0 Flagship Design System
  * Synthesizes Apple iOS Liquid Glass (olii-dev/liquid-glass, open-glass-ui),
  * Linear Obsidian Dark Mode, shadcn/ui tokens, and Readwise Reader typography.
  * Pure static CSS · Zero runtime overhead · 100% functional & accessibility parity.
@@ -182,16 +182,20 @@ a:hover { text-decoration: underline; }
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
-  background: color-mix(in srgb, var(--theme-bg) 76%, transparent);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  margin: 0 calc(clamp(16px, 4vw, 32px) * -1);
+  padding: 12px clamp(16px, 4vw, 32px);
+  background: rgba(245, 245, 247, 0.96);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid var(--theme-border);
+}
+html[data-theme="night"] .site-header {
+  background: rgba(7, 8, 11, 0.95);
 }
 
 .brand { display: flex; align-items: center; gap: 11px; }
@@ -1123,3 +1127,317 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
 }
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* ==========================================================================
+   v15.6.0 Zero-Clutter Flagship Component Refinements
+   ========================================================================== */
+
+/* Pocket Radio — Single-Screen Apple Music Layout */
+.icon-circle-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+.radio-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.radio-transport-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 10px;
+}
+.radio-icon-btn {
+  width: 52px;
+  height: 48px;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  font-size: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.radio-play-btn {
+  height: 48px;
+  border-radius: 999px !important;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.radio-quick-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.radio-quick-bar .btn {
+  flex: 1 1 auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.radio-more-details {
+  margin-top: 10px;
+  border-top: 1px solid var(--theme-border);
+  padding-top: 8px;
+}
+.radio-more-details summary {
+  font-size: 12.5px;
+  color: var(--theme-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.radio-more-details summary::-webkit-details-marker { display: none; }
+.radio-more-details summary::after { content: "▾"; font-size: 11px; }
+.radio-more-details[open] summary::after { content: "▴"; }
+
+/* Home — Sleek Linear-Style Daily Module List */
+.daily-overview-head {
+  margin-bottom: 10px;
+}
+.daily-module-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+html[data-theme="night"] .daily-module-list {
+  background: rgba(20, 22, 29, 0.72);
+}
+.daily-module-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--theme-border);
+  background: transparent;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  transition: background 0.14s ease;
+}
+.daily-module-row:last-child { border-bottom: 0; }
+.daily-module-row:hover { background: var(--surface-elevated); }
+.daily-module-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.daily-module-name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--theme-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.daily-module-bar {
+  height: 4px;
+  width: 100%;
+  max-width: 180px;
+  border-radius: 999px;
+  background: var(--surface-elevated);
+  overflow: hidden;
+}
+.daily-module-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.daily-module-right {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.daily-module-ratio {
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-muted);
+}
+.daily-module-ratio.is-done { color: var(--success); }
+.daily-module-chevron {
+  font-size: 16px;
+  color: var(--theme-muted);
+}
+
+/* Reading — Compact Icon-Only Floating Dock */
+.reading-dock-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.reading-audio-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.reading-icon-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reading-dock-primary > .btn {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.reading-more-tools {
+  margin-top: 8px;
+  border-top: 1px solid var(--theme-border);
+  padding-top: 6px;
+}
+.reading-more-tools summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-muted);
+  cursor: pointer;
+  list-style: none;
+  text-align: center;
+}
+.reading-more-tools summary::-webkit-details-marker { display: none; }
+.reading-more-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.reading-more-grid .ai-reply-widget {
+  grid-column: 1 / -1;
+}
+
+/* Progress — Apple Health Executive Dashboard & Accordions */
+.grit-badge-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.grit-badge-strip::-webkit-scrollbar { display: none; }
+.grit-badge-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-border);
+  background: var(--surface-elevated);
+  color: var(--theme-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+.grit-badge-pill.is-unlocked {
+  opacity: 1;
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+.kvn-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--theme-border);
+}
+.kvn-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.kvn-label {
+  min-width: 44px;
+  font-size: 14px;
+  color: var(--theme-text);
+}
+.k-pill { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.v-pill { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
+.n-pill { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+
+.progress-accordion {
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.progress-accordion > summary {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--theme-text);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.progress-accordion > summary::-webkit-details-marker { display: none; }
+.progress-accordion > summary::after {
+  content: "展开 ▾";
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-muted);
+}
+.progress-accordion[open] > summary::after { content: "收起 ▴"; }
+.progress-accordion[open] > summary { margin-bottom: 12px; }
+.progress-accordion > section {
+  box-shadow: none;
+  border: 0;
+  padding: 8px 0 0;
+  background: transparent;
+}
+
+/* More Tab — Clean 2x2 Handoff Grid */
+.handoff-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.handoff-actions-grid .btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
