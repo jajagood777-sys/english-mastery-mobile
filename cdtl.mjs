@@ -1,8 +1,8 @@
 /**
  * Contextual Discrimination & Transfer Lab (CDTL · 11.0.0)
  * Provides side-by-side semantic nuance comparison, collocation contrast,
- * and immediate error-recovery cards when a learner misses a vocabulary choice
- * or requests deeper lexical discrimination.
+ * Memory Anchors, and an Interference Radar (顽固易混词对雷达) when a learner
+ * misses a vocabulary choice or requests deeper lexical discrimination.
  */
 
 const cleanCdtl = value => String(value ?? '').replace(/\r/g, '').trim();
@@ -115,7 +115,6 @@ export function buildCdtlBatchFromAttempts(tasks = [], attempts = [], archiveWor
   }
   return cards;
 }
-
 
 // Legacy stable API preserved from 10.4.2 for existing imports and persisted evidence.
 /*
@@ -377,6 +376,7 @@ export function summarizeCDTLAttempts(value = []) {
   }
   return summary;
 }
+
 
 
 /**

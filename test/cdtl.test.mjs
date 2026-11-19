@@ -22,8 +22,8 @@ import {
   replayFsrsShadowHistory
 } from '../core.mjs';
 
-test('11.0.0 vocab engine validates 14 types and grades recognition honestly without counting as K', () => {
-  assert.equal(APP_VERSION, '13.0.0');
+test('14.0.0 vocab engine validates 14 types and grades recognition honestly without counting as K', () => {
+  assert.equal(APP_VERSION, '14.0.0');
   assert.equal(VOCAB_QUESTION_TYPES.length, 14);
 
   const sampleTask = {
@@ -58,7 +58,7 @@ test('11.0.0 vocab engine validates 14 types and grades recognition honestly wit
   assert.equal(wrongEval.countsAsMasteryK, false);
 });
 
-test('11.0.0 CDTL builds side-by-side target and distractor cards from archive', () => {
+test('14.0.0 CDTL builds side-by-side target and distractor cards from archive', () => {
   const archive = [
     { id: '20261115-W001', target: 'vortex', definition_en: 'A whirling mass of fluid or air.', example: 'A vortex formed beneath the bridge.' },
     { id: '20261115-W002', target: 'valve', definition_en: 'A device for controlling passage of fluid.', example: 'Turn off the main intake valve.' }
@@ -91,7 +91,7 @@ test('11.0.0 CDTL builds side-by-side target and distractor cards from archive',
   assert.equal(batch.length, 1);
 });
 
-test('11.0.0 recordsFromLearningPack parses real V22 110 touch-choice JSON and preserves vocabulary stage in backup', () => {
+test('14.0.0 recordsFromLearningPack parses real V22 110 touch-choice JSON and preserves vocabulary stage in backup', () => {
   const v22Path = new URL('../../downloads/v22_touch_mc_110.json', import.meta.url);
   if (!fs.existsSync(v22Path)) return;
   const raw = JSON.parse(fs.readFileSync(v22Path, 'utf8'));
@@ -138,7 +138,7 @@ test('11.0.0 recordsFromLearningPack parses real V22 110 touch-choice JSON and p
   assert.equal(homeSummary(state).packItems, 137);
 });
 
-test('11.0.0 FSRS 6.3.2 shadow scheduler tracks only independent recall and excludes recognition choices', () => {
+test('14.0.0 FSRS 6.3.2 shadow scheduler tracks only independent recall and excludes recognition choices', () => {
   const step1 = fsrsShadowStep(null, 'K', new Date('2026-11-10T08:00:00Z'));
   assert.equal(step1.model, 'fsrs-6.3.2-shadow');
   assert.ok(step1.stability > 2.0);

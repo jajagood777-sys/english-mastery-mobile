@@ -43,7 +43,7 @@ test('weak_sniper channel prioritizes missed vocabulary choices and N/V weak car
   assert.equal(tracks.every(t => t.exposureOnly === true), true);
 });
 
-test('13.0.0 battle report logs passive radio exposure honestly without counting as mastery K', () => {
+test('14.0.0 battle report logs passive radio exposure honestly without counting as mastery K', () => {
   const summary = summarizeRadioExposure({ clipsPlayed: 12, activeMs: 185000, lastChannel: 'weak_sniper' });
   assert.equal(summary.clipsPlayed, 12);
   assert.equal(summary.activeSeconds, 185);
@@ -55,7 +55,7 @@ test('13.0.0 battle report logs passive radio exposure honestly without counting
     items: [],
     radioLog: { clipsPlayed: 12, activeMs: 185000, lastChannel: 'weak_sniper' }
   });
-  assert.equal(report.app_version, '13.0.0');
+  assert.equal(report.app_version, '14.0.0');
   assert.equal(report.radio_exposure.clipsPlayed, 12);
   assert.equal(report.radio_exposure.countsAsMasteryK, false);
 

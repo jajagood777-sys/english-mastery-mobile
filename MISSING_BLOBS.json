@@ -1,0 +1,20 @@
+[
+  {
+    "path": "kokoro-preview/runtime/kokoro-engine.mjs",
+    "git_blob_sha": "40aab4b2e706f3f88165cd2922507f53cc8d37f0",
+    "size": 5052327,
+    "reason": "GitHub connector refuses large binary/raw file; not transferred"
+  },
+  {
+    "path": "kokoro-preview/runtime/ort-wasm-simd-threaded.jsep.wasm",
+    "git_blob_sha": "b05d1adc8304011b9a1110ca33dbf79c168d0b54",
+    "size": 21596019,
+    "reason": "GitHub connector refuses large binary/raw file; not transferred"
+  },
+  {
+    "path": "kokoro-preview/runtime/ort-wasm-simd-threaded.wasm",
+    "git_blob_sha": "8e3d344879ef94598901026f0f05614b74ad140d",
+    "size": 11133407,
+    "reason": "GitHub connector refuses large binary/raw file; not transferred"
+  }
+]

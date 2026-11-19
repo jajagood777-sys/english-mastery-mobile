@@ -1,7 +1,8 @@
 /**
  * Smart Vocabulary Touch Engine (11.0.0)
  * Supports 14 candidate vocabulary question types, strict schema 2.0 validation,
- * source-archive lookup, and honest recognition-only evidence grading.
+ * source-archive lookup, Intra-Journey Micro-Rehearsal (同轮错词微回炉),
+ * and honest recognition-only evidence grading.
  *
  * CRITICAL RULE: Multiple-choice recognition is NEVER recorded as K or independent recall.
  */
@@ -313,7 +314,6 @@ export function summarizeVocabularyPractice(tasks = [], attempts = []) {
     recognitionOnlyNotice: '触控选择题与同轮微回炉仅代表语境识别与短时修正，不自动计为 K 或独立无提示掌握。'
   };
 }
-
 
 // Legacy stable API preserved from 10.4.2 for existing imports and persisted evidence.
 /**

@@ -1,0 +1,12 @@
+{
+  "state": "open",
+  "head_sha": "e5f90ba3b6021274d1d388afb6c9017031f7ef64",
+  "base_main_sha": "e79b74e69c903d1067c44881133c29959546f59f",
+  "changed": "test/cdtl.test.mjs +87 lines, 0 deletions",
+  "CI_run": 43957210512,
+  "CI_job": 133614814205,
+  "CI_conclusion": "failure",
+  "exact_error": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module /home/runner/work/english-mastery-mobile/english-mastery-mobile/cdtl.mjs imported from .../test/cdtl.test.mjs",
+  "repair": "Implement cdtl.mjs exports before merge; re-run checks",
+  "url": "https://github.com/jajagood777-sys/english-mastery-mobile/pull/92"
+}
