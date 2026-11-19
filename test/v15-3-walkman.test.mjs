@@ -11,8 +11,8 @@ import {
 } from '../radio.mjs';
 import { APP_VERSION } from '../core.mjs';
 
-test('16.0.2 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
-  assert.equal(APP_VERSION, '16.0.2');
+test('16.1.0 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
+  assert.equal(APP_VERSION, '16.1.0');
   assert.equal(RADIO_CHANNELS.length, 4);
   const ids = RADIO_CHANNELS.map(c => c.id);
   assert.deepEqual(ids, ['weak_sniper', 'youtube_speeches', 'sentences_listening', 'notebook_spoken']);
@@ -20,7 +20,7 @@ test('16.0.2 Walkman channels replace legacy buttons with YouTube Motivational S
   assert.ok(RADIO_SPEED_PRESETS.some(p => p.rate === 0.8));
 });
 
-test('16.0.2 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
+test('16.1.0 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
   assert.ok(BUILT_IN_YOUTUBE_SPEECHES.length >= 14);
   assert.ok(BUILT_IN_NOTEBOOK_SPOKEN.length >= 10);
 
@@ -37,7 +37,7 @@ test('16.0.2 YouTube motivational speeches and Notebook spoken playlists populat
   assert.equal(nbTracks.every(t => t.exposureOnly === true), true);
 });
 
-test('16.0.2 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
+test('16.1.0 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
   const shortMs = computeSegmentWatchdogMs('follow through', 0.9);
   const slowLongMs = computeSegmentWatchdogMs('If you make your bed every morning you will have accomplished the first task of the day and it will encourage you to do another task.', 0.8);
   assert.ok(shortMs >= 12000);
@@ -45,7 +45,7 @@ test('16.0.2 watchdog timeout scales safely and prevents iOS Safari track-3 dead
   assert.ok(slowLongMs <= 45000);
 });
 
-test('16.0.2 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
+test('16.1.0 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
   const appCode = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(appCode, /unlockRadioAudio/);
   assert.match(appCode, /navigator\.audioSession/);
@@ -56,7 +56,7 @@ test('16.0.2 app.js uses persistent unlocked audio element, Gemini TTS priority,
 });
 
 
-test('16.0.2 fetchWithTimeoutAndRetry automatically retries transient 503 and succeeds', async () => {
+test('16.1.0 fetchWithTimeoutAndRetry automatically retries transient 503 and succeeds', async () => {
   const { fetchWithTimeoutAndRetry } = await import('../ai-tutor.mjs');
   let calls = 0;
   const mockFetch = async () => {
@@ -69,7 +69,7 @@ test('16.0.2 fetchWithTimeoutAndRetry automatically retries transient 503 and su
   assert.equal(calls, 2);
 });
 
-test('16.0.2 next-gen engine uses debounced draft saves, persistent Reading Gemini audio, dynamic theme-color, and SWR service worker', () => {
+test('16.1.0 next-gen engine uses debounced draft saves, persistent Reading Gemini audio, dynamic theme-color, and SWR service worker', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -82,4 +82,19 @@ test('16.0.2 next-gen engine uses debounced draft saves, persistent Reading Gemi
   assert.match(sw, /kokoro-preview\/runtime\//);
   assert.match(html, /apple-mobile-web-app-capable/);
   assert.match(html, /rel="preconnect" href="https:\/\/generativelanguage\.googleapis\.com"/);
+});
+
+
+test('16.1.0 audit guards: blob silent unlock, no audio.pause() unlock race, and no backdrop-filter on .site-header', () => {
+  const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.match(app, /getSilentWavBlobUrl\(\)/);
+  assert.doesNotMatch(app, /\.src\s*=\s*SILENT_WAV_DATA_URI/);
+  assert.doesNotMatch(app, /elAudio\.pause\(\);\s*elAudio\.muted\s*=\s*false/);
+  assert.match(app, /stopSpeech\(\);unlockReadingGeminiAudio\(\);/);
+  const headerBlocks = [...css.matchAll(/\.site-header\s*\{[^}]*\}/g)].map(m => m[0]);
+  assert.ok(headerBlocks.length >= 1);
+  for (const blk of headerBlocks) {
+    assert.doesNotMatch(blk, /backdrop-filter\s*:/, '.site-header must not use backdrop-filter or iOS Safari traps position:fixed mobile-nav');
+  }
 });

@@ -1,5 +1,5 @@
 /*
- * YanDao Cultivation Palace — 16.0.2 Flagship Design System
+ * YanDao Cultivation Palace — 16.1.0 Flagship Design System
  * Synthesizes Apple iOS Liquid Glass (olii-dev/liquid-glass, open-glass-ui),
  * Linear Obsidian Dark Mode, shadcn/ui tokens, and Readwise Reader typography.
  * Pure static CSS · Zero runtime overhead · 100% functional & accessibility parity.
@@ -1130,7 +1130,7 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
 
 
 /* ==========================================================================
-   v16.0.2 Zero-Clutter Flagship Component Refinements
+   v16.1.0 Zero-Clutter Flagship Component Refinements
    ========================================================================== */
 
 /* Pocket Radio — Single-Screen Apple Music Layout */
@@ -1444,7 +1444,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v16.0.2 Next-Gen Tactile Micro-Interactions & Reduced Motion
+   v16.1.0 Next-Gen Tactile Micro-Interactions & Reduced Motion
    ========================================================================== */
 .btn:active:not(:disabled),
 .daily-module-row:active,
@@ -1463,3 +1463,7 @@ html[data-theme="night"] .daily-module-list {
     scroll-behavior: auto !important;
   }
 }
+
+/* v16.1.0 Pocket Radio Single-Screen Fit Polish */
+.pocket-radio-panel { padding: 16px 16px 20px !important; }
+.pocket-radio-panel .radio-now-playing { padding: 14px !important; margin-bottom: 10px !important; }
