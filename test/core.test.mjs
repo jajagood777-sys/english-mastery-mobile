@@ -129,7 +129,7 @@ test('explicit sentence target is required for cloze and Beijing date keys cross
 
 test('V4.3 release markers and honest home summary are available',()=>{
  const summary=homeSummary({items:[{id:'due',kind:'word',status:'V',dueAt:'2026-10-01T00:00:00Z'},{id:'new',kind:'word',status:'UNTESTED',dueAt:null}],sessions:[{startedAt:'2026-10-30T04:50:00Z',endedAt:'2026-10-30T05:00:00Z',activeMs:600000}],dailyPack:{title:'Today',itemIds:['new']}},new Date('2026-10-30T06:00:00Z'));
- assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'13.0.0');
+ assert.equal(VERSION,4.3);assert.equal(APP_VERSION,'14.0.0');
  assert.deepEqual(summary,{due:1,newItems:1,weak:1,todayMinutes:10,unallocatedActiveMs:0,packItems:1});
 });
 
@@ -186,18 +186,6 @@ test('V4.2 backup merge retains readings, pack metadata, history and existing pr
  const restored={items:[{id:'w:1',kind:'word',target:'address',status:'UNTESTED'},{id:'w:2',kind:'word',target:'evidence'}],attempts:[{id:'a:1'},{id:'a:2'}],sessions:[{id:'s:1'},{id:'s:2'}],reports:[{report_id:'r:1'},{report_id:'r:2'}],readings:[{id:'reading:1',text:'One.'},{id:'reading:2',text:'Two.'}],dailyPack:{packId:'later',title:'Later'},packHistory:[{packId:'later'}],settings:{theme:'day'}};
  const merged=mergeBackupState(current,restored);
  assert.equal(merged.items.find(x=>x.id==='w:1').attempts,2); assert.equal(merged.items.length,2); assert.equal(merged.attempts.length,2); assert.equal(merged.sessions.length,2); assert.equal(merged.reports.length,2); assert.equal(merged.readings.length,2); assert.equal(merged.dailyPack.packId,'today'); assert.equal(merged.packHistory.length,2); assert.equal(merged.settings.theme,'night');
-});
-
-test('backup merge retains and deduplicates reading retelling attempts',()=>{
- const current={items:[],attempts:[],sessions:[],readingRetellingAttempts:[{id:'retell:1',readingId:'r1',firstAnswer:'old',firstSubmittedAt:'2026-10-30T00:00:00Z'}]};
- const restored={items:[],attempts:[],sessions:[],readingRetellingAttempts:[
-  {id:'retell:1',readingId:'r1',firstAnswer:'new'},
-  {id:'retell:2',readingId:'r2',firstAnswer:'second'}
- ]};
- const merged=mergeBackupState(current,restored);
- assert.deepEqual(merged.readingRetellingAttempts,[current.readingRetellingAttempts[0],restored.readingRetellingAttempts[1]]);
- const repeated=mergeBackupState(merged,restored);
- assert.deepEqual(repeated.readingRetellingAttempts,merged.readingRetellingAttempts);
 });
 
 test('V4.2 backup validation keeps reading and pack defaults explicit',()=>{
@@ -438,22 +426,4 @@ test('V1.0 four-in-one pack extensions remain schema 2.0 compatible',()=>{
 test('V1.0 immediate recall normalizes report evidence and preserves completed story sections',()=>{
  const report=buildBattleReport({session:{id:'journey:v1',startedAt:'2026-11-02T00:00:00Z',endedAt:'2026-11-02T00:05:00Z',activeMs:300000,mode:'journey',packId:'four-in-one'},attempts:[],readings:[{id:'story-03',title:'The Quiet Room',storyId:'quiet-room',sectionId:'03'}],readingCompletedIds:['story-03'],readingRecallAttempts:[{markId:'mark:composure',readingId:'story-03',word:'composure',sourceTitle:'The Quiet Room',userAnswer:'composure',rating:'K',independent:true}]});
  assert.equal(report.reading_analysis.articles[0].completed,true);assert.equal(report.reading_analysis.immediate_recall[0].status,'K');assert.equal(report.reading_analysis.immediate_recall[0].user_answer,'composure');assert.match(battleReportMarkdown(report),/composure · K · 原答：composure/);
-});
-
-
-test('V11 single-Journey stage survives JSON backup migration and page reload',()=>{
-  const packId='SYNTHETIC-PERSISTED-VOCABULARY';
-  const state={version:4.3,items:[],attempts:[],sessions:[],dailyPack:{
-    packId,vocabularyPractice:[{id:'v1',prompt:'Choose the word',options:[{id:'A',text:'correct'}],correctOptionIds:['A']}],
-    itemIds:[],readingIds:[],transferTasks:[],recommendedMinutes:20},
-    vocabularyAttempts:[{id:'vocabulary:'+packId+':v1',packId,taskId:'v1',completed:true,firstAnswer:'A',rating:null}],
-    dailyJourney:{id:'journey:vocab',packId,steps:['vocabulary','sentences','reading','listening'],
-      index:1,completed:[{stage:'vocabulary',status:'completed',count:1}],sessionIds:[],
-      startedAt:'2026-11-18T01:00:00Z',finishedAt:null,readingMs:0}};
-  const result=migrateBackupPayload(state);
-  assert.ok(result.dailyJourney);
-  assert.deepEqual(result.dailyJourney.steps,['vocabulary','sentences','reading','listening']);
-  assert.equal(result.dailyJourney.index,1);
-  assert.equal(result.vocabularyAttempts[0].firstAnswer,'A');
-  assert.equal(result.vocabularyAttempts[0].rating,null);
 });

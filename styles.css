@@ -731,5 +731,226 @@ body.zen-focus-mode nav:hover {
   flex: 1;
 }
 
-.update-banner{position:fixed;z-index:200;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);min-height:44px;padding:10px 16px;border:1px solid #8bb7a0;border-radius:999px;background:#eaf6ed;color:#123f35;font:inherit;font-weight:700;box-shadow:0 8px 28px rgba(18,63,53,.18)}
-.update-banner[hidden]{display:none}
+
+/* === 14.0.0 Resilience & Cultivation Aesthetics Overhaul + Complete Night Mode Fix === */
+html[data-theme="day"] {
+  --theme-bg: #f4efe4;
+  --theme-card: #fffcf5;
+  --theme-border: #dfd3ba;
+  --theme-text: #182923;
+  --theme-muted: #586a60;
+  --bg: var(--theme-bg);
+  --card: var(--theme-card);
+  --border: var(--theme-border);
+  --ink: var(--theme-text);
+  --muted: var(--theme-muted);
+}
+html[data-theme="night"] {
+  --theme-bg: #0d1915;
+  --theme-card: #152822;
+  --theme-border: #2f4e43;
+  --theme-text: #f5eedf;
+  --theme-muted: #a9bfb3;
+  --bg: var(--theme-bg);
+  --card: var(--theme-card);
+  --border: var(--theme-border);
+  --ink: var(--theme-text);
+  --muted: var(--theme-muted);
+}
+
+/* Fix all 11.0-13.0 components to obey day/night theme tokens strictly */
+.journey-flow-ribbon,
+.discourse-xray-card,
+.interference-radar-report,
+.lexicon-drawer-panel,
+.pocket-radio-panel,
+.realm-progress-card {
+  background: var(--theme-card) !important;
+  border: 1px solid var(--theme-border) !important;
+  color: var(--theme-text) !important;
+}
+.lexicon-hit-card,
+.radio-now-playing {
+  background: var(--theme-bg) !important;
+  border: 1px solid var(--theme-border) !important;
+  color: var(--theme-text) !important;
+}
+.pwa-update-banner,
+.backup-freshness-strip {
+  background: color-mix(in srgb, var(--antique-gold) 15%, var(--theme-card)) !important;
+  border: 1px solid var(--antique-gold) !important;
+  color: var(--theme-text) !important;
+}
+html[data-theme="night"] .journey-flow-pill {
+  background: rgba(245, 238, 223, 0.08);
+  color: var(--theme-muted);
+}
+html[data-theme="night"] .journey-flow-pill.is-done {
+  background: rgba(74, 222, 128, 0.14);
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+html[data-theme="night"] .journey-flow-pill.is-active {
+  background: var(--antique-gold);
+  color: #142821;
+}
+html[data-theme="night"] .cdtl-anchor-pill {
+  background: rgba(216, 191, 131, 0.14);
+  border-left-color: var(--antique-gold);
+  color: #f5eedf;
+}
+
+/* Flagship Hero & Realm Progression Aesthetics */
+.home-hero {
+  background: radial-gradient(circle at top right, rgba(216, 191, 131, 0.22), transparent 55%),
+              linear-gradient(145deg, #132c24 0%, #1c3d32 58%, #10241d 100%) !important;
+  border: 1px solid rgba(216, 191, 131, 0.45) !important;
+  box-shadow: 0 22px 54px rgba(13, 25, 21, 0.24) !important;
+}
+.home-hero .btn.primary {
+  background: linear-gradient(135deg, #e0c37c, #c59f4b) !important;
+  color: #132820 !important;
+  border: 0 !important;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(216, 191, 131, 0.32);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.home-hero .btn.primary:hover,
+.home-hero .btn.primary:active {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(216, 191, 131, 0.42);
+}
+.home-hero .radio-launch-btn {
+  background: rgba(245, 238, 223, 0.14) !important;
+  color: #f5eedf !important;
+  border: 1px solid rgba(216, 191, 131, 0.5) !important;
+}
+.home-hero .btn.ghost {
+  color: rgba(245, 238, 223, 0.85) !important;
+  border-color: rgba(245, 238, 223, 0.25) !important;
+}
+
+.realm-hero-badge {
+  margin: 12px 0 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(13, 25, 21, 0.45);
+  border: 1px solid rgba(216, 191, 131, 0.35);
+}
+.realm-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.realm-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(216, 191, 131, 0.2);
+  border: 1px solid rgba(216, 191, 131, 0.6);
+  color: #f4d898;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.4px;
+}
+.realm-next-hint {
+  font-size: 12px;
+  color: rgba(245, 238, 223, 0.78);
+}
+.realm-bar-track {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(245, 238, 223, 0.14);
+  overflow: hidden;
+  margin: 8px 0 10px;
+}
+.realm-bar-track.is-light {
+  background: color-mix(in srgb, var(--theme-border) 60%, transparent);
+}
+.realm-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c59f4b, #f3d792);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.realm-motto-zh {
+  margin: 0 0 3px !important;
+  font-size: 14px;
+  font-weight: 650;
+  color: #f5eedf !important;
+  line-height: 1.5;
+}
+.realm-motto-en {
+  margin: 0 !important;
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(216, 191, 131, 0.9) !important;
+}
+
+/* Adversity & Grit Quote Banner */
+.grit-quote-banner {
+  margin: 10px 0 14px;
+  padding: 12px 15px;
+  border-radius: 13px;
+  border-left: 3.5px solid var(--antique-gold);
+  background: color-mix(in srgb, var(--antique-gold) 12%, var(--theme-card));
+}
+.grit-quote-banner.is-error,
+.grit-quote-banner.is-rehearsal {
+  border-left-color: #d97706;
+  background: color-mix(in srgb, #d97706 10%, var(--theme-card));
+}
+.grit-quote-zh {
+  margin: 0 0 4px !important;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--theme-text) !important;
+}
+.grit-quote-en {
+  margin: 0 !important;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--theme-muted) !important;
+}
+
+/* Grit Badges Wall */
+.grit-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.grit-badge-item {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--theme-border);
+  background: var(--theme-bg);
+  opacity: 0.62;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.grit-badge-item.is-unlocked {
+  opacity: 1;
+  border-style: solid;
+  border-color: var(--antique-gold);
+  background: color-mix(in srgb, var(--antique-gold) 11%, var(--theme-card));
+  box-shadow: 0 6px 18px rgba(216, 191, 131, 0.14);
+}
+.grit-badge-icon {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+/* Tactile Press Micro-Interaction on Vocabulary Options */
+.vocab-option-btn {
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.vocab-option-btn:active:not(:disabled) {
+  transform: scale(0.985);
+}
