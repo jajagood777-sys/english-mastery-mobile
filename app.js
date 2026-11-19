@@ -90,6 +90,9 @@ function renderRealmAndGritPanel() {
 
 let radioOpen = false;
 let radioChannel = "today_full";
+let radioScope = "all";
+let radioStopAfterRound = true;
+let radioShuffle = false;
 let radioPlaying = false;
 let radioIndex = 0;
 let radioShadowPause = false;
@@ -114,9 +117,12 @@ function stopPocketRadio(keepOpen = true) {
   render();
 }
 
-function refreshRadioTracks() {
+function refreshRadioTracks(forceShuffle = false) {
   radioTracks = buildRadioPlaylist({
     channel: radioChannel,
+    scope: radioScope,
+    activePackId: data.dailyPack?.packId || "",
+    shuffle: forceShuffle || radioShuffle,
     items: data.items || [],
     vocabularyPractice: data.dailyPack?.vocabularyPractice || [],
     vocabularyAttempts: [...(data.vocabularyAttempts || []), ...(data.dailyJourney?.vocabularyAttempts || [])],
@@ -125,10 +131,54 @@ function refreshRadioTracks() {
   if (radioIndex >= radioTracks.length) radioIndex = 0;
 }
 
-function playRadioTrackAt(idx) {
-  refreshRadioTracks();
+async function playRadioSegment(segText, rate) {
+  if (!radioPlaying || !segText) return;
+  try {
+    if (typeof getSpeechClip === "function" && typeof indexedDB !== "undefined") {
+      const blob = await getSpeechClip(segText, "af_heart");
+      if (!radioPlaying) return;
+      if (blob && blob.size > 0) {
+        await new Promise(resolve => {
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.playbackRate = rate;
+          activeLocalAudio = audio;
+          const done = () => { try { URL.revokeObjectURL(url); } catch {} resolve(); };
+          audio.onended = done;
+          audio.onerror = done;
+          audio.play().catch(done);
+        });
+        return;
+      }
+    }
+  } catch {}
+  if (!radioPlaying) return;
+  if (typeof window !== "undefined" && window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+    await new Promise(resolve => {
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(segText);
+        const voice = selectedSpeechVoice();
+        if (voice) utter.voice = voice;
+        utter.lang = voice?.lang || "en-US";
+        utter.rate = rate;
+        utter.onend = () => resolve();
+        utter.onerror = () => resolve();
+        window.speechSynthesis.speak(utter);
+      } catch { resolve(); }
+    });
+  }
+}
+
+async function playRadioTrackAt(idx) {
+  if (!radioTracks.length) refreshRadioTracks();
   if (!radioTracks.length) {
-    notify("当前还没有可播放的英文词句，请先导入学习包。");
+    notify("当前曲库还没有可播放的英文词句，请先导入学习包或切换「全历史总曲库」。");
+    stopPocketRadio(true);
+    return;
+  }
+  if (radioStopAfterRound && idx >= radioTracks.length) {
+    notify("✓ 本轮磨耳朵已全部播完并自动停播（防重复模式）。");
     stopPocketRadio(true);
     return;
   }
@@ -141,14 +191,15 @@ function playRadioTrackAt(idx) {
   }
   radioIndex = ((idx % radioTracks.length) + radioTracks.length) % radioTracks.length;
   const track = radioTracks[radioIndex];
-  radioPlaying = true;
+  const myPlayToken = Date.now() + Math.random();
+  radioPlaying = myPlayToken;
   if (!radioPlayStartAt) radioPlayStartAt = Date.now();
   radioSessionLog.clipsPlayed++;
-  radioSessionLog.lastChannel = radioChannel;
+  radioSessionLog.lastChannel = `${radioChannel}:${radioScope}`;
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
-    artist: "言道修炼殿 13.0 随身电台",
+    artist: "言道修炼殿 14.1 随身电台 (Kokoro 优先)",
     album: data.dailyPack?.title || "English Cultivation",
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
@@ -158,62 +209,21 @@ function playRadioTrackAt(idx) {
 
   render();
 
-  const scheduleNext = () => {
-    if (!radioPlaying) return;
-    const pauseMs = computeShadowPauseMs(track.text, { enabled: radioShadowPause });
-    radioTimer = setTimeout(() => {
-      if (radioPlaying) playRadioTrackAt(radioIndex + 1);
-    }, pauseMs);
-  };
-
   const rate = radioChannel === "sleep_slow" ? 0.8 : Number(data.settings?.speechRate || 0.9);
-  if (typeof getSpeechClip === "function" && typeof indexedDB !== "undefined") {
-    speechTextHash(track.text).then(hash => getSpeechClip(hash)).then(clip => {
-      if (!radioPlaying) return;
-      if (clip && clip.blob) {
-        const url = URL.createObjectURL(clip.blob);
-        const audio = new Audio(url);
-        audio.playbackRate = rate;
-        activeLocalAudio = audio;
-        const cleanup = () => { try { URL.revokeObjectURL(url); } catch {} scheduleNext(); };
-        audio.onended = cleanup;
-        audio.onerror = cleanup;
-        audio.play().catch(cleanup);
-        return;
-      }
-      if (typeof window !== "undefined" && window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
-        try {
-          window.speechSynthesis.cancel();
-          const utter = new SpeechSynthesisUtterance(track.text);
-          const voice = selectedSpeechVoice();
-          if (voice) utter.voice = voice;
-          utter.lang = voice?.lang || "en-US";
-          utter.rate = rate;
-          utter.onend = scheduleNext;
-          utter.onerror = scheduleNext;
-          window.speechSynthesis.speak(utter);
-          return;
-        } catch {}
-      }
-      scheduleNext();
-    }).catch(() => scheduleNext());
-    return;
+  const segs = Array.isArray(track.segments) && track.segments.length ? track.segments : [track.text];
+  for (let i = 0; i < segs.length; i++) {
+    if (radioPlaying !== myPlayToken) return;
+    await playRadioSegment(segs[i], rate);
+    if (radioPlaying !== myPlayToken) return;
+    if (i < segs.length - 1) {
+      await new Promise(r => { radioTimer = setTimeout(r, 450); });
+    }
   }
-  if (typeof window !== "undefined" && window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
-    try {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(track.text);
-      const voice = selectedSpeechVoice();
-      if (voice) utter.voice = voice;
-      utter.lang = voice?.lang || "en-US";
-      utter.rate = rate;
-      utter.onend = scheduleNext;
-      utter.onerror = scheduleNext;
-      window.speechSynthesis.speak(utter);
-      return;
-    } catch {}
-  }
-  scheduleNext();
+  if (radioPlaying !== myPlayToken) return;
+  const pauseMs = computeShadowPauseMs(track.text, { enabled: radioShadowPause });
+  radioTimer = setTimeout(() => {
+    if (radioPlaying === myPlayToken) playRadioTrackAt(radioIndex + 1);
+  }, pauseMs);
 }
 
 function renderPocketRadioDrawer() {
@@ -267,6 +277,23 @@ function renderPocketRadioDrawer() {
 
   const optsRow = div("journey-flow-controls");
   optsRow.append(
+    btn(radioScope === "today" ? "📦 曲库：仅今日包" : "📚 曲库：全历史总曲库", () => {
+      radioScope = radioScope === "today" ? "all" : "today";
+      radioIndex = 0;
+      refreshRadioTracks();
+      if (radioPlaying) playRadioTrackAt(0);
+      else render();
+    }, "btn secondary small-btn"),
+    btn(radioStopAfterRound ? "⏹ 播完本轮停播（防重复）" : "🔁 单轮循环播", () => {
+      radioStopAfterRound = !radioStopAfterRound;
+      render();
+    }, radioStopAfterRound ? "btn secondary small-btn" : "btn ghost small-btn"),
+    btn(radioShuffle ? "🔀 随机顺序：开" : "🔀 随机顺序：关", () => {
+      radioShuffle = !radioShuffle;
+      radioIndex = 0;
+      refreshRadioTracks(radioShuffle);
+      render();
+    }, radioShuffle ? "btn secondary small-btn" : "btn ghost small-btn"),
     btn(radioShadowPause ? "🗣️ 影子跟读留白：已开启" : "🗣️ 影子跟读留白：关闭", () => {
       radioShadowPause = !radioShadowPause;
       render();
@@ -349,7 +376,17 @@ function renderOfflineLexiconDrawer() {
       if (entry.senseEn) card.append(p(entry.senseEn, "tiny"));
       if (entry.meaningZh) card.append(p(`中文提示：${entry.meaningZh}`, "tiny"));
       if (entry.example) card.append(p(`例句：${entry.example}`, "hint"));
-      card.append(el("span", `${entry.source} · ${entry.status}`, "chip tiny"));
+      const foot = div("journey-flow-top");
+      foot.append(el("span", `${entry.source} · ${entry.status}`, "chip tiny"));
+      const matchedItem = (data.items || []).find(i => i.kind === "word" && normalized(i.target) === normalized(entry.headword));
+      if (matchedItem && matchedItem.status !== "N") {
+        foot.append(btn("标为待复习", () => {
+          matchedItem.status = "V";
+          matchedItem.dueAt = new Date().toISOString();
+          if (save()) { notify(`已将「${matchedItem.target}」加入待复习队列。`); updateList(lexiconQuery); }
+        }, "btn ghost small-btn"));
+      }
+      card.append(foot);
       listBox.append(card);
     });
   };
@@ -459,7 +496,7 @@ async function pruneHistoricalSpeechCache() {
   if (typeof indexedDB === "undefined") { notify("当前环境不支持 IndexedDB 清理。"); return; }
   try {
     const activePackId = data.dailyPack?.packId || "";
-    const req = indexedDB.open("english-cultivation-speech-clips", 1);
+    const req = indexedDB.open("english-cultivation-audio-v1", 1);
     req.onsuccess = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains("clips")) { notify("本机暂无历史语音缓存需要清理。"); return; }
@@ -472,7 +509,7 @@ async function pruneHistoricalSpeechCache() {
         for (const row of rows) {
           if (activePackId && row.packId === activePackId) continue;
           if (!activePackId) continue;
-          store.delete(row.sha256 || row.id);
+          store.delete(row.key || row.sha256 || row.id);
           deleted++;
         }
         notify(deleted ? `已安全清理 ${deleted} 条非当前学习包的历史旧音频缓存（当前包音频、口语录音与 K/V/N 记录均完好保留）。` : "未发现可清理的非当前学习包旧音频缓存。");
@@ -751,7 +788,7 @@ function renderHome(){
   heroCopy.append(el('div','问道破境 · DAILY CULTIVATION','eyebrow'),h('h1','直面生涩，把今天的难关练成底气。'),renderRealmHeroBadge());
   const summary=div('today-summary');
   summary.append(statistic('待复习',s.due),statistic('新内容',s.newItems),statistic('实际训练',`${s.todayMinutes} 分钟`));
-  const heroActions=lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn('🎧 随身电台磨耳朵',()=>{radioOpen=true;render();},'btn secondary radio-launch-btn'),data.packItems?btn('管理学习包',()=>setPage('library'),'btn ghost'):btn('导入今日总学习包',()=>setPage('library'),'btn ghost'));
+  const heroActions=lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn('🎧 随身电台磨耳朵',()=>{radioOpen=true;refreshRadioTracks();render();},'btn secondary radio-launch-btn'),btn('⚡ 5 分钟通勤微冲刺',()=>{const q=buildCommuteSprintQueue(data.items||[]);if(!q.length){notify('当前没有可冲刺的词句卡片，请先导入学习包。');return;}startSession('mixed',{scope:'commute',queue:q,dueGoal:5});},'btn secondary radio-launch-btn'),data.packItems?btn('管理学习包',()=>setPage('library'),'btn ghost'):btn('导入今日总学习包',()=>setPage('library'),'btn ghost'));
   heroActions.classList.add('home-hero-actions');
   if(s.unallocatedActiveMs>0)summary.append(p('历史跨日累计时间中有每日分配未知的部分；不会计入今天。','tiny'));
   hero.append(heroVisual,heroCopy,summary,heroActions);

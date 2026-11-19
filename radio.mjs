@@ -1,8 +1,11 @@
 /**
- * Pocket Immersion Radio Engine (13.0.0)
- * Turns the learner's active daily pack (words, missed choices, CDTL pairs,
- * sentences, listening passages, and speeches) into a hands-free, lock-screen
- * friendly English audio stream with optional Shadowing Pauses & Sleep Timer.
+ * Pocket Immersion Radio Engine (14.1.0)
+ * Turns the learner's active daily pack OR full local history into a hands-free,
+ * lock-screen friendly English audio stream with:
+ * - Exact single-segment Kokoro `af_heart` MP3 matching (`segments: string[]`)
+ * - Scope selector (`today` vs `all` history)
+ * - Stop-after-round anti-repetition toggle + optional shuffle
+ * - Dynamic Shadowing Pauses & Sleep Timer
  *
  * CRITICAL INTEGRITY RULE:
  * Passive radio listening is tracked strictly as audio exposure (`exposureOnly: true`)
@@ -13,7 +16,7 @@ const cleanRad = value => String(value ?? '').replace(/\r/g, '').trim();
 
 export const RADIO_CHANNELS = Object.freeze([
   { id: 'weak_sniper', label: '🎯 错词与难词狙击', desc: '优先连播今日错选词、N/V 弱词与易混对比句' },
-  { id: 'today_full', label: '📖 今日全包精华', desc: '按「词条 → 例句 → 句子听力」顺序自动连播' },
+  { id: 'today_full', label: '📖 核心词句全连播', desc: '按「词条 → 例句 → 句子听力」顺序自动连播' },
   { id: 'sentences_listening', label: '🎧 句子与听力精磨', desc: '专攻完整英文句子与听力语段，适合影子跟读' },
   { id: 'sleep_slow', label: '🌙 睡前慢速磨耳朵', desc: '默认 0.8× 温和语速，可配睡眠定时自动停播' }
 ]);
@@ -29,11 +32,16 @@ export function computeShadowPauseMs(text = '', { enabled = false, baseMs = 1500
 }
 
 /**
- * Builds a deterministic, deduplicated playlist of playable audio tracks
- * for the selected channel from current local state.
+ * Builds a deterministic, deduplicated playlist of playable audio tracks.
+ * Each track carries `segments` matching the exact unit strings hashed by
+ * `audio-tasks.mjs` (`target`, `example`, sentence text) so offline Kokoro
+ * `af_heart` MP3 clips match with 100% precision.
  */
 export function buildRadioPlaylist({
   channel = 'today_full',
+  scope = 'all',
+  activePackId = '',
+  shuffle = false,
   items = [],
   vocabularyPractice = [],
   vocabularyAttempts = [],
@@ -43,8 +51,10 @@ export function buildRadioPlaylist({
   const seenText = new Set();
 
   const pushTrack = (track) => {
-    const text = cleanRad(track.text);
-    if (!text || text.length < 2) return;
+    const rawSegments = Array.isArray(track.segments) ? track.segments.map(cleanRad).filter(Boolean) : [];
+    const text = cleanRad(track.text || rawSegments.join('. '));
+    const segments = rawSegments.length ? rawSegments : (text ? [text] : []);
+    if (!text || text.length < 2 || !segments.length) return;
     const key = text.toLocaleLowerCase('en');
     if (seenText.has(key)) return;
     seenText.add(key);
@@ -52,13 +62,19 @@ export function buildRadioPlaylist({
       id: track.id || `radio:${tracks.length + 1}`,
       kind: track.kind || 'word',
       badge: track.badge || '词条',
-      title: cleanRad(track.title) || text.slice(0, 48),
+      title: cleanRad(track.title) || segments[0].slice(0, 48),
       text,
+      segments,
       subtext: cleanRad(track.subtext || ''),
       audioUrl: cleanRad(track.audioUrl || ''),
       priority: Number(track.priority || 10),
       exposureOnly: true
     });
+  };
+
+  const inScope = row => {
+    if (scope !== 'today' || !activePackId) return true;
+    return cleanRad(row?.packId || row?.source?.id) === cleanRad(activePackId);
   };
 
   const missedVocabIds = new Set(
@@ -67,21 +83,23 @@ export function buildRadioPlaylist({
       .map(a => cleanRad(a.taskId || a.id))
   );
 
-  // 1. Vocabulary practice tracks (prioritize missed ones in weak_sniper)
+  // 1. Vocabulary practice tracks (split into exact [target, example] segments for Kokoro MP3 hits)
   if (channel !== 'sentences_listening') {
     for (const v of (Array.isArray(vocabularyPractice) ? vocabularyPractice : [])) {
+      if (!inScope(v)) continue;
       const isMissed = missedVocabIds.has(cleanRad(v?.id));
       if (channel === 'weak_sniper' && !isMissed) continue;
       const head = cleanRad(v?.target);
       const ex = cleanRad(v?.archivedExample);
-      const speakLine = head && ex ? `${head}. ${ex}` : (ex || head);
-      if (speakLine) {
+      const segments = [head, ex].filter(Boolean);
+      if (segments.length) {
         pushTrack({
           id: `radio:vocab:${v.id}`,
           kind: 'vocab',
           badge: isMissed ? '今日错词' : '今日词汇',
           title: head || 'Vocabulary',
-          text: speakLine,
+          text: segments.join(' — '),
+          segments,
           subtext: cleanRad(v?.targetSense || ''),
           audioUrl: cleanRad(v?.audioUrl || ''),
           priority: isMissed ? 1 : 5
@@ -92,7 +110,7 @@ export function buildRadioPlaylist({
 
   // 2. Card items (words, sentences, listening)
   for (const item of (Array.isArray(items) ? items : [])) {
-    if (!item || item.archived || item.paused) continue;
+    if (!item || item.archived || item.paused || !inScope(item)) continue;
     const isWeak = item.status === 'N' || item.status === 'V';
     if (channel === 'weak_sniper' && !isWeak) continue;
     if (channel === 'sentences_listening' && item.kind !== 'sentence') continue;
@@ -100,23 +118,27 @@ export function buildRadioPlaylist({
     if (item.kind === 'word') {
       const head = cleanRad(item.target);
       const ex = cleanRad(item.example);
+      const segments = [head, ex].filter(Boolean);
       pushTrack({
         id: `radio:item:${item.id}`,
         kind: 'word',
         badge: isWeak ? `弱词 (${item.status})` : '词卡',
         title: head,
-        text: head && ex ? `${head}. ${ex}` : (ex || head),
+        text: segments.join(' — '),
+        segments,
         subtext: cleanRad(item.definitionEn || item.meaningZh || item.cue || ''),
         audioUrl: cleanRad(item.audioUrl || ''),
         priority: item.status === 'N' ? 1 : item.status === 'V' ? 2 : 6
       });
     } else if (item.kind === 'sentence') {
+      const sent = cleanRad(item.text);
       pushTrack({
         id: `radio:item:${item.id}`,
         kind: item.module === 'listening' ? 'listening' : 'sentence',
         badge: item.module === 'listening' ? '听力句' : '地道例句',
         title: item.module === 'listening' ? 'Listening Sentence' : 'Context Sentence',
-        text: cleanRad(item.text),
+        text: sent,
+        segments: [sent],
         subtext: cleanRad(item.source || ''),
         audioUrl: cleanRad(item.audioUrl || ''),
         priority: isWeak ? 2 : 7
@@ -124,9 +146,10 @@ export function buildRadioPlaylist({
     }
   }
 
-  // 3. Speeches (split first 6 sentences for radio listening if not weak_sniper)
+  // 3. Speeches (split into natural sentences)
   if (channel !== 'weak_sniper') {
     for (const sp of (Array.isArray(speeches) ? speeches : [])) {
+      if (!inScope(sp)) continue;
       const sentences = cleanRad(sp?.scriptEn)
         .split(/(?<=[.!?])\s+/)
         .map(s => s.trim())
@@ -139,6 +162,7 @@ export function buildRadioPlaylist({
           badge: `演讲片段 ${idx + 1}`,
           title: cleanRad(sp.title) || 'Speech',
           text: sent,
+          segments: [sent],
           subtext: cleanRad(sp.authorOrSpeaker || 'Speech Chamber'),
           priority: 8
         });
@@ -146,10 +170,13 @@ export function buildRadioPlaylist({
     }
   }
 
-  // Fallback for weak_sniper when learner has 0 errors yet: fall back to today_full top 15
+  // Fallback for weak_sniper when learner has 0 errors yet
   if (channel === 'weak_sniper' && tracks.length === 0) {
     return buildRadioPlaylist({
       channel: 'today_full',
+      scope,
+      activePackId,
+      shuffle,
       items,
       vocabularyPractice,
       vocabularyAttempts,
@@ -157,7 +184,14 @@ export function buildRadioPlaylist({
     }).slice(0, 15);
   }
 
-  tracks.sort((a, b) => a.priority - b.priority);
+  if (shuffle) {
+    for (let i = tracks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+    }
+  } else {
+    tracks.sort((a, b) => a.priority - b.priority);
+  }
   return tracks;
 }
 

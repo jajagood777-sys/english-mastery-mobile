@@ -48,7 +48,7 @@ test('grit badges unlock only when authentic local evidence exists', () => {
   assert.equal(earned.every(b => b.unlocked === true), true);
 });
 
-test('14.0.0 bug fixes are verified in app.js and styles.css', () => {
+test('14.1.0 bug fixes are verified in app.js and styles.css', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
@@ -64,7 +64,9 @@ test('14.0.0 bug fixes are verified in app.js and styles.css', () => {
   assert.match(app, /function setPage\(which\)\{if\(radioTimer\)\{clearTimeout\(radioTimer\)/);
 
   // Bug 4: Pocket Radio checks offline Kokoro clip first
-  assert.match(app, /speechTextHash\(track\.text\)\.then\(hash => getSpeechClip\(hash\)\)/);
+  assert.match(app, /getSpeechClip\(segText,\s*"af_heart"\)/);
+  assert.match(app, /english-cultivation-audio-v1/);
+  assert.match(app, /⚡ 5 分钟通勤微冲刺/);
 
   // Bug 5: no corrupted replacement character in app.js
   assert.equal(app.includes('\ufffd'), false);
