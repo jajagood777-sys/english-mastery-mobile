@@ -1983,7 +1983,8 @@ async function startActiveRecording(meta){
       }
     };
     const handleVisibility=()=>{if(document.hidden)interrupt();};
-    stream.getAudioTracks().forEach(track=>{track.onended=interrupt;});
+    const audioTracks=typeof stream.getAudioTracks==='function'?stream.getAudioTracks():stream.getTracks();
+    audioTracks.forEach(track=>{track.onended=interrupt;});
     document.addEventListener('visibilitychange',handleVisibility);
     recorder.onerror=interrupt;
     recorder.ondataavailable=event=>{if(event.data?.size>0)chunks.push(event.data);};
@@ -2000,7 +2001,7 @@ async function startActiveRecording(meta){
       }catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留，请重录。`);}
       finally {
         document.removeEventListener('visibilitychange',handleVisibility);
-        stream.getAudioTracks().forEach(track=>{if(track.onended===interrupt)track.onended=null;});
+        audioTracks.forEach(track=>{if(track.onended===interrupt)track.onended=null;});
         stream.getTracks().forEach(track=>track.stop());
         if(recordingController===controller)recordingController=null;
         if(controller.renderAfterStop)refreshRecordingPanel(meta);

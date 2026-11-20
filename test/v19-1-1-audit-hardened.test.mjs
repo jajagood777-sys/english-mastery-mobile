@@ -41,10 +41,11 @@ test('v19.1.1 setup shows current isolated PWA or Safari entry; offline precache
   assert.match(sw,/static-v19\.1\.1/);
 });
 
-function recordingHarness(size=7){
+function recordingHarness(size=7,includeAudioTracks=true){
   const messages=[], saved=[], revoked=[],listeners=new Map();
   const track={onended:null,stop(){this.stopped=true;}};
-  const stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
+  const stream={getTracks:()=>[track]};
+  if(includeAudioTracks)stream.getAudioTracks=()=>[track];
   const recorderBox={current:null};
   class FakeRecorder{
     constructor(){this.state='inactive';this.mimeType='audio/webm';recorderBox.current=this;}
@@ -102,6 +103,14 @@ test('v19.1.1 blocks terminated mic track, background interruption and pagehide 
     assert.equal(h.saved.length,0,how);
     assert.ok(h.messages.some(x=>x.includes('请重新录制')),how);
   }
+});
+
+test('v19.1.1 supports MediaStream mocks or devices without getAudioTracks',async()=>{
+  const h=recordingHarness(12,false);
+  await h.ctx.api.startActiveRecording({});
+  assert.equal(h.ctx.api.stopActiveRecording(),true);
+  await h.flush();
+  assert.equal(h.saved.length,1);
 });
 
 test('v19.1.1 validates 0-byte blobs and interruptions',()=>{
