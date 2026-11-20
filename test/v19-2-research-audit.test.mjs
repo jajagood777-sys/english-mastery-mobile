@@ -105,3 +105,24 @@ test('v19.2.0 revision survives backup migration and blocks stale after two succ
   assert.equal(stale.ok,false);assert.equal(stale.conflict,'stale_tab_revision');
   assert.equal(JSON.parse(store.getItem('learning')).attempts[0].id,'first');
 });
+
+
+test('v19.2.0 same-revision storage replacement is never clobbered by an old pagehide save',()=>{
+  const memory=new Map();
+  const storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
+  const key='learning';
+  const page={stateRevision:0,dailyJourney:{id:'finished',finishedAt:'2026-11-20T12:00:00Z'}};
+  const initial=persistState(storage,key,page);
+  assert.equal(initial.ok,true);
+  const firstRaw=storage.getItem(key);
+  const external={...JSON.parse(firstRaw),dailyJourney:{id:'legacy-recovery',finishedAt:null}};
+  const restoredRaw=JSON.stringify(external);
+  storage.setItem(key,restoredRaw);
+  const oldPageExit=persistState(storage,key,{...page,stateRevision:initial.revision},firstRaw);
+  assert.equal(oldPageExit.ok,false);
+  assert.equal(oldPageExit.conflict,'stale_tab_revision');
+  assert.equal(storage.getItem(key),restoredRaw);
+  const resumed=persistState(storage,key,external,restoredRaw);
+  assert.equal(resumed.ok,true);
+  assert.equal(JSON.parse(storage.getItem(key)).dailyJourney.id,'legacy-recovery');
+});

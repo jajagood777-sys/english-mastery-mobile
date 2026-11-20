@@ -548,6 +548,11 @@ export function persistState(storage, key, state, previousRaw=null) {
     try {
       const existingRaw = storage.getItem(key);
       if (existingRaw) {
+        // A second tab (or a restore) may change the snapshot without bumping its
+        // revision. The pagehide/visibilitychange writer must not clobber that data.
+        if (previousRaw !== null && existingRaw !== previousRaw) {
+          return {ok:false, conflict:'stale_tab_revision', error:'其他页面或恢复操作已更改本地学习记录，已阻止覆盖。', serialized:null};
+        }
         const existing = JSON.parse(existingRaw);
         const existingRev = Number(existing?.stateRevision || 0);
         const incomingRev = Number(payload.stateRevision || 0);
