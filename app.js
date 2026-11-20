@@ -769,7 +769,7 @@ async function playRadioTrackAt(idx) {
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
-    artist: "言道修炼殿 18.1 随身听 (云端真人语音优先)",
+    artist: "言道修炼殿 18.2 随身听 (云端真人语音优先)",
     album: data.dailyPack?.title || "English Cultivation",
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
@@ -837,7 +837,7 @@ function renderPocketRadioDrawer() {
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
       el("span", `${episode.badge} · ${radioEpisodeIndex + 1} / ${radioEpisodes.length}`, "chip tiny"),
-      el("span", `约 ${episode.estimatedMinutes} 分钟 · 含 ${episode.trackCount} 条`, "tiny")
+      el("span", `本集 ${episode.estimatedMinutes} 分钟 · 全频道 ${Math.round(radioEpisodes.reduce((s, ep) => s + (Number(ep.estimatedMinutes) || 0), 0))} 分钟`, "tiny")
     );
     const previewText = episode.tracksIncluded.slice(0, 2).map(t => t.title).join(" · ");
     const cachePill = el("span", "⏳ 检测本机缓存…", "tts-status-pill");
@@ -902,7 +902,7 @@ function renderPocketRadioDrawer() {
   panel.append(nowCard);
 
   const controls = div("radio-transport-row");
-  const prevBtn = btn("⏮", () => {
+  const prevBtn = btn("⟨", () => {
     if (isPodcast) playRadioPodcastAt(radioEpisodeIndex - 1);
     else playRadioTrackAt(radioIndex - 1);
   }, "btn secondary radio-icon-btn");
@@ -913,11 +913,11 @@ function renderPocketRadioDrawer() {
     if (isActivelyPlaying) pausePocketRadio();
     else resumePocketRadio();
   }, "btn primary radio-play-btn");
-  const rewind5Btn = btn("⏪ 5秒", () => seekPocketRadio(-5), "btn secondary radio-seek-btn");
+  const rewind5Btn = btn("↺ 5s", () => seekPocketRadio(-5), "btn secondary radio-seek-btn");
   rewind5Btn.setAttribute("aria-label", "后退 5 秒");
-  const forward5Btn = btn("5秒 ⏩", () => seekPocketRadio(5), "btn secondary radio-seek-btn");
+  const forward5Btn = btn("5s ↻", () => seekPocketRadio(5), "btn secondary radio-seek-btn");
   forward5Btn.setAttribute("aria-label", "前进 5 秒");
-  const nextBtn = btn("⏭", () => {
+  const nextBtn = btn("⟩", () => {
     if (isPodcast) playRadioPodcastAt(radioEpisodeIndex + 1);
     else playRadioTrackAt(radioIndex + 1);
   }, "btn secondary radio-icon-btn");
@@ -1089,7 +1089,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (18.1.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (18.2.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");

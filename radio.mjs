@@ -1369,6 +1369,301 @@ export const BUILT_IN_NOTEBOOK_SPOKEN = Object.freeze([
     subtext: '课堂收尾复盘：wrap up（收尾）/ quick recap（快速复盘）/ actually use in real life',
     sourceUrl: ''
   }
+,
+  {
+    id: "nb:phonics:01",
+    badge: "自然拼读 · Phonics",
+    title: "Short vs. Long Vowels & The Magic E Rule",
+    text: "Let's start with the foundation of English phonics: short vowels versus long vowels with Magic E. A short vowel says its quick sound inside a closed syllable: cap, hat, bit, hop, tub, pet. Now add a silent E at the end, and that E reaches back to make the vowel say its own alphabet name: cap becomes cape, hat becomes hate, bit becomes bite, hop becomes hope, tub becomes tube, and pet becomes Pete. Practice the rhythm aloud: tap, tape; plan, plane; rid, ride; not, note; cut, cute. Hearing that crisp contrast unlocks thousands of everyday English words.",
+    subtext: "自然拼读核心规律：闭音节短元音 vs. 结尾不发音 Magic E 变长元音（cap/cape, hop/hope）"
+  },
+  {
+    id: "nb:phonics:02",
+    badge: "自然拼读 · Phonics",
+    title: "Vowel Teams: AI / AY and EE / EA",
+    text: "When two vowels walk together, the first often does the talking. Look at the long A team: AI usually sits in the middle of a word—rain, train, paint, wait, explain—while AY loves the end of a word—day, stay, play, delay, always. Now compare the long E team: EE and EA. Practice EE in sleep, keep, green, speech, and agree. Practice EA in read, speak, clean, reach, and breathe. Watch out for a few common EA exceptions that sound short like E, such as bread, head, ready, and heavy. Saying these pairs in short phrases locks the spelling pattern into your ear.",
+    subtext: "元音组合规律：ai（词中）/ ay（词尾）发长 A；ee / ea 发长 E（含 bread/ready 常见例外）"
+  },
+  {
+    id: "nb:phonics:03",
+    badge: "自然拼读 · Phonics",
+    title: "Vowel Teams: OA / OW and IGH / IE",
+    text: "Next, let's master the long O and long I vowel teams. OA sits in the middle of words like boat, coat, road, coach, goal, and approach. OW often ends a word with the same smooth long O sound: snow, grow, slow, glow, window, and tomorrow. For long I, listen to the three-letter team IGH, where the G and H stay completely silent: light, night, bright, sight, flight, and midnight. You also hear long I in IE at the end of short words like pie, tie, and lie, while IE in longer words like achieve, believe, and relief flips to a long E sound.",
+    subtext: "长元音组合：oa / ow（boat, approach, tomorrow）与 igh / ie（bright, flight, achieve）"
+  },
+  {
+    id: "nb:phonics:04",
+    badge: "自然拼读 · Phonics",
+    title: "Diphthongs: OI / OY, OU / OW, and AU / AW",
+    text: "Diphthongs are gliding vowels where your mouth smoothly moves from one position to another. First, OI and OY make the same glide: OI inside words—voice, choice, point, join, avoid—and OY at the end—boy, joy, enjoy, toy, loyal. Second, OU and OW give you the crisp 'ow' glide: sound, round, house, cloud, shout, crowd, power, allow, and downtown. Third, AU and AW create an open 'aw' sound: pause, cause, launch, author, draw, saw, lawn, and awesome. Try reading one smooth sentence: 'Enjoy the loud applause as the author pauses to draw.'",
+    subtext: "双元音滑音组合：oi/oy（voice/enjoy）、ou/ow（sound/crowd）、au/aw（pause/awesome）"
+  },
+  {
+    id: "nb:phonics:05",
+    badge: "自然拼读 · Phonics",
+    title: "R-Controlled Vowels: AR, OR, and ER / IR / UR",
+    text: "In English phonics, the letter R is called 'Bossy R' because it changes the vowel right in front of it. AR sounds bright and open: car, star, start, smart, sharp, market, and charge. OR gives a rounded back sound: for, storm, sport, morning, corner, and support. Here is the best shortcut in phonics: ER, IR, and UR all share the exact same smooth sound in American English! Listen closely: her, term, nerve, person; bird, first, firm, circle; turn, burn, nurse, purpose. Repeat them together: 'Her first purpose is to stay firm and calm.'",
+    subtext: "R 控元音（Bossy R）：ar（start/charge）、or（storm/support）与 er/ir/ur 同音规律"
+  },
+  {
+    id: "nb:phonics:06",
+    badge: "自然拼读 · Phonics",
+    title: "Consonant Digraphs: SH, CH, TH, PH, and WH",
+    text: "A consonant digraph is two letters that team up to make one brand-new sound. SH makes a quiet rushing air sound: ship, sharp, shadow, finish, and fresh. CH starts with a tiny stop before the puff of air: check, chance, challenge, teach, and coach. TH has two versions—put your tongue gently between your teeth: voiceless TH in think, thank, path, and breath; voiced TH with throat vibration in this, that, breathe, smooth, and rhythm. Finally, PH sounds just like F in phone, photo, phrase, and phonics, while WH glides cleanly in what, where, while, and whisper.",
+    subtext: "辅音字母组合：sh/ch 对比、清浊 th 咬舌发音（breath vs. breathe）、ph 与 wh"
+  },
+  {
+    id: "nb:phonics:07",
+    badge: "自然拼读 · Phonics",
+    title: "Hard vs. Soft C and G: The E-I-Y Rule",
+    text: "Why does C sound like K in 'cat' but like S in 'city'? And why does G sound hard in 'game' but soft like J in 'gentle'? One simple rule covers almost every case: when C or G is followed by E, I, or Y, it turns soft! Listen to hard C: cat, cold, cup, class, music. Now soft C before E, I, Y: center, city, circle, cycle, cancel, and success. Listen to hard G: game, goal, guide, great. Now soft G before E, I, Y: gentle, giant, gym, energy, manage, and stage. A few everyday words like get, give, and girl break the soft-G rule, so just keep those three in mind.",
+    subtext: "软硬 C 与 G 的黄金法则：遇到 e/i/y 变软音（city/cycle/gentle/energy）"
+  },
+  {
+    id: "nb:phonics:08",
+    badge: "自然拼读 · Phonics",
+    title: "Consonant Blends & Smooth Clusters",
+    text: "Unlike digraphs, consonant blends keep every single letter's sound—you simply slide through them without inserting an extra 'uh' vowel in between. Practice L-blends: black, clean, clear, flow, glad, plan, slow. Practice R-blends: bright, crisp, drive, fresh, grow, practice, strong, trust. Practice S-blends and three-letter clusters: speak, skill, small, smart, start, stay, street, stretch, screen, spring, and splendid. A great tip for Chinese speakers: never add a hidden vowel after the first consonant—say 'blue,' not 'buh-lue'; say 'speak,' not 'suh-peak.'",
+    subtext: "辅音连缀顺滑拼读：bl/cl/cr/str/spl 等不加多余元音，摆脱中式拖音"
+  },
+  {
+    id: "nb:phonics:09",
+    badge: "自然拼读 · Phonics",
+    title: "Silent Letters You Meet Every Day",
+    text: "English spelling preserves history, which leaves behind predictable silent-letter patterns. First, silent K before N: know, knee, knife, knock, knight, and knowledge. Second, silent W before R: write, wrong, wrap, wrist, and wreck. Third, silent B after M or before T: climb, comb, thumb, crumb, doubt, debt, and subtle. Fourth, silent L in calm, palm, walk, talk, half, and would. Fifth, silent G before N in sign, design, foreign, and campaign, plus silent H in hour, honest, honor, and rhythm. Grouping silent letters by pattern turns spelling traps into easy wins.",
+    subtext: "高频不发音字母归类：kn（know）、wr（write）、mb/bt（climb/subtle）、gn（design）"
+  },
+  {
+    id: "nb:phonics:10",
+    badge: "自然拼读 · Phonics",
+    title: "Breaking Long Words into Six Syllable Types",
+    text: "When you see a long English word, never panic—just slice it into syllables. Every English syllable belongs to one of six types: Closed syllables end in a consonant with a short vowel, like 'rab-bit' or 'nap-kin.' Open syllables end in a vowel that says its long name, like 'ti-ger,' 'pa-per,' or 'mo-ment.' Magic-E syllables appear in 'com-plete' and 'in-side.' Vowel-team syllables show up in 'ex-plain' and 're-peat.' R-controlled syllables power 'mar-ket' and 'per-fect.' And Consonant-LE sits at the end of 'ta-ble,' 'sim-ple,' and 'han-dle.' Try slicing 're-spon-si-bil-i-ty' beat by beat—suddenly even six-syllable words feel effortless.",
+    subtext: "长难词拆解术：掌握六大音节类型，像拼积木一样读出任意多音节词"
+  },
+  {
+    id: "nb:phonics:11",
+    badge: "自然拼读 · Phonics",
+    title: "The Schwa Sound /ə/: Secret to Native Rhythm",
+    text: "The single most common vowel sound in English is not A, E, I, O, or U—it is the lazy, relaxed Schwa sound, 'uh.' Any unstressed vowel in a multi-syllable word can relax into Schwa. Listen to the first syllable of about, ago, around, and support. Listen to the middle of family, memory, camera, and banana. Listen to the end of problem, system, focus, and campus. Even stressed vowels shift when stress moves: compare PHO-to-graph with pho-TOG-ra-phy! Relaxing your unstressed syllables into Schwa is what makes your English flow like music instead of sounding robotic.",
+    subtext: "美音节奏核心：弱读央元音 Schwa（/ə/），让多音节词听起来自然松弛不生硬"
+  },
+  {
+    id: "nb:phonics:12",
+    badge: "自然拼读 · Phonics",
+    title: "Mastering -ED Past Tense Endings: /t/, /d/, /ɪd/",
+    text: "Many learners accidentally add an extra syllable to every past-tense verb, saying 'work-ed' instead of 'workt.' Here is the complete three-way rule for -ED endings. Only add an extra syllable '/ɪd/' when the base verb ends in a T or D sound: wanted, needed, decided, started, ended. If the verb ends in a voiceless sound like P, K, F, S, SH, or CH, the -ED sounds like a crisp /t/: stopped, worked, laughed, missed, finished, watched. For all other voiced endings—vowels, L, M, N, R, V, Z—the -ED sounds like a gentle /d/: played, called, planned, loved, and realized.",
+    subtext: "过去式 -ed 结尾三大发音法则：仅 t/d 后加音节，清辅音后读 /t/，浊音后读 /d/"
+  },
+  {
+    id: "nb:phonics:13",
+    badge: "自然拼读 · Phonics",
+    title: "Plural & Third-Person -S / -ES Endings",
+    text: "Just like -ED, the -S ending follows your vocal cords. After voiceless consonants P, T, K, F, and TH, pronounce a clean /s/: cups, cats, books, laughs, months, works, keeps. After voiced sounds—all vowels plus B, D, G, L, M, N, R, V—your throat stays buzzing for /z/: bags, dogs, calls, runs, loves, days, plays, movies. Finally, after hissing or buzzing sounds S, Z, SH, CH, X, and soft G, add an extra syllable '/ɪz/': buses, glasses, washes, watches, boxes, changes, and pages. Mastering these endings makes your spoken grammar sound instantly sharper.",
+    subtext: "复数与三单 -s/-es 发音规律：清音读 /s/、浊音读 /z/、嘶嘶音后加音节读 /ɪz/"
+  },
+  {
+    id: "nb:phonics:14",
+    badge: "自然拼读 · Phonics",
+    title: "Word Stress Shifts: Noun vs. Verb Pairs",
+    text: "In English, moving the stress from the first syllable to the second can change a noun into a verb! Listen carefully to these high-frequency pairs. Noun on the first syllable, verb on the second: a RE-cord versus to re-CORD; a PRE-sent versus to pre-SENT; PRO-gress versus to pro-GRESS; a PRO-ject versus to pro-JECT; CON-tent versus to con-TENT; an OB-ject versus to ob-JECT; a PER-mit versus to per-MIT; and IN-crease versus to in-CREASE. Try a quick drill: 'We need to re-CORD our daily PRO-gress and pre-SENT the final PRO-ject.'",
+    subtext: "重音改变词性：名词重音在前、动词重音在后（REcord/reCORD, PREsent/preSENT）"
+  },
+  {
+    id: "nb:phonics:15",
+    badge: "自然拼读 · Phonics",
+    title: "High-Value Minimal Pairs for Crystal-Clear Speech",
+    text: "Let's sharpen five minimal-pair contrasts that make the biggest difference in clarity. First, tense long E versus relaxed short I: sheep and ship, leave and live, feel and fill, seat and sit. Second, open wide A versus mid E: bad and bed, man and men, pan and pen, flash and flesh. Third, tongue-between-teeth TH versus S: think and sink, thank and sank, mouth and mouse. Fourth, teeth-on-lip V versus rounded-lips W: vine and wine, very and wary, vest and west. Fifth, tongue-tip L versus curled-back R: light and right, glass and grass, collect and correct.",
+    subtext: "五大核心最小对立词辩音：sheep/ship, bad/bed, think/sink, very/wary, light/right"
+  },
+  {
+    id: "nb:phonics:16",
+    badge: "自然拼读 · Phonics",
+    title: "American Flap T & Glottal T in Real Speech",
+    text: "Why does 'water' sound like 'wadder' and 'better' sound like 'bedder' in everyday American speech? When a T sits between two vowels and the second syllable is unstressed, your tongue makes one quick tap on the ridge behind your top teeth—that's the Flap T. Practice it in water, better, city, little, meeting, computer, and 'get it' or 'put it on.' On the other hand, when T comes right before an unstressed N—like mountain, button, certain, written, and important—many Americans hold the breath briefly in the throat as a smooth glottal stop. Recognizing both makes fast native speech suddenly clear.",
+    subtext: "美音地道秘诀：元音间闪音 T（water/better/get it）与 n 前喉塞音（mountain/important）"
+  },
+  {
+    id: "nb:phonics:17",
+    badge: "自然拼读 · Phonics",
+    title: "Linking: Consonant-to-Vowel & Glide Intrusion",
+    text: "Native speakers do not pause between every word; they connect words into smooth breath groups. Whenever a word ends in a consonant and the next starts with a vowel, carry the consonant straight across: 'check it out' sounds like 'che-ki-tout'; 'pick up' sounds like 'pi-kup'; 'turn it off' sounds like 'tur-ni-toff'; 'hold on a second' flows like 'hol-do-na second.' When two vowels meet, add a tiny natural glide: after an E or I sound, glide with a soft Y—'see it,' 'be on time,' 'the other'; after an O or U sound, glide with a soft W—'go on,' 'do it,' 'too early.'",
+    subtext: "自然连读两大核心：辅元连读（check it out / turn it off）与元元加音滑音（see it / go on）"
+  },
+  {
+    id: "nb:phonics:18",
+    badge: "自然拼读 · Phonics",
+    title: "Everyday Spoken Reductions & Weak Forms",
+    text: "In casual spoken English, helper words shrink so the key meaning words stand out. Listen to these super common reductions: 'going to' relaxes into 'gonna'—'I'm gonna grab some coffee.' 'Want to' becomes 'wanna'—'Do you wanna head out now?' 'Kind of' and 'sort of' soften into 'kinda' and 'sorta.' 'Did you' blends into 'didja'—'Didja get my message?' 'Could have' and 'should have' shorten to 'could've' and 'should've.' Remember: you don't have to force slang in formal talks, yet training your ears on these reductions makes movies, podcasts, and real conversations ten times easier to follow.",
+    subtext: "日常口语弱读与缩读：gonna, wanna, kinda, didja, could’ve——听懂原生语速的关键"
+  },
+  {
+    id: "nb:daily:01",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Morning Routine & Getting into the Groove",
+    text: "Let's practice natural morning small talk. 'I'm honestly not a morning person—I hit the snooze button twice today.' 'Same here, I don't really wake up until I've had my first cup of coffee.' 'Once I get moving, though, I usually get into the groove pretty fast.' 'What's your plan for kicking off the day?' 'I'm gonna knock out my English listening first while my head is still fresh, then dive into work.' Short, punchy, and completely natural.",
+    subtext: "早晨高频小口语：hit the snooze button（按贪睡键）、get into the groove（进入状态）"
+  },
+  {
+    id: "nb:daily:02",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Ordering Coffee & Café Chat",
+    text: "Here's how to sound effortless at any coffee shop. 'Hi there, could I get a medium iced oat latte with less ice?' 'Sure thing—is that for here or to go?' 'To go, please. Oh, and could I also grab a blueberry muffin?' 'Want me to warm that up for you?' 'Yes, please, that'd be awesome.' 'Alright, your total comes to nine fifty.' 'Here you go—keep the change.' 'Thanks a ton, your drink will be right up at the counter.'",
+    subtext: "咖啡馆地道点单：for here or to go（堂食还是带走）、warm that up（加热一下）"
+  },
+  {
+    id: "nb:daily:03",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Commuting, Subway & Asking Directions",
+    text: "Useful phrases for getting around the city. 'The subway was packed like sardines this morning, so I almost missed my stop.' 'Ugh, rush hour is brutal. Did you end up catching the express train?' 'Yeah, thankfully it saved me ten minutes.' Now for asking directions: 'Excuse me, do you happen to know the quickest way to the library?' 'Yeah, just go straight down this block, take a left at the traffic light, and it's right around the corner—you can't miss it.'",
+    subtext: "通勤与问路口语：packed like sardines（挤成沙丁鱼）、you can’t miss it（一眼就能看到）"
+  },
+  {
+    id: "nb:daily:04",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Weather & Effortless Icebreakers",
+    text: "Great conversations often start with a light two-line opener. 'Hey! How's your week treating you so far?' 'Pretty good, can't complain—just keeping busy. How about you?' 'Not bad at all! Though it's super muggy outside today, right?' 'Tell me about it—I walked five minutes and felt like I'd been to the gym.' 'At least the forecast says it's supposed to clear up by the weekend.' Notice how 'can't complain' and 'tell me about it' instantly sound warm and native.",
+    subtext: "自然破冰开场白：How’s your week treating you? / Can’t complain / Tell me about it（可不是嘛）"
+  },
+  {
+    id: "nb:daily:05",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Polite Requests & Asking for Favors",
+    text: "Instead of a stiff 'Give me' or 'Help me,' try these smooth everyday requests. 'Hey, could you do me a quick favor?' 'Of course, what's up?' 'Would you mind keeping an eye on my bag for a second while I grab some water?' 'Not at all, go right ahead.' Or at work: 'Whenever you get a chance, could you take a quick look at this draft? No rush at all—sometime this afternoon is totally fine.' 'Sure thing, I'll send you my notes right after lunch.'",
+    subtext: "礼貌求助表达：keep an eye on（照看一下）、Whenever you get a chance / No rush at all"
+  },
+  {
+    id: "nb:daily:06",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Saying Yes, No, and Maybe Like a Native",
+    text: "Let's upgrade plain 'yes,' 'no,' and 'maybe.' Enthusiastic yes: 'I'm totally down!' 'Count me in!' 'Sounds like a plan.' Polite, warm no: 'I'd love to, but I'll have to take a rain check—my schedule is packed tonight.' 'I'm gonna have to pass this time, maybe next week?' Flexible maybe: 'Let me play it by ear and text you around five.' 'I'm on the fence right now, let me sleep on it and get back to you tomorrow.'",
+    subtext: "地道回应邀请：I’m totally down / take a rain check（改天约）/ play it by ear（见机行事）"
+  },
+  {
+    id: "nb:daily:07",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Agreeing & Disagreeing Smoothly",
+    text: "In real discussions, tone matters as much as grammar. Strong agreement: 'You took the words right out of my mouth.' 'Couldn't agree more.' 'That hits the nail on the head.' Respectful disagreement: 'I see where you're coming from, though I look at it a bit differently.' 'Fair point—on the other hand, we might run out of time if we do it that way.' 'I'm with you on the first part, I'm just not sold on the timeline yet.'",
+    subtext: "赞同与委婉反对：took the words right out of my mouth / Fair point, though... / not sold on"
+  },
+  {
+    id: "nb:daily:08",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Dining Out & Splitting the Bill",
+    text: "Essential restaurant micro-dialogues. 'I'm starving—what do you recommend here?' 'Their spicy beef noodles are out of this world, and the portions are huge.' 'Awesome, let's get an order of those and share a plate of dumplings.' Halfway through: 'Everything tastes amazing—could we get a refill on water when you have a moment?' At the end: 'Could we grab the check, please?' 'No, put your card away—this one's on me.' 'Are you sure? Let's at least split it down the middle!'",
+    subtext: "餐厅高频口语：out of this world（好吃到起飞）、this one’s on me（我请客）、split it down the middle（AA）"
+  },
+  {
+    id: "nb:daily:09",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Shopping, Trying On & Returns",
+    text: "Everyday shopping lines that feel relaxed and polite. 'Hi, let me know if you need help finding anything.' 'Thanks, I'm just browsing for now.' Later: 'Excuse me, do you happen to carry this jacket in a medium?' 'Let me check in the back for you—looks like we have one left!' 'Nice! And it's thirty percent off? That's a steal.' 'Just in case, what's your return policy?' 'You've got thirty days with the receipt for a full refund or exchange.'",
+    subtext: "购物实用小口语：just browsing（随便看看）、That’s a steal（太划算了）、return policy"
+  },
+  {
+    id: "nb:daily:10",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Phone Calls, Voice Notes & Texting",
+    text: "Natural phrases for phone and messaging life. 'Hey, sorry I missed your call—I was in the middle of something.' 'No worries at all! Wait, you're breaking up a little—can you hear me now?' 'Much better, I just stepped out of the elevator.' Ending a quick call: 'Let me double-check my calendar and get back to you in ten minutes.' 'Sounds good, just shoot me a text or drop me a quick voice note whenever you're ready.'",
+    subtext: "电话与发消息口语：you’re breaking up（信号断断续续）、shoot me a text（发我条短信）"
+  },
+  {
+    id: "nb:daily:11",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Making Plans & Rescheduling Gracefully",
+    text: "Plans change all the time, so keep these ready. 'Are you free sometime this weekend to grab dinner?' 'Saturday evening works great for me—how does seven sound?' When something shifts: 'Hey, super sorry, something just came up at work. Any chance we could push it back by half an hour?' 'Totally fine, seven thirty actually works even better for me. Take your time and let me know when you're on your way.'",
+    subtext: "约时间与改期口语：something came up（临时有事）、push it back by half an hour（推迟半小时）"
+  },
+  {
+    id: "nb:daily:12",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Fitness, Energy & Rest Check-Ins",
+    text: "Talking about workouts, energy, and taking care of yourself. 'I'm pretty sore from yesterday's workout, so I'm just doing a light walk today to get my steps in.' 'Good call—listening to your body is half the battle.' 'Honestly, I'm completely wiped out after this week.' 'Same, I'm calling it an early night and getting a solid eight hours of sleep. A little rest goes a long way.'",
+    subtext: "运动与精力状态：get my steps in（凑步数）、wiped out（累瘫了）、calling it an early night（早点睡）"
+  },
+  {
+    id: "nb:daily:13",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Work, Deep Focus & Wrapping Up",
+    text: "Clean everyday English for work and study sessions. 'I've been swamped with deadlines all week, so I'm putting my phone on Do Not Disturb for the next hour.' 'Smart move—once you're deep in the zone, you get twice as much done.' 'Mind if we take a quick five-minute breather before we tackle the next section?' 'Let's do it. After that, we'll wrap things up and call it a day.'",
+    subtext: "工作与专注学习口语：swamped with（忙得不可开交）、in the zone（心流状态）、call it a day（收工）"
+  },
+  {
+    id: "nb:daily:14",
+    badge: "每日小口语 · Daily Spoken",
+    title: "English Teaching & Classroom Micro-Phrases",
+    text: "Warm, clear classroom English that makes students feel confident. 'Don't worry if it looks tricky at first—let's break it down piece by piece.' 'Go ahead and take a wild guess; mistakes are how we learn.' 'Ooh, you're super close—you're definitely on the right track!' 'Notice how your mouth glides on that vowel? Let's run through that sentence one more time, nice and smooth.' 'Awesome job—you just nailed the exact rhythm.'",
+    subtext: "英语教学高频互动句：break it down / take a wild guess / on the right track / run through it"
+  },
+  {
+    id: "nb:daily:15",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Giving Genuine Compliments & Reacting Naturally",
+    text: "Giving and receiving praise without feeling stiff. 'Whoa, you totally nailed that presentation—your pacing was spot on.' 'You're too kind, thanks! I was honestly super nervous at the start.' 'Could've fooled me—you looked completely calm up there.' 'I really appreciate you saying that, it means a lot.' Or about a useful tip: 'That trick you showed me is a total game changer—it saved me so much time.'",
+    subtext: "夸人与回应夸奖：spot on（恰到好处）、Could’ve fooled me（完全看不出）、game changer"
+  },
+  {
+    id: "nb:daily:16",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Expressing Relief, Surprise & Real Empathy",
+    text: "Short emotional reactions that bring life to your speaking. Relief: 'Phew, what a relief! I thought I'd lost my keys for good.' 'Thank goodness that worked out.' Surprise: 'No way, you're kidding! That's wild!' Empathy: 'Oh man, that must have been really rough. I'm sorry you had to deal with that.' 'Hang in there—if you ever need to vent or bounce ideas around, I'm just a text away.'",
+    subtext: "情绪反应小口语：what a relief（松了口气）、That’s wild（太不可思议）、Hang in there（撑住）"
+  },
+  {
+    id: "nb:daily:17",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Apologizing & Recovering Smoothly",
+    text: "How to own a small slip-up calmly and move on. 'Oh, my bad—I totally spaced on sending you that link!' 'No harm done, I didn't need it until tomorrow anyway.' 'Still, thanks for bearing with me.' In a more professional moment: 'I apologize for the mix-up—let me fix that right away and make sure it doesn't happen again.' 'Appreciate the quick heads-up, we're all good.'",
+    subtext: "道歉与化解尴尬：my bad / totally spaced on（完全忘光了）/ bearing with me / no harm done"
+  },
+  {
+    id: "nb:daily:18",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Asking for Clarification Without Feeling Awkward",
+    text: "Even native speakers ask people to repeat things—here's how to do it effortlessly. 'Sorry, I didn't quite catch that last part—could you say it one more time?' 'Wait, run that by me again? You're saying we meet at eight, not nine?' 'Just to make sure we're on the same page, you want the summary first, right?' 'In other words, keep it short and punchy—got it!'",
+    subtext: "没听清时自然追问：didn’t quite catch that / run that by me again / on the same page"
+  },
+  {
+    id: "nb:daily:19",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Travel, Airport & Hotel Check-In",
+    text: "Smooth travel phrases for airports and hotels. 'Good morning, I'd like to check in for my flight—any chance I could get a window seat?' 'Sure, you're all set in 14A, and boarding starts at ten fifteen.' At the hotel: 'Hi, I have a reservation under Wang. I know I'm a bit early—is there any chance my room is ready?' 'Let me check—yes, we can get you an early check-in, and breakfast is included from seven to ten.'",
+    subtext: "出行与酒店办理入住：window seat / you’re all set / early check-in / is breakfast included?"
+  },
+  {
+    id: "nb:daily:20",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Tech Glitches & Everyday Hiccups",
+    text: "Real-world phrases when gadgets misbehave. 'Ugh, the Wi-Fi is acting up again—the page won't load.' 'Have you tried turning it off and back on, or switching to mobile data?' 'Yeah, that did the trick! Oh wait, my phone battery is about to die—do you happen to have a charger I could borrow for ten minutes?' 'Sure, plug it in right here—it's a fast charger.'",
+    subtext: "日常设备小故障：acting up（抽风/闹脾气）、that did the trick（搞定了）、about to die（快没电了）"
+  },
+  {
+    id: "nb:daily:21",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Weekend Plans & Recharging",
+    text: "Casual Friday-afternoon and weekend chat. 'Got any fun plans for the weekend?' 'Nothing too crazy—I'm mostly just taking it easy, catching up on sleep, and maybe binge-watching a new series.' 'Honestly, a low-key weekend sounds heavenly right now.' 'Yeah, I really need to unplug a bit and recharge my batteries before Monday rolls around.'",
+    subtext: "周末放松口语：taking it easy / low-key weekend（清静周末）/ recharge my batteries（充电）"
+  },
+  {
+    id: "nb:daily:22",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Encouraging Yourself or a Friend Who Feels Stuck",
+    text: "Warm, grounded encouragement when things feel heavy. 'Hey, don't be so hard on yourself—you've already come a long way.' 'I know, I just feel like I'm moving too slowly.' 'Progress over perfection, remember? Just take it one step at a time and focus on what you can control today.' 'Thanks, I needed to hear that.' 'You've got this—and even small wins add up faster than you think.'",
+    subtext: "鼓励自己与朋友：don’t be so hard on yourself / progress over perfection / You’ve got this"
+  },
+  {
+    id: "nb:daily:23",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Natural Transitions & Storytelling Connectors",
+    text: "These tiny phrases glue your stories together smoothly. 'Speaking of which, did you ever hear back about that interview?' 'Yeah! Long story short, they loved the demo lesson and invited me to the final round.' 'No way! And here's the funny part—I almost overslept that morning. To make matters worse, it started pouring rain right as I stepped outside. At the end of the day, though, everything fell into place.'",
+    subtext: "地道叙事衔接词：Speaking of which（说到这个）、Long story short（长话短说）、fell into place"
+  },
+  {
+    id: "nb:daily:24",
+    badge: "每日小口语 · Daily Spoken",
+    title: "Wrapping Up a Conversation Warmly",
+    text: "Ending a chat cleanly without an awkward pause. 'Well, I should probably let you go—I know you've got a busy evening.' 'It was so great catching up with you! We really shouldn't be strangers.' 'Definitely—let's grab coffee again sometime next month.' 'For sure! Get home safe, take care, and talk soon.' 'You too, bye!'",
+    subtext: "温暖体面收尾：I should let you go / great catching up / let’s not be strangers（常联系）"
+  }
 ]);
 
 /**
