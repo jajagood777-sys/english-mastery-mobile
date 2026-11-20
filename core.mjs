@@ -543,24 +543,32 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
 }
 export function persistState(storage, key, state, previousRaw=null) {
   let payload = state;
+  let revision = null;
   if (payload && typeof payload === 'object' && typeof storage?.getItem === 'function') {
     try {
       const existingRaw = storage.getItem(key);
       if (existingRaw) {
+        // A second tab (or a restore) may change the snapshot without bumping its
+        // revision. The pagehide/visibilitychange writer must not clobber that data.
+        if (previousRaw !== null && existingRaw !== previousRaw) {
+          return {ok:false, conflict:'stale_tab_revision', error:'其他页面或恢复操作已更改本地学习记录，已阻止覆盖。', serialized:null};
+        }
         const existing = JSON.parse(existingRaw);
         const existingRev = Number(existing?.stateRevision || 0);
         const incomingRev = Number(payload.stateRevision || 0);
-        if (existingRev > 0 && incomingRev > 0 && incomingRev < existingRev) {
+        if (existingRev > 0 && incomingRev < existingRev) {
           return {ok:false, conflict:'stale_tab_revision', error:'检测到另一标签页有更新的学习记录，已阻止旧页面覆盖。', serialized:null};
         }
-        payload = { ...payload, stateRevision: Math.max(existingRev, incomingRev) + 1 };
+        revision = Math.max(existingRev, incomingRev) + 1;
       }
     } catch {}
+    if(revision === null) revision = Math.max(0, Number(payload.stateRevision) || 0) + 1;
+    payload = { ...payload, stateRevision: revision };
   }
   let serialized;
   try { serialized = typeof payload === 'string' ? payload : JSON.stringify(payload); }
   catch (error) { return {ok:false, error:error instanceof Error ? error.message : String(error), serialized:null}; }
-  try { storage.setItem(key, serialized); return {ok:true, serialized}; }
+  try { storage.setItem(key, serialized); return {ok:true, serialized, revision}; }
   catch (error) {
     if (previousRaw !== null) { try { storage.setItem(key, previousRaw); } catch {} }
     return {ok:false, error:error instanceof Error ? error.message : String(error), serialized};
@@ -1166,7 +1174,7 @@ export function validateBackup(value){
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
+  return {version:VERSION,stateRevision:Math.max(0,Number(value.stateRevision)||0),items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],
     manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],

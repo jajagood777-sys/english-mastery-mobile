@@ -7,7 +7,8 @@ import {
   persistState,
   addActiveInterval,
   summarizeSessionTime,
-  replayFsrsShadowHistory
+  replayFsrsShadowHistory,
+  migrateBackupPayload
 } from '../core.mjs';
 
 test('v19.2.1 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
@@ -100,4 +101,41 @@ test('v19.2.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single au
   const playUrlFn = appSrc.slice(appSrc.indexOf('function playUrlOnRadioAudio('), appSrc.indexOf('async function playRadioSegment('));
   assert.ok(!playUrlFn.includes('new Audio('), 'playUrlOnRadioAudio must never spawn untracked new Audio() instances that cause double voices');
   assert.ok(appSrc.includes('if(document.hidden){radioAudioUnlocked=false;}'), 'visibilitychange(hidden) must reset radioAudioUnlocked for iOS');
+});
+
+test('v19.2.1 revision survives backup migration and blocks stale after two successful consecutive writes',()=>{
+  const mem=new Map(),store={getItem:key=>mem.get(key)||null,setItem:(key,value)=>mem.set(key,value)};
+  const base={stateRevision:0,items:[],attempts:[],sessions:[]};
+  const first=persistState(store,'learning',base);
+  assert.equal(first.ok,true);assert.equal(first.revision,1);
+  const restored=migrateBackupPayload(JSON.parse(first.serialized));
+  assert.equal(restored.stateRevision,1);
+  restored.attempts.push({id:'first'});
+  const second=persistState(store,'learning',restored);
+  assert.equal(second.ok,true);assert.equal(second.revision,2);
+  assert.equal(migrateBackupPayload(JSON.parse(second.serialized)).stateRevision,2);
+  const stale=persistState(store,'learning',base);
+  assert.equal(stale.ok,false);assert.equal(stale.conflict,'stale_tab_revision');
+  assert.equal(JSON.parse(store.getItem('learning')).attempts[0].id,'first');
+});
+
+
+test('v19.2.1 same-revision storage replacement is never clobbered by an old pagehide save',()=>{
+  const memory=new Map();
+  const storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
+  const key='learning';
+  const page={stateRevision:0,dailyJourney:{id:'finished',finishedAt:'2026-11-20T12:00:00Z'}};
+  const initial=persistState(storage,key,page);
+  assert.equal(initial.ok,true);
+  const firstRaw=storage.getItem(key);
+  const external={...JSON.parse(firstRaw),dailyJourney:{id:'legacy-recovery',finishedAt:null}};
+  const restoredRaw=JSON.stringify(external);
+  storage.setItem(key,restoredRaw);
+  const oldPageExit=persistState(storage,key,{...page,stateRevision:initial.revision},firstRaw);
+  assert.equal(oldPageExit.ok,false);
+  assert.equal(oldPageExit.conflict,'stale_tab_revision');
+  assert.equal(storage.getItem(key),restoredRaw);
+  const resumed=persistState(storage,key,external,restoredRaw);
+  assert.equal(resumed.ok,true);
+  assert.equal(JSON.parse(storage.getItem(key)).dailyJourney.id,'legacy-recovery');
 });
