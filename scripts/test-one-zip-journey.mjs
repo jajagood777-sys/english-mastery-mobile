@@ -42,7 +42,7 @@ try {
   await page.goto('http://127.0.0.1:4175/',{waitUntil:'domcontentloaded'});
   await page.locator('nav button[data-page="more"]').click();
   await page.getByRole('button',{name:/资料库/}).click();
-  await page.getByRole('heading',{name:'导入与管理英语资料'}).waitFor();
+  await page.getByRole('heading',{name:'资料库',exact:true}).waitFor();
   await page.locator('input[type="file"][accept*=".zip"]').setInputFiles({name:'ci-synthetic-daily-pack.zip',mimeType:'application/zip',buffer:Buffer.from(zip.bytes)});
   await page.waitForFunction(id => {const s=JSON.parse(localStorage.getItem('central-english-mastery.v2')||'{}');return s.dailyPack?.packId===id;},pack.pack_id,{timeout:20000});
   const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
