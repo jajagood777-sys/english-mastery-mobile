@@ -1636,7 +1636,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v18.2.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v19.1.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -1780,4 +1780,252 @@ details[open] > summary::after {
   .home-hero {
     padding: 18px 16px;
   }
+}
+
+/* v19.1.0 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
+.v19-continuity-card, .v19-more-tools, .v19-weekly-card { margin-top: 14px; }
+.v19-disclosure { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
+.v19-disclosure summary { cursor: pointer; padding: 6px 0; user-select: none; }
+.v19-large-text { font-size: 118%; line-height: 1.7; }
+.v19-large-text .btn { min-height: 48px; font-size: 1.05rem; }
+.v19-one-hand .btn, .v19-one-hand .radio-play-btn, .v19-one-hand .radio-seek-btn { min-height: 52px; min-width: 52px; }
+
+/* ==========================================================================
+   v19.1.0 Contemporary Oriental Study (当代东方书房) Design System
+   Warm natural-light paper · Near-ink typography · Deep Jade primary action
+   Hairline hierarchy · Zero glass clutter · Restrained seal brand detail
+   ========================================================================== */
+
+:root {
+  --study-paper: #f7f5f0;
+  --study-paper-elevated: #fcfbf8;
+  --study-stone: #efece5;
+  --study-ink: #1b1d1c;
+  --study-ink-muted: #5b605c;
+  --study-jade: #1c5d4f;
+  --study-jade-hover: #15493e;
+  --study-jade-soft: rgba(28, 93, 79, 0.09);
+  --study-jade-border: rgba(28, 93, 79, 0.28);
+  --study-hairline: rgba(27, 29, 28, 0.10);
+  --study-hairline-strong: rgba(27, 29, 28, 0.18);
+
+  --theme-bg: var(--study-paper);
+  --theme-card: var(--study-paper-elevated);
+  --surface-solid: var(--study-paper-elevated);
+  --surface-elevated: var(--study-stone);
+  --theme-border: var(--study-hairline);
+  --quiet-line-strong: var(--study-hairline-strong);
+  --theme-text: var(--study-ink);
+  --theme-muted: var(--study-ink-muted);
+
+  --accent: var(--study-jade);
+  --accent-2: #247261;
+  --accent-soft: var(--study-jade-soft);
+  --accent-border: var(--study-jade-border);
+  --cta-bg: var(--study-jade);
+  --cta-text: #faf8f4;
+  --cta-hover: var(--study-jade-hover);
+  --cta-shadow: 0 2px 6px rgba(28, 93, 79, 0.18);
+
+  --ambient-bg: none;
+  --shadow: 0 1px 2px rgba(27, 29, 28, 0.04);
+  --shadow-lg: 0 12px 32px rgba(27, 29, 28, 0.12);
+  --glass-highlight: none;
+
+  --bg: var(--theme-bg);
+  --card: var(--theme-card);
+  --ink: var(--theme-text);
+  --muted: var(--theme-muted);
+  --border: var(--theme-border);
+  --teal: var(--study-jade);
+  --dark-jade: var(--study-jade);
+}
+
+html[data-theme="night"] {
+  --study-paper: #121413;
+  --study-paper-elevated: #181b19;
+  --study-stone: #1f2321;
+  --study-ink: #edebe4;
+  --study-ink-muted: #9da39d;
+  --study-jade: #4da08c;
+  --study-jade-hover: #5fb4a0;
+  --study-jade-soft: rgba(77, 160, 140, 0.14);
+  --study-jade-border: rgba(77, 160, 140, 0.34);
+  --study-hairline: rgba(237, 235, 228, 0.11);
+  --study-hairline-strong: rgba(237, 235, 228, 0.20);
+
+  --theme-bg: var(--study-paper);
+  --theme-card: var(--study-paper-elevated);
+  --surface-solid: var(--study-paper-elevated);
+  --surface-elevated: var(--study-stone);
+  --theme-border: var(--study-hairline);
+  --quiet-line-strong: var(--study-hairline-strong);
+  --theme-text: var(--study-ink);
+  --theme-muted: var(--study-ink-muted);
+
+  --accent: var(--study-jade);
+  --accent-2: #6bc0ab;
+  --accent-soft: var(--study-jade-soft);
+  --accent-border: var(--study-jade-border);
+  --cta-bg: var(--study-jade);
+  --cta-text: #0f1312;
+  --cta-hover: var(--study-jade-hover);
+  --cta-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --ambient-bg: none;
+}
+
+body {
+  background-color: var(--theme-bg);
+  background-image: none;
+  color: var(--theme-text);
+}
+
+/* Header & Restrained Seal Brand Mark */
+.site-header {
+  background: var(--theme-bg);
+  border-bottom: 1px solid var(--study-hairline);
+}
+html[data-theme="night"] .site-header {
+  background: var(--theme-bg);
+}
+.brand-mark {
+  background: var(--study-jade);
+  color: #faf8f4;
+  border-radius: 7px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(250, 248, 244, 0.22);
+}
+.brand-tag {
+  letter-spacing: 0.04em;
+  opacity: 0.78;
+}
+
+/* Quiet Editorial Surfaces: Remove heavy glass blur & redundant box shadows */
+.panel, .progress-strip, .resume-card, .training-queue, .settings-card,
+.daily-journey-card, .daily-pack-panel, .paper-story-entry, .paper-story-practice,
+.mastery-evidence-panel, .listening-speaking-studio, .transfer-room-card,
+.transfer-challenge, .transfer-practice, .home-hero, .daily-overview {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--theme-card);
+  border: 1px solid var(--study-hairline);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+/* Editorial Section Labels (Quiet Chinese, no shouting uppercase decoration) */
+.study-section-label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--study-jade);
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+
+/* 5-State Button Craft: Default / Pressed / Focus / Disabled / Busy */
+.btn {
+  border-radius: 10px;
+  border: 1px solid var(--study-hairline-strong);
+  background: var(--theme-card);
+  color: var(--theme-text);
+  box-shadow: none;
+  min-height: 44px;
+}
+.btn.primary {
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  border-color: var(--cta-bg);
+  box-shadow: var(--cta-shadow);
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
+  transform: none;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--study-jade);
+  outline-offset: 2px;
+}
+.btn[aria-busy="true"], .btn.is-busy {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+/* Home 3-Second Clarity & Long-Title Safe Wrapping */
+.home-hero {
+  padding: clamp(18px, 3.5vw, 28px);
+}
+.home-hero h1, .daily-overview h2 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.3;
+}
+.v19-continuity-card, .v19-more-tools, .v19-weekly-card {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--study-hairline);
+  border-radius: 0;
+  padding: 16px 2px 4px;
+  margin-top: 16px;
+}
+
+/* Reading & Practice: Quiet Paper Canvas (65ch desktop, full-bleed mobile) */
+.reading-article {
+  max-width: 65ch;
+  background: var(--theme-card);
+  border: 1px solid var(--study-hairline);
+  border-radius: 12px;
+  box-shadow: none;
+  padding: clamp(20px, 4.5vw, 38px);
+}
+.reading-article .reading-paragraph {
+  font-size: clamp(17px, 4.2vw, 19px);
+  line-height: 1.85;
+  color: var(--theme-text);
+}
+
+/* Speaking & Recording One-Hand Linear Flow */
+.recording-panel {
+  background: var(--surface-elevated);
+  border: 1px solid var(--study-hairline);
+  border-radius: 12px;
+}
+.recording-panel .actions {
+  gap: 10px;
+}
+
+/* Pocket Radio Sheet — Calm Podcast Craft */
+.lexicon-drawer-panel, .switch-dialog {
+  background: var(--theme-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--study-hairline-strong);
+  border-radius: 20px;
+}
+
+/* Mobile 390px & 320px Overflow Guard */
+@media (max-width: 640px) {
+  .reading-article {
+    padding: 18px 14px;
+    border-radius: 10px;
+  }
+  .mobile-nav {
+    background: var(--theme-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: 1px solid var(--study-hairline);
+    box-shadow: none;
+  }
+}
+@media (max-width: 340px) {
+  .site-wrap { padding-inline: 10px; }
+  .today-summary, .report-summary, .grid-3 { gap: 6px; }
+  .stat { padding: 10px 8px; }
+  .radio-transport-row { gap: 4px; grid-template-columns: 36px 48px minmax(0, 1fr) 48px 36px; }
+  .radio-icon-btn { width: 36px; min-width: 36px; }
+  .radio-seek-btn { width: 48px; min-width: 48px; font-size: 11.5px !important; }
 }

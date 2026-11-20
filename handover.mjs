@@ -23,7 +23,7 @@ export function readZipStore(input){
 export async function sha256Hex(input){const bytes=input instanceof Uint8Array?input:new Uint8Array(input||[]);if(globalThis.crypto?.subtle){const hash=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}return null;}
 
 export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=null,recordings=[],generatedAt=new Date().toISOString()}={}){
-  const expected=[...(Array.isArray(report?.attempts)?report.attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[]),...(Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[]),...(Array.isArray(report?.reading_analysis?.retelling_attempts)?report.reading_analysis.retelling_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[])];
+  const expected=[...new Set([...(Array.isArray(report?.attempts)?report.attempts.flatMap(row=>Array.isArray(row.recording_ids)?row.recording_ids:[]):[]),...(Array.isArray(report?.transfer_attempts)?report.transfer_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[]),...(Array.isArray(report?.reading_analysis?.retelling_attempts)?report.reading_analysis.retelling_attempts.flatMap(row=>Array.isArray(row.recordingIds)?row.recordingIds:(Array.isArray(row.recording_ids)?row.recording_ids:[])):[])].filter(Boolean))];
   const abnormal=recordings.filter(row=>!row.bytes||row.bytes.length===0||row.error).map(row=>({recording_id:row.id||null,reason:row.error||'empty_bytes'}));
   const fallbackSource=sourcePack||pack?.sourcePack||null;
   const sourceBytes=fallbackSource?.bytes instanceof Uint8Array?fallbackSource.bytes:(typeof fallbackSource?.raw==='string'?encoder.encode(fallbackSource.raw):null);
@@ -53,6 +53,52 @@ export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=
   if(sourceIncluded)entries.push({name:'learning-pack.json',bytes:sourceBytes});
   for(const recording of recordings){const id=clean(recording.id).replace(/[^A-Za-z0-9._-]/g,'_')||'recording';const ext=String(recording.mimeType||'').includes('mp4')?'m4a':String(recording.mimeType||'').includes('ogg')?'ogg':'webm';entries.push({name:`recordings/${id}.${ext}`,bytes:recording.bytes instanceof Uint8Array?recording.bytes:new Uint8Array(recording.bytes||[])});}
   return {entries,manifest};
+}
+
+
+export function describeHandoverRecordings({report=null,manifest=null,includeRecordings=true}={}){
+  const labelMap=new Map();
+  const inferRole=(id,idx,row)=>{
+    const s=String(id||'').toLowerCase();
+    if(s.includes('retry')||row?.role==='retry'||(idx>0&&(row?.retryAnswer||row?.retrySubmittedAt||row?.retried_after_error)))return '重答';
+    return '初答';
+  };
+  const register=(rows,prefix)=>{
+    for(const row of (Array.isArray(rows)?rows:[])){
+      const ids=Array.isArray(row?.recordingIds)?row.recordingIds:(Array.isArray(row?.recording_ids)?row.recording_ids:[]);
+      ids.forEach((id,idx)=>{
+        const key=clean(id);
+        if(!key||labelMap.has(key))return;
+        labelMap.set(key,`${prefix}${inferRole(key,idx,row)}`);
+      });
+    }
+  };
+  register(report?.reading_analysis?.retelling_attempts,'阅读复述');
+  register(report?.transfer_attempts,'综合输出');
+  register(report?.attempts,'听说练习');
+
+  const expectedCount=Number(manifest?.expected_recording_count??labelMap.size);
+  const packagedCount=Number(manifest?.actual_packaged_count??0);
+  const missingIds=Array.isArray(manifest?.missing_recording_ids)?manifest.missing_recording_ids.filter(Boolean):[];
+  const abnormalIds=Array.isArray(manifest?.abnormal_recordings)?manifest.abnormal_recordings.map(r=>r?.recording_id).filter(Boolean):[];
+  const missingLabels=missingIds.map(id=>labelMap.get(id)||id);
+
+  if(!includeRecordings){
+    return {includeRecordings:false,complete:true,expectedCount,packagedCount:0,missingIds:[],missingLabels:[],abnormalIds:[],summaryText:'不含录音（已按选择跳过录音打包）'};
+  }
+  if(expectedCount===0&&packagedCount===0){
+    return {includeRecordings:true,complete:true,expectedCount:0,packagedCount:0,missingIds:[],missingLabels:[],abnormalIds:[],summaryText:'本次战报无录音'};
+  }
+  const complete=packagedCount===expectedCount&&missingIds.length===0&&abnormalIds.length===0;
+  let summaryText='';
+  if(complete){
+    summaryText=`录音已带齐：应有 ${expectedCount} 条，已打包 ${packagedCount} 条`;
+  }else{
+    const missingPart=missingLabels.length?`，缺少${missingLabels.join('、')}`:'';
+    const abnormalPart=abnormalIds.length?`（另有 ${abnormalIds.length} 条空文件或异常录音）`:'';
+    summaryText=`应有 ${expectedCount} 条，已打包 ${packagedCount} 条${missingPart}${abnormalPart}`;
+  }
+  return {includeRecordings:true,complete,expectedCount,packagedCount,missingIds,missingLabels,abnormalIds,summaryText};
 }
 
 export {crc32};
