@@ -1636,7 +1636,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v19.1.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v19.2.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -1782,7 +1782,7 @@ details[open] > summary::after {
   }
 }
 
-/* v19.1.0 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
+/* v19.2.0 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
 .v19-continuity-card, .v19-more-tools, .v19-weekly-card { margin-top: 14px; }
 .v19-disclosure { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
 .v19-disclosure summary { cursor: pointer; padding: 6px 0; user-select: none; }
@@ -1791,7 +1791,7 @@ details[open] > summary::after {
 .v19-one-hand .btn, .v19-one-hand .radio-play-btn, .v19-one-hand .radio-seek-btn { min-height: 52px; min-width: 52px; }
 
 /* ==========================================================================
-   v19.1.0 Contemporary Oriental Study (当代东方书房) Design System
+   v19.2.0 Contemporary Oriental Study (当代东方书房) Design System
    Warm natural-light paper · Near-ink typography · Deep Jade primary action
    Hairline hierarchy · Zero glass clutter · Restrained seal brand detail
    ========================================================================== */
@@ -2029,3 +2029,8 @@ html[data-theme="night"] .site-header {
   .radio-icon-btn { width: 36px; min-width: 36px; }
   .radio-seek-btn { width: 48px; min-width: 48px; font-size: 11.5px !important; }
 }
+
+/* v19.2.0 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
+html.v19-keyboard-open .mobile-nav { display: none !important; }
+html.v19-keyboard-open .reading-toolbar { position: static; margin-top: 12px; }
+html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }

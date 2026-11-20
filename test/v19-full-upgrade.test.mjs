@@ -62,7 +62,7 @@ import {
 } from '../continuity-os.mjs';
 
 test('v19.1.1 #1/#2/#3/#4/#6: transfer triple with anti-leak, error taxonomy, disputes, tiered hints, unannounced transfer', () => {
-  assert.equal(APP_VERSION, '19.1.1');
+  assert.equal(APP_VERSION, '19.2.0');
 
   // #1 Anti-leak + 3-stage transfer
   const leaked = redactTransferLeaks('Please lend me your umbrella.', 'lend', false);
