@@ -165,6 +165,39 @@ export const BUILT_IN_YOUTUBE_SPEECHES = Object.freeze([
     text: 'Taking risks is not just about going for a job. It is about being open to people and to ideas. Never be discouraged, never hold back, give everything you got, and when you fall throughout life, remember this: fall forward.',
     subtext: '永远不要气馁，不要保留实力，全力以赴，跌倒时永远向前跌',
     sourceUrl: 'https://www.youtube.com/watch?v=tbnzAVRZ9Xc'
+  },
+  // Steve Jobs — Stanford 2005 Commencement Address
+  {
+    id: 'yt:jobs:01',
+    badge: 'YouTube 励志 · Steve Jobs',
+    title: 'You Can Only Connect the Dots Looking Backward',
+    text: 'You cannot connect the dots looking forward; you can only connect them looking backward. So you have to trust that the dots will somehow connect in your future. Trusting that the dots will connect down the road gives you the confidence to follow your heart.',
+    subtext: '往前看无法把点连成线，只有回头看才能恍然大悟；相信眼下的每一步积累都会在未来串联起来 · Stanford 2005',
+    sourceUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc'
+  },
+  {
+    id: 'yt:jobs:02',
+    badge: 'YouTube 励志 · Steve Jobs',
+    title: 'Keep Looking, Do Not Settle',
+    text: 'The only way to do great work is to love what you do. If you have not found it yet, keep looking. Do not settle. As with all matters of the heart, you will know when you find it.',
+    subtext: '做出伟大工作的唯一方式是热爱你所做的事；如果还没找到，就继续寻找，不要将就（do not settle）',
+    sourceUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc'
+  },
+  {
+    id: 'yt:jobs:03',
+    badge: 'YouTube 励志 · Steve Jobs',
+    title: 'Your Time Is Limited, Do Not Live Someone Else Life',
+    text: 'Your time is limited, so do not waste it living someone else life. Do not let the noise of others opinions drown out your own inner voice. Have the courage to follow your heart and intuition.',
+    subtext: '时间有限，别活在别人的眼光里；别让外界杂音淹没你内心的声音（drown out）',
+    sourceUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc'
+  },
+  {
+    id: 'yt:jobs:04',
+    badge: 'YouTube 励志 · Steve Jobs',
+    title: 'Stay Hungry, Stay Foolish',
+    text: 'When I was young, there was an amazing publication with a photograph of an early morning country road. Beneath it were the words: Stay Hungry. Stay Foolish. I have always wished that for myself, and now I wish that for you.',
+    subtext: '求知若饥，虚心若愚（Stay Hungry, Stay Foolish）——保持好奇与谦逊，持续精进',
+    sourceUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc'
   }
 ]);
 
@@ -279,6 +312,72 @@ export const BUILT_IN_NOTEBOOK_SPOKEN = Object.freeze([
     title: 'Long Dialogue: Keeping Momentum (Part 5)',
     text: 'Alex: I love that mindset. Keep the bar low enough to start, and high enough to grow. Sam: Right? Show up every day, follow through on the basics, and sooner or later you will catch a break.',
     subtext: '收尾金句：keep the bar low enough to start（门槛低到能启动）/ follow through（坚持到底）/ catch a break（迎来转机）',
+    sourceUrl: ''
+  },
+  // 5. IELTS Speaking Band 8+ Framing & Natural Discourse Connectors
+  {
+    id: 'nb:ielts:01',
+    badge: 'Notebook 口语 · IELTS 高分表达',
+    title: 'Framing a Balanced View (On the one hand...)',
+    text: 'To be completely honest, I see both sides of the issue. On the one hand, digital tools save a tremendous amount of time; on the other hand, relying on them blindly can dull our independent thinking.',
+    subtext: 'IELTS Part 3 黄金辩证句型：see both sides / tremendous amount of time / dull independent thinking',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:ielts:02',
+    badge: 'Notebook 口语 · IELTS 高分表达',
+    title: 'Buying Time Naturally Without Saying "Um"',
+    text: 'That is a fascinating question—I have never actually put it into words before, but if I had to narrow it down, I would say consistency matters far more than raw talent.',
+    subtext: '地道思考缓冲：put it into words（用语言表达）/ narrow it down（缩小范围概括）/ raw talent（纯粹天赋）',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:ielts:03',
+    badge: 'Notebook 口语 · IELTS 高分表达',
+    title: 'Giving Concrete Personal Examples',
+    text: 'A classic example from my own routine is learning English during my commute. Instead of scrolling aimlessly, listening to a five-minute speech turns dead time into steady progress.',
+    subtext: '自然举例模板：a classic example from my own routine / scrolling aimlessly / turn dead time into steady progress',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:ielts:04',
+    badge: 'Notebook 口语 · IELTS 高分表达',
+    title: 'Speculating About Future Trends',
+    text: 'Looking ahead over the next decade, I reckon personalized learning will become the norm rather than the exception, especially as voice technology becomes more responsive and affordable.',
+    subtext: '预测趋势表达：looking ahead / I reckon（我认为）/ become the norm rather than the exception（成为常态而非特例）',
+    sourceUrl: ''
+  },
+  // 6. ESL Classroom & Demo Teaching Natural Instructions
+  {
+    id: 'nb:demo:01',
+    badge: 'Notebook 口语 · 试讲课堂用语',
+    title: 'Warm Classroom Opening & Check-In',
+    text: 'Good morning, everyone! Before we dive into today story, take thirty seconds to turn to your partner and share one small win from your week. Ready? Go for it!',
+    subtext: '试讲开场破冰：dive into（进入主题）/ turn to your partner（和同桌交流）/ Go for it!',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:demo:02',
+    badge: 'Notebook 口语 · 试讲课堂用语',
+    title: 'Eliciting Answers & Positive Scaffolding',
+    text: 'You are right on track! Let us stretch that idea one step further—can you give us a quick example using the word we just spotted in paragraph two?',
+    subtext: '启发式互动与支架引导：right on track（思路很对）/ stretch that idea（把想法展开）/ spotted（发现）',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:demo:03',
+    badge: 'Notebook 口语 · 试讲课堂用语',
+    title: 'Gentle Pronunciation & Connected-Speech Coaching',
+    text: 'Great effort! Notice how the D sound softens when we say friend was quickly. Let us try it together at a relaxed pace: my friend was here. Much smoother!',
+    subtext: '温和纠音示范：softens（弱化）/ at a relaxed pace（用轻松的语速）/ Much smoother!',
+    sourceUrl: ''
+  },
+  {
+    id: 'nb:demo:04',
+    badge: 'Notebook 口语 · 试讲课堂用语',
+    title: 'Clean Lesson Wrap-Up & Takeaway',
+    text: 'Before we wrap up, let us do a quick thirty-second recap. What is one phrase from today class that you can actually use in real life tonight?',
+    subtext: '课堂收尾复盘：wrap up（收尾）/ quick recap（快速复盘）/ actually use in real life',
     sourceUrl: ''
   }
 ]);
