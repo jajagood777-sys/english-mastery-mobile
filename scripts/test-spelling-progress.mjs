@@ -71,7 +71,23 @@ try{
  },{first:tasks[0]});
  await page.reload({waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
- await page.getByText('你的首次拼写：scramble').waitFor();
+ try { await page.getByText('你的首次拼写：scramble').waitFor({timeout:5000}); }
+ catch (error) {
+   const diagnostic = await page.evaluate(() => {
+     const raw = localStorage.getItem('central-english-mastery.v2');
+     const stored = raw ? JSON.parse(raw) : null;
+     return {
+       headings:[...document.querySelectorAll('h1,h2')].map(e=>e.textContent).slice(0,12),
+       appText:document.querySelector('#app')?.innerText?.slice(0,1500),
+       notice:document.querySelector('#notice')?.innerText,
+       savedRevision:stored?.stateRevision,
+       savedJourney:stored?.dailyJourney,
+       pack:stored?.dailyPack?.spellingTasks
+     };
+   });
+   console.error('LEGACY_SPELLING_RECOVERY_DIAGNOSTIC',JSON.stringify({diagnostic,pageErrors:errors}));
+   throw error;
+ }
  assert.equal(await page.locator('.answer-input').count(),0);
  await page.getByRole('button',{name:'进入下一题（首次作答已保存）'}).click();
  const recovered=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
