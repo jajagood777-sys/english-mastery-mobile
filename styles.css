@@ -1544,3 +1544,70 @@ html[data-theme="night"] .daily-module-list {
 .radio-script-item p {
   margin: 3px 0 0;
 }
+
+
+/* ==========================================================================
+   v17.0.0 Flagship Edition: 7-Day Consistency, Reading Comfort & Quota Card
+   ========================================================================== */
+.home-week-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(128, 128, 148, 0.06);
+}
+.home-week-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.week-dot-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.week-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.week-dot.is-active {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+.reading-scroll-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: 3px;
+  width: 100%;
+  background: rgba(128, 128, 148, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.reading-scroll-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.12s linear;
+}
+.reading-article.font-sm .reading-paragraph { font-size: 15px; line-height: 1.72; }
+.reading-article.font-md .reading-paragraph { font-size: 17px; line-height: 1.82; }
+.reading-article.font-lg .reading-paragraph { font-size: 19px; line-height: 1.92; }
+.tts-quota-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  margin: 8px 0 12px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid var(--border);
+}

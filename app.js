@@ -13,7 +13,7 @@ import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dic
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
 import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
-import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,synthesizeGeminiSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,hasPersistentTtsAudio,clearPersistentTtsAudio,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
+import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
 
 const STORE='central-english-mastery.v2';
@@ -347,6 +347,10 @@ function fmtAudioClock(sec) {
 
 function pausePocketRadio() {
   if (radioPlayMode === "podcast" && radioAudioEl && radioAudioEl.src && !radioAudioEl.ended) {
+    const curEp = radioEpisodes[radioEpisodeIndex];
+    if (curEp?.id && Number.isFinite(radioAudioEl.currentTime)) {
+      saveAudioBookmark(curEp.id, radioAudioEl.currentTime, radioAudioEl.duration);
+    }
     try { radioAudioEl.pause(); } catch {}
     if (radioPlaying && radioPlayStartAt) {
       radioSessionLog.activeMs += Math.max(0, Date.now() - radioPlayStartAt);
@@ -468,13 +472,13 @@ function prefetchNextRadioTrack(nextIdx) {
   if (radioPlayMode === "podcast") return;
   if (radioVoiceMode !== "gemini" || !radioTracks.length) return;
   const cfg = loadAiConfig();
-  if (!isGeminiTtsReady(cfg)) return;
+  if (!isCloudTtsReady(cfg)) return;
   if (radioStopAfterRound && nextIdx >= radioTracks.length) return;
   const wrapped = ((nextIdx % radioTracks.length) + radioTracks.length) % radioTracks.length;
   const nextTrack = radioTracks[wrapped];
   const firstSeg = Array.isArray(nextTrack?.segments) && nextTrack.segments.length ? nextTrack.segments[0] : nextTrack?.text;
   if (firstSeg) {
-    const pKey = makeTtsCacheKey(firstSeg, cfg.ttsVoice);
+    const pKey = makeTtsCacheKey(firstSeg, activeTtsVoiceForKey(cfg));
     hasPersistentTtsAudio(pKey).then(cached => {
       if (cached) fetchGeminiAudioUrl(firstSeg, cfg).catch(() => {});
     }).catch(() => {});
@@ -511,14 +515,14 @@ async function playRadioPodcastAt(epIdx) {
   radioSessionLog.lastChannel = `${radioChannel}:podcast`;
 
   const cfg = loadAiConfig();
-  if (radioVoiceMode !== "gemini" || !isGeminiTtsReady(cfg)) {
+  if (radioVoiceMode !== "gemini" || !isCloudTtsReady(cfg)) {
     notify("当前未启用 Gemini 语音，已自动切回逐条离线朗读。");
     radioPlayMode = "single";
     playRadioTrackAt(0);
     return;
   }
 
-  const cacheKey = makeTtsCacheKey(episode.text, cfg.ttsVoice);
+  const cacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfg));
   const alreadyCached = geminiAudioCache.has(cacheKey) || await hasPersistentTtsAudio(cacheKey);
   if (radioPlaying !== myPlayToken) return;
   radioAudioStatus = alreadyCached ? "💾 本地已缓存 · 0消耗" : "⏳ 首次合成整集约需 6–15 秒，完成后永久缓存…";
@@ -533,11 +537,25 @@ async function playRadioPodcastAt(epIdx) {
       ? "💾 本地永久缓存 · 本次 0 消耗"
       : `✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;
     const audio = ensureRadioAudioElement();
-    audio.ontimeupdate = () => syncAudioScrubbers();
-    audio.onloadedmetadata = () => syncAudioScrubbers();
+    let lastBmSave = 0;
+    const savedPos = loadAudioBookmark(episode.id);
+    audio.ontimeupdate = () => {
+      syncAudioScrubbers();
+      if (Date.now() - lastBmSave > 3000) {
+        lastBmSave = Date.now();
+        saveAudioBookmark(episode.id, audio.currentTime, audio.duration);
+      }
+    };
+    audio.onloadedmetadata = () => {
+      if (savedPos > 3 && Number.isFinite(audio.duration) && savedPos < audio.duration - 5) {
+        try { audio.currentTime = savedPos; } catch {}
+        notify(`🎧 已自动续播至 ${fmtAudioClock(savedPos)}`);
+      }
+      syncAudioScrubbers();
+    };
     registerMediaSession({
       title: episode.title,
-      artist: "言道修炼殿 16.2 整集播客",
+      artist: "言道修炼殿 17.1 整集播客",
       album: data.dailyPack?.title || "English Cultivation",
       onPlay: () => resumePocketRadio(),
       onPause: () => pausePocketRadio(),
@@ -555,6 +573,7 @@ async function playRadioPodcastAt(epIdx) {
     const ok = await playUrlOnRadioAudio(entry.url, radioRate, watchdogMs, myPlayToken, false);
     if (radioPlaying !== myPlayToken) return;
     if (ok) {
+      clearAudioBookmark(episode.id);
       if (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length) {
         notify("✓ 本集播客已播完。");
         stopPocketRadio(true);
@@ -591,10 +610,19 @@ function playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, revokeAfter = f
       if (revokeAfter) try { URL.revokeObjectURL(url); } catch {}
       resolve(ok);
     };
-    wd = setTimeout(() => {
-      try { audio.pause(); } catch {}
-      finish(true);
-    }, watchdogMs);
+    const armWatchdog = (ms) => {
+      if (wd) clearTimeout(wd);
+      wd = setTimeout(() => {
+        if (settled) return;
+        if (radioPaused && radioPlaying === myPlayToken) {
+          armWatchdog(Math.max(15000, Math.min(watchdogMs, 60000)));
+          return;
+        }
+        try { audio.pause(); } catch {}
+        finish(true);
+      }, ms);
+    };
+    armWatchdog(watchdogMs);
     const startOn = (elA, allowFresh) => {
       try { elA.onended = null; elA.onerror = null; } catch {}
       elA.muted = false;
@@ -637,9 +665,11 @@ async function playRadioSegment(segText, rate, myPlayToken) {
   // 1. Gemini TTS priority (with single unlocked <audio> channel + cache)
   if (radioVoiceMode === "gemini") {
     const cfg = loadAiConfig();
-    if (isGeminiTtsReady(cfg)) {
+    if (isCloudTtsReady(cfg)) {
       try {
-        radioActiveEngine = `Gemini 语音 (${cfg.ttsVoice || "Kore"})`;
+        radioActiveEngine = cfg.ttsEngine === "siliconflow" && isSiliconFlowTtsReady(cfg)
+          ? `硅基流动 CosyVoice2 (${cfg.siliconflowVoice || SILICONFLOW_TTS_DEFAULT_VOICE})`
+          : `Gemini 语音 (${cfg.ttsVoice || "Kore"})`;
         const url = await fetchGeminiAudioUrl(segText, cfg);
         if (radioPlaying !== myPlayToken) return;
         const ok = await playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, false);
@@ -725,7 +755,7 @@ async function playRadioTrackAt(idx) {
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
-    artist: "言道修炼殿 16.0 随身听 (Gemini 语音优先)",
+    artist: "言道修炼殿 17.1 随身听 (云端真人语音优先)",
     album: data.dailyPack?.title || "English Cultivation",
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
@@ -796,9 +826,24 @@ function renderPocketRadioDrawer() {
       el("span", `约 ${episode.estimatedMinutes} 分钟 · 含 ${episode.trackCount} 条`, "tiny")
     );
     const previewText = episode.tracksIncluded.slice(0, 2).map(t => t.title).join(" · ");
+    const cachePill = el("span", "⏳ 检测本机缓存…", "tts-status-pill");
+    const cfgNow = loadAiConfig();
+    const epCacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfgNow));
+    const savedEpPos = loadAudioBookmark(episode.id);
+    if (geminiAudioCache.has(epCacheKey)) {
+      cachePill.textContent = savedEpPos > 3 ? `💾 本地已缓存 · 可从 ${fmtAudioClock(savedEpPos)} 续播` : "💾 本地已缓存 · 离线 0 消耗秒播";
+    } else {
+      hasPersistentTtsAudio(epCacheKey).then(hit => {
+        if (!cachePill.isConnected) return;
+        cachePill.textContent = hit
+          ? (savedEpPos > 3 ? `💾 本地已缓存 · 可从 ${fmtAudioClock(savedEpPos)} 续播` : "💾 本地已缓存 · 离线 0 消耗秒播")
+          : "☁️ 首次播放需 1 次额度，之后永久缓存";
+      }).catch(() => {});
+    }
     nowCard.append(
       badgeRow,
       h("h3", episode.title),
+      cachePill,
       p(`本集连播：${previewText}${episode.trackCount > 2 ? ` 等 ${episode.trackCount} 段内容` : ""}`, "subtle")
     );
     if (radioPlaying || radioPaused || radioAudioStatus) {
@@ -1026,7 +1071,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (16.2.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (17.1.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -1374,19 +1419,20 @@ function speechChunks(text){const sentences=String(text||'').replace(/\s+/g,' ')
 function playSpeechChunk(){if(!('speechSynthesis'in window)||speechPaused)return;if(speechQueueIndex>=speechQueue.length){speechQueue=[];speechQueueIndex=0;speechPaused=false;syncReadingPlayButtons();return;}const value=speechQueue[speechQueueIndex];const utter=new SpeechSynthesisUtterance(value);const voice=selectedSpeechVoice();utter.lang=voice?.lang||'en-US';if(voice)utter.voice=voice;utter.rate=Math.max(.5,Math.min(1.5,Number(data.settings.speechRate)||.9));utter.onstart=()=>syncReadingPlayButtons();utter.onend=()=>{speechQueueIndex++;playSpeechChunk();};utter.onerror=()=>{speechQueue=[];speechQueueIndex=0;speechPaused=false;syncReadingPlayButtons();notify('朗读失败，仍可继续文字学习。');};window.speechSynthesis.speak(utter);syncReadingPlayButtons();}
 function speakDevice(text){const value=String(text||'').trim();if(!value)return false;if(!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined'){notify('当前文字没有自然配音，且此浏览器不支持设备朗读。');return false;}stopSpeech();initSpeechVoices();speechQueue=speechChunks(value);speechQueueIndex=0;speechPaused=false;playSpeechChunk();return true;}
 async function speakNaturalOrDevice(text,segments=null,{silentMissing=false}={}){const values=Array.isArray(segments)&&segments.length?segments.filter(Boolean):[String(text||'').trim()];if(!values.some(Boolean))return false;stopSpeech();try{naturalSpeechPlayer??=createClipPlayer({onStatus:message=>notify(message)});const result=await naturalSpeechPlayer.speakSegments(values,'af_heart');if(result==='playing'||result==='ready'||result==='paused')return true;if(result==='cancelled')return false;if(result==='missing'&&!silentMissing)notify('这段内容尚未准备自然语音，已切换设备朗读。');}catch(error){if(!silentMissing)notify(`自然语音播放失败，已切换设备朗读：${error.message}`);}return speakDevice(values.join(' '));}
-let geminiAudioEl=null;let readingGeminiAudioEl=null;let readingAudioUnlocked=false;let geminiPlaybackToken=0;const geminiAudioCache=new Map();
+let geminiAudioEl=null;let readingGeminiAudioEl=null;let readingAudioUnlocked=false;let geminiPlaybackToken=0;let activeReadingBookmarkId='';const geminiAudioCache=new Map();
 function ensureReadingGeminiAudio(){if(!readingGeminiAudioEl){readingGeminiAudioEl=new Audio();readingGeminiAudioEl.preload='auto';readingGeminiAudioEl.playsInline=true;readingGeminiAudioEl.setAttribute('playsinline','');readingGeminiAudioEl.setAttribute('webkit-playsinline','');}return readingGeminiAudioEl;}
 function unlockReadingGeminiAudio(){try{if(typeof navigator!=='undefined'&&navigator.audioSession&&'type'in navigator.audioSession)navigator.audioSession.type='playback';}catch{}const a=ensureReadingGeminiAudio();if(!readingAudioUnlocked){try{a.src=getSilentWavBlobUrl();const p=a.play();if(p&&typeof p.then==='function')p.then(()=>{readingAudioUnlocked=true;}).catch(()=>{});}catch{}}}
 function geminiSpeechChunks(text){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return [];if(clean.length<=3800)return [clean];const sentences=clean.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[clean];const chunks=[];let current='';for(const sentence of sentences){const s=sentence.trim();if(!s)continue;const next=current?`${current} ${s}`:s;if(current&&next.length>3800){chunks.push(current);current=s;}else current=next;}if(current)chunks.push(current);return chunks;}
 function isSpeechCurrentlyPlaying(){return Boolean((geminiAudioEl&&!geminiAudioEl.paused&&!geminiAudioEl.ended)||(speechQueue.length>0&&!speechPaused&&typeof window!=="undefined"&&"speechSynthesis"in window&&window.speechSynthesis.speaking));}
 function isSpeechCurrentlyPaused(){return Boolean((geminiAudioEl&&geminiAudioEl.paused&&!geminiAudioEl.ended)||(speechQueue.length>0&&speechPaused));}
 function syncReadingPlayButtons(){if(typeof document==="undefined")return;const playing=isSpeechCurrentlyPlaying();document.querySelectorAll(".reading-play-toggle").forEach(b=>{b.textContent=playing?"⏸":"▶";b.setAttribute("aria-pressed",playing?"true":"false");b.title=playing?"暂停朗读":"朗读英文文章";});}
-function stopGeminiAudio(){geminiPlaybackToken++;if(geminiAudioEl){try{geminiAudioEl.onplay=null;geminiAudioEl.onpause=null;geminiAudioEl.onended=null;geminiAudioEl.onerror=null;geminiAudioEl.pause();geminiAudioEl.currentTime=0;}catch{}geminiAudioEl=null;}syncReadingPlayButtons();}
-async function fetchGeminiAudioEntry(chunkText,cfg){const cacheKey=makeTtsCacheKey(chunkText,cfg?.ttsVoice);if(geminiAudioCache.has(cacheKey))return {url:geminiAudioCache.get(cacheKey),fromCache:true,modelUsed:'memory'};const persisted=await readPersistentTtsAudio(cacheKey);if(persisted?.blob){const url=URL.createObjectURL(persisted.blob);geminiAudioCache.set(cacheKey,url);return {url,fromCache:true,modelUsed:persisted.modelUsed||'indexeddb'};}const result=await synthesizeGeminiSpeech(chunkText,cfg);recordTtsApiCall(result.modelUsed);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});writePersistentTtsAudio(cacheKey,{blob,mimeType:result.mimeType||'audio/wav',modelUsed:result.modelUsed||''}).catch(()=>{});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return {url,fromCache:false,modelUsed:result.modelUsed||''};}
+function stopGeminiAudio(){geminiPlaybackToken++;readingAudioStatus='';activeReadingBookmarkId='';if(geminiAudioEl){try{geminiAudioEl.onplay=null;geminiAudioEl.onpause=null;geminiAudioEl.onended=null;geminiAudioEl.onerror=null;geminiAudioEl.ontimeupdate=null;geminiAudioEl.onloadedmetadata=null;geminiAudioEl.pause();geminiAudioEl.currentTime=0;}catch{}geminiAudioEl=null;}syncReadingPlayButtons();syncAudioScrubbers();}
+function activeTtsVoiceForKey(cfg){return cfg?.ttsEngine==='siliconflow'&&isSiliconFlowTtsReady(cfg)?`sf:${cfg.siliconflowVoice||SILICONFLOW_TTS_DEFAULT_VOICE}`:(cfg?.ttsVoice||'Kore');}
+async function fetchGeminiAudioEntry(chunkText,cfg){const voiceTag=activeTtsVoiceForKey(cfg);const cacheKey=makeTtsCacheKey(chunkText,voiceTag);if(geminiAudioCache.has(cacheKey))return {url:geminiAudioCache.get(cacheKey),fromCache:true,modelUsed:'memory'};const persisted=await readPersistentTtsAudio(cacheKey);if(persisted?.blob){const url=URL.createObjectURL(persisted.blob);geminiAudioCache.set(cacheKey,url);return {url,fromCache:true,modelUsed:persisted.modelUsed||'indexeddb'};}const result=await synthesizeCloudSpeech(chunkText,cfg);recordTtsApiCall(result.modelUsed);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});writePersistentTtsAudio(cacheKey,{blob,mimeType:result.mimeType||'audio/wav',modelUsed:result.modelUsed||''}).catch(()=>{});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return {url,fromCache:false,modelUsed:result.modelUsed||''};}
 async function fetchGeminiAudioUrl(chunkText,cfg){const entry=await fetchGeminiAudioEntry(chunkText,cfg);return entry.url;}
-async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{const firstKey=makeTtsCacheKey(chunks[0],cfg.ttsVoice);const firstCached=geminiAudioCache.has(firstKey)||await hasPersistentTtsAudio(firstKey);readingAudioStatus=firstCached?'💾 本地永久缓存 · 0消耗':'⏳ 首次合成整篇约需 5–12 秒，完成后永久缓存…';notify(firstCached?'🔊 秒开本机缓存的 Gemini 语音…':'⏳ 正在一次性合成整篇语音（约 5–12 秒），完成后将永久缓存在本机。');if(page==='reading')render();let nextPromise=fetchGeminiAudioEntry(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const entry=await nextPromise;if(token!==geminiPlaybackToken||!entry?.url)return false;const usage=getDailyTtsUsage();readingAudioStatus=entry.fromCache?'💾 本地永久缓存 · 本次 0 消耗':`✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;if(i+1<chunks.length)nextPromise=fetchGeminiAudioEntry(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;elA.ontimeupdate=()=>syncAudioScrubbers();elA.onloadedmetadata=()=>syncAudioScrubbers();elA.src=entry.url;elA.playbackRate=rate;geminiAudioEl=elA;registerMediaSession({title:'阅读文章朗读',artist:'言道修炼殿 16.2 Gemini 语音',album:data.dailyPack?.title||'Reading Chamber',onPlay:()=>resumeSpeech(),onPause:()=>pauseSpeech()});try{if(typeof navigator!=='undefined'&&navigator.mediaSession?.setActionHandler){navigator.mediaSession.setActionHandler('seekbackward',()=>seekAudioElement(elA,-15));navigator.mediaSession.setActionHandler('seekforward',()=>seekAudioElement(elA,15));}}catch{}elA.onplay=()=>{syncReadingPlayButtons();if(page==='reading')render();};elA.onpause=()=>{syncReadingPlayButtons();syncAudioScrubbers();};elA.onended=()=>{if(geminiAudioEl===elA)geminiAudioEl=null;syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;readingAudioStatus='';stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
+async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isCloudTtsReady(cfg)){if(!silentFallback)notify('尚未配置云端语音 API Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{const firstKey=makeTtsCacheKey(chunks[0],activeTtsVoiceForKey(cfg));const firstCached=geminiAudioCache.has(firstKey)||await hasPersistentTtsAudio(firstKey);readingAudioStatus=firstCached?'💾 本地永久缓存 · 0消耗':'⏳ 首次合成整篇约需 5–12 秒，完成后永久缓存…';notify(firstCached?'🔊 秒开本机缓存的 Gemini 语音…':'⏳ 正在一次性合成整篇语音（约 5–12 秒），完成后将永久缓存在本机。');if(page==='reading')render();let nextPromise=fetchGeminiAudioEntry(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const entry=await nextPromise;if(token!==geminiPlaybackToken||!entry?.url)return false;const usage=getDailyTtsUsage();readingAudioStatus=entry.fromCache?'💾 本地永久缓存 · 本次 0 消耗':`✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;if(i+1<chunks.length)nextPromise=fetchGeminiAudioEntry(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;let lastReadBm=0;const readBmId='reading:'+(selectedReadingId||firstKey);if(i===0)activeReadingBookmarkId=readBmId;const readSavedPos=i===0?loadAudioBookmark(readBmId):0;elA.ontimeupdate=()=>{syncAudioScrubbers();if(i===0&&Date.now()-lastReadBm>3000){lastReadBm=Date.now();saveAudioBookmark(readBmId,elA.currentTime,elA.duration);}};elA.onloadedmetadata=()=>{if(readSavedPos>3&&Number.isFinite(elA.duration)&&readSavedPos<elA.duration-5){try{elA.currentTime=readSavedPos;}catch{}notify(`🎧 已从 ${fmtAudioClock(readSavedPos)} 续播`);}syncAudioScrubbers();};elA.src=entry.url;elA.playbackRate=rate;geminiAudioEl=elA;registerMediaSession({title:'阅读文章朗读',artist:'言道修炼殿 17.1 云端语音',album:data.dailyPack?.title||'Reading Chamber',onPlay:()=>resumeSpeech(),onPause:()=>pauseSpeech()});try{if(typeof navigator!=='undefined'&&navigator.mediaSession?.setActionHandler){navigator.mediaSession.setActionHandler('seekbackward',()=>seekAudioElement(elA,-15));navigator.mediaSession.setActionHandler('seekforward',()=>seekAudioElement(elA,15));}}catch{}elA.onplay=()=>{syncReadingPlayButtons();if(page==='reading')render();};elA.onpause=()=>{syncReadingPlayButtons();syncAudioScrubbers();};elA.onended=()=>{if(i===0)clearAudioBookmark(readBmId);if(geminiAudioEl===elA){geminiAudioEl=null;activeReadingBookmarkId='';}syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;readingAudioStatus='';stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
-function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
+function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){if(activeReadingBookmarkId&&Number.isFinite(geminiAudioEl.currentTime))saveAudioBookmark(activeReadingBookmarkId,geminiAudioEl.currentTime,geminiAudioEl.duration);try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
 function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
@@ -1433,7 +1479,7 @@ function showVisualDialog(asset){document.getElementById('visual-dialog')?.remov
 function stats(){const active=activeItems(),words=active.filter(x=>x.kind==='word'),sentences=active.filter(x=>x.kind==='sentence');const todayMinutes=homeSummary(data,new Date()).todayMinutes;return {words:words.length,sentences:sentences.length,due:active.filter(x=>isDue(x)).length,weak:active.filter(x=>x.status==='N'||x.status==='V').length,newItems:active.filter(x=>x.status==='UNTESTED').length,reviewed:active.filter(x=>x.attempts>0).length,todayMinutes};}
 function statistic(label,value){const box=div('stat');box.append(h('strong',String(value)),el('span',label));return box;}
 function navActive(){const navPage=page==='readingVocabulary'?'more':(page==='speech'||page==='vocabulary')?'home':page;document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('active',b.dataset.page===navPage);b.setAttribute('aria-current',b.dataset.page===navPage?'page':'false');});}
-function setPage(which){if(radioTimer){clearTimeout(radioTimer);radioTimer=null;}if(radioPlaying){if(radioPlayStartAt){radioSessionLog.activeMs+=Math.max(0,Date.now()-radioPlayStartAt);radioPlayStartAt=0;}radioPlaying=false;}if(page==='vocabulary'&&which!=='vocabulary')pauseJourneyVocabulary();if(page==='reading'&&which!=='reading')pauseJourneyReading();if(page==='speech'&&which!=='speech')pauseJourneySpeech();if(data.activeSession&&which!=='practice'&&page==='practice') pauseSession();stopSpeech();stopActiveAudio();stopLocalAudio();page=which;render();window.scrollTo({top:0,behavior:'instant'});}
+function setPage(which){if(radioTimer){clearTimeout(radioTimer);radioTimer=null;}if(radioPlaying){if(radioPlayStartAt){radioSessionLog.activeMs+=Math.max(0,Date.now()-radioPlayStartAt);radioPlayStartAt=0;}radioPlaying=false;}radioPaused=false;radioAudioStatus='';readingAudioStatus='';activeReadingBookmarkId='';if(page==='reading'&&which!=='reading'&&window.__ydReadScroll){window.removeEventListener('scroll',window.__ydReadScroll);window.__ydReadScroll=null;}if(page==='vocabulary'&&which!=='vocabulary')pauseJourneyVocabulary();if(page==='reading'&&which!=='reading')pauseJourneyReading();if(page==='speech'&&which!=='speech')pauseJourneySpeech();if(data.activeSession&&which!=='practice'&&page==='practice') pauseSession();stopSpeech();stopActiveAudio();stopLocalAudio();page=which;render();window.scrollTo({top:0,behavior:'instant'});}
 function renderError(error){
   console.error('English Cultivation render failed:',error);
   const box=section('panel error-state');
@@ -1634,7 +1680,23 @@ function renderHome(){
   const heroActions=lines(btn(data.dailyPack?'开始／继续今日完整学习':'开始今日修炼',()=>{if(data.dailyPack)startDailyJourney();else if(s.due)startSession('mixed',{scope:'due'});else if(s.newItems)startSession('mixed',{scope:'new'});else startSession('mixed');},'btn primary home-primary'),btn('🎧 随身电台磨耳朵',()=>{radioOpen=true;refreshRadioTracks();render();},'btn secondary radio-launch-btn'),btn('⚡ 5 分钟通勤微冲刺',()=>{const q=buildCommuteSprintQueue(data.items||[]);if(!q.length){notify('当前没有可冲刺的词句卡片，请先导入学习包。');return;}startSession('mixed',{scope:'commute',queue:q,dueGoal:5});},'btn secondary radio-launch-btn'),data.packItems?btn('管理学习包',()=>setPage('library'),'btn ghost'):btn('导入今日总学习包',()=>setPage('library'),'btn ghost'));
   heroActions.classList.add('home-hero-actions');
   if(s.unallocatedActiveMs>0)summary.append(p('历史跨日累计时间中有每日分配未知的部分；不会计入今天。','tiny'));
-  hero.append(heroVisual,heroCopy,summary,heroActions);
+  const weekStrip=div('home-week-strip');
+  const todayBase=new Date();
+  let activeDays7=0;
+  for(let d=6;d>=0;d--){
+    const dt=new Date(todayBase.getTime()-d*86400000);
+    const dk=dateKeyInTimeZone(dt);
+    const mins=Math.round(summarizeSessionTime(data.sessions||[],dk,dk).knownMs/60000);
+    if(mins>0)activeDays7++;
+    const cell=div('week-dot-cell');
+    const dot=el('span','',mins>0?'week-dot is-active':'week-dot');
+    dot.title=`${dk}：${mins} 分钟`;
+    cell.append(dot,el('span',d===0?'今':dk.slice(8),'tiny'));
+    weekStrip.append(cell);
+  }
+  const weekWrap=div('home-week-wrap');
+  weekWrap.append(el('span',`近 7 天真实打卡 ${activeDays7}/7 天`,'tiny'),weekStrip);
+  hero.append(heroVisual,heroCopy,summary,weekWrap,heroActions);
   app.append(hero);if(data.dailyPack){app.append(journeyPanel());const overview=renderDailyOverview();if(overview)app.append(overview);}
   if(data.activeSession){const resume=section('resume-card');resume.append(el('div','继续上次训练','eyebrow'),h('h2',`${modeLabel(data.activeSession.mode)} · ${scopeLabel(data.activeSession.scope)}`),p('未完成的训练已保留，计时会在继续后恢复。','subtle'),lines(btn('继续训练',()=>{page='practice';render();},'btn primary'),btn('结束并保存',()=>finishSession(),'btn ghost')));app.append(resume);}
   const modeDrawer=el('details','','secondary-modes-drawer');
@@ -3024,7 +3086,7 @@ function renderReadingRetelling(reading){
 function renderReading(){app.append(el('div','英语阅读 · READING CHAMBER','eyebrow'),h('h1','阅读英语材料'),p('文章只保存在本机。双击或长按选中英文词语后，可以标记并批量保存为复习卡片。原生复制、Look Up 和滚动仍然可用。','lead'),lines(btn('打开阅读生词本',()=>setPage('readingVocabulary'),'btn secondary')));
 const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){app.append(renderJourneyFlowRibbon('reading'));const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('阅读正文、必要时标记生词。读完后主动点击确认；计时正向累计，达到建议分钟数不会自动结束。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));const recallActive=Boolean(readingJourney.readingRecallQueue?.length);box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(recallActive?'完成即时回忆后继续':remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning||recallActive)));app.append(box);}
-if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const article=div(readingBlurMode?'reading-article is-blind-blur':'reading-article');article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);article.append(node);});article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');
+if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const rfSize=data.settings?.readingFontSize||'md';const article=div(`reading-article font-${rfSize}${readingBlurMode?' is-blind-blur':''}`);const scrollRibbon=div('reading-scroll-bar');const scrollFill=div('reading-scroll-fill');scrollRibbon.append(scrollFill);list.append(scrollRibbon);const syncReadScroll=()=>{if(!article.isConnected)return;const rect=article.getBoundingClientRect();const total=Math.max(1,article.offsetHeight-window.innerHeight*0.5);const pct=Math.max(0,Math.min(100,Math.round((-rect.top/total)*100)));scrollFill.style.width=`${pct}%`;};if(typeof window!=='undefined'){window.removeEventListener('scroll',window.__ydReadScroll);window.__ydReadScroll=syncReadScroll;window.addEventListener('scroll',syncReadScroll,{passive:true});}article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);article.append(node);});article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');
 const primaryDock=div('reading-dock-primary');
 const markBtn=btn(pending?`🔖 标词(${pending})`:'🔖 标词',()=>toggleReadingMark(reading,paragraphs),'btn secondary small-btn');
 const aiBtn=makeAiLookupTriggerButton('btn secondary small-btn');aiBtn.textContent='🔍 AI查词';
@@ -3034,6 +3096,7 @@ moreTools.append(el('summary',pending?`更多工具 · 待存 ${pending} 词`:'�
 const moreGrid=div('reading-more-grid');
 moreGrid.append(
   btn(readingBlurMode?'👁️ 恢复正文':'🙈 盲听模糊',()=>{readingBlurMode=!readingBlurMode;render();},'btn secondary small-btn'),
+  btn(`🔤 字号：${rfSize==='sm'?'紧凑':rfSize==='lg'?'大字':'标准'}`,()=>{const order=['sm','md','lg'];data.settings.readingFontSize=order[(order.indexOf(rfSize)+1)%order.length];if(save())render();},'btn secondary small-btn'),
   btn(`💾 保存生词(${pending})`,()=>saveMarkedReadingWords(reading),'btn primary small-btn',pending===0),
   btn('🗂 存为卡片',()=>saveSelectedReadingText(reading,paragraphs),'btn secondary small-btn'),
   renderAiReplyWidget('🤖 AI 拆解长难句',()=>askAiExplainSentence({sentence:window.getSelection?.()?.toString().trim()||selectedText||reading.text.slice(0,260),context:selectedParagraphText||reading.text.slice(0,500)}))
@@ -3083,31 +3146,60 @@ function buildSettingsPanel(){const dataBox=section('settings-card');dataBox.app
 const presets=lines(...[30,40,60].map(minutes=>btn(`${minutes} 分钟`,()=>{data.settings.duration=minutes;if(save()){duration.value=String(minutes);notify(`参考目标调整为 ${minutes} 分钟，计时仍可继续。`);}},'btn ghost')));dataBox.append(presets);const speed=el('select','','select');for(const [rate,label] of [[.75,'较慢（0.75×）'],[.9,'温和（0.9×）'],[1,'正常（1.0×）'],[1.1,'稍快（1.10×）'],[1.25,'较快（1.25×）']]){const opt=el('option',label);opt.value=String(rate);speed.append(opt);}speed.value=String(data.settings.speechRate||.9);speed.addEventListener('change',()=>{data.settings.speechRate=Number(speed.value);save();});dataBox.append(field('英语朗读速度',speed));const theme=el('select','','select');for(const [value,label] of [['system','跟随系统'],['day','日间修炼'],['night','夜间修炼']]){const opt=el('option',label);opt.value=value;theme.append(opt);}theme.value=data.settings.theme||'system';theme.addEventListener('change',()=>setTheme(theme.value));dataBox.append(field('外观主题',theme));const hints=el('input');hints.type='checkbox';hints.checked=data.settings.chineseHints!==false;hints.addEventListener('change',()=>{data.settings.chineseHints=hints.checked;if(save())render();});const hintLabel=el('label');hintLabel.className='setup-options';hintLabel.append(hints,el('span','允许查看中文提示（每张新卡默认隐藏）'));dataBox.append(hintLabel);const retry=el('input');retry.type='checkbox';retry.checked=data.settings.retryAfterError!==false;retry.addEventListener('change',()=>{data.settings.retryAfterError=retry.checked;if(save())render();});const retryLabel=el('label');retryLabel.className='setup-options';retryLabel.append(retry,el('span','答错后立即重练'));dataBox.append(retryLabel);const newLimit=el('input','','input');newLimit.type='number';newLimit.min='1';newLimit.max='100';newLimit.value=data.settings.newLimit||10;newLimit.addEventListener('change',()=>{data.settings.newLimit=Math.max(1,Math.min(100,Number(newLimit.value)||10));save();});dataBox.append(field('每日新卡上限',newLimit));const reviewLimit=el('input','','input');reviewLimit.type='number';reviewLimit.min='1';reviewLimit.max='200';reviewLimit.value=data.settings.reviewLimit||20;reviewLimit.addEventListener('change',()=>{data.settings.reviewLimit=Math.max(1,Math.min(200,Number(reviewLimit.value)||20));save();});dataBox.append(field('每日复习上限',reviewLimit));return dataBox;}
 function voiceSettingsPanel(){
   const cfg=loadAiConfig(); const box=section('voice-settings');
-  box.append(el('div','GEMINI 真人语音 · GEMINI TTS VOICE','eyebrow'),h('h2','Gemini 朗读音色设置'),p('复用上方已配置的 Google AI Studio API Key。阅读文章、AI 查词与 AI 导师解析会优先使用 Gemini 真人级语音朗读；快速背词与离线模式自动保留本地语音。','subtle'));
+  box.append(el('div','云端真人语音引擎 · CLOUD TTS ENGINE (17.1)','eyebrow'),h('h2','语音朗读与省额缓存设置'),p('支持 Google Gemini 语音（双模型 429 自动接力）与硅基流动 CosyVoice2（国内直连）。所有合成语音均自动永久缓存在本机，复听 0 消耗。','subtle'));
+
+  const engineSelect=el('select','','select');engineSelect.id='tts-engine-select';
+  [['gemini','Google Gemini 语音（默认 · 429 双模型接力）'],['siliconflow','硅基流动 CosyVoice2（国内直连 · 免 VPN）']].forEach(([val,lab])=>{const opt=el('option',lab);opt.value=val;engineSelect.append(opt);});
+  engineSelect.value=cfg.ttsEngine||'gemini';
+
   const voiceSelect=el('select','','select');voiceSelect.id='gemini-voice-select';
   GEMINI_TTS_VOICES.forEach(v=>{const opt=el('option',v.label);opt.value=v.id;voiceSelect.append(opt);});
   voiceSelect.value=cfg.ttsVoice||'Kore';
   const ttsModelInput=textInput(cfg.ttsModel||GEMINI_TTS_DEFAULT_MODEL,'gemini-3.8-flash-lite-tts');
   ttsModelInput.id='gemini-tts-model-input';
-  const voiceStatus=p(isGeminiTtsReady(cfg)?`当前音色：${voiceSelect.value} · 模型：${ttsModelInput.value}（已就绪，复用上方 Google AI Key）`:'尚未配置 Google AI Key：当前将自动使用本地离线语音。','tiny');
+
+  const sfKeyInput=textInput(cfg.siliconflowApiKey||'','sk-...（前往 cloud.siliconflow.cn 获取）');
+  sfKeyInput.type='password';sfKeyInput.id='siliconflow-key-input';
+  const sfVoiceSelect=el('select','','select');sfVoiceSelect.id='siliconflow-voice-select';
+  SILICONFLOW_TTS_VOICES.forEach(v=>{const opt=el('option',v.label);opt.value=v.id;sfVoiceSelect.append(opt);});
+  sfVoiceSelect.value=cfg.siliconflowVoice||SILICONFLOW_TTS_DEFAULT_VOICE;
+
+  const usage=getDailyTtsUsage();
+  const quotaCard=div('tts-quota-card');
+  const cacheCountText=el('span','正在统计本机永久缓存…','tiny');
+  countPersistentTtsAudio().then(n=>{if(cacheCountText.isConnected)cacheCountText.textContent=`💾 本机已永久缓存 ${n} 段语音（复听 0 消耗）`;});
+  quotaCard.append(
+    el('strong',`📊 今日云端语音请求：${usage.count} 次（北京时间 16:00 重置）`,'tiny'),
+    cacheCountText
+  );
+
+  const voiceStatus=p(isCloudTtsReady(cfg)?`当前引擎：${engineSelect.value==='siliconflow'?'硅基流动 CosyVoice2':'Google Gemini'} · 音色：${engineSelect.value==='siliconflow'?sfVoiceSelect.value:voiceSelect.value}（已就绪）`:'尚未配置云端语音 Key：当前将自动使用本地离线语音。','tiny');
   voiceStatus.id='gemini-voice-status';
   const persistTts=()=>{
+    const nextEngine=engineSelect.value==='siliconflow'?'siliconflow':'gemini';
     const nextVoice=voiceSelect.value||'Kore';
     const nextModel=ttsModelInput.value.trim()||GEMINI_TTS_DEFAULT_MODEL;
-    if(saveAiConfig({ttsVoice:nextVoice,ttsModel:nextModel})){
-      voiceStatus.textContent=`已保存 Gemini 音色：${nextVoice} · 模型：${nextModel}`;
-      notify(`已切换 Gemini 语音为 ${nextVoice}。`);
+    const nextSfKey=sfKeyInput.value.trim();
+    const nextSfVoice=sfVoiceSelect.value||SILICONFLOW_TTS_DEFAULT_VOICE;
+    if(saveAiConfig({ttsEngine:nextEngine,ttsVoice:nextVoice,ttsModel:nextModel,siliconflowApiKey:nextSfKey,siliconflowVoice:nextSfVoice})){
+      voiceStatus.textContent=`已保存：${nextEngine==='siliconflow'?'硅基流动 CosyVoice2':'Google Gemini'} · 音色 ${nextEngine==='siliconflow'?nextSfVoice:nextVoice}`;
+      notify('云端语音设置已保存。');
     }
   };
-  voiceSelect.addEventListener('change',persistTts);
-  ttsModelInput.addEventListener('change',persistTts);
+  voiceSelect.addEventListener('change',persistTts);[engineSelect,ttsModelInput,sfKeyInput,sfVoiceSelect].forEach(ctrl=>ctrl.addEventListener('change',persistTts));
+
   box.append(
+    quotaCard,
+    field('云端语音引擎',engineSelect),
     field('Gemini 英语音色',voiceSelect),
     field('Gemini 语音模型 ID（默认 gemini-3.8-flash-lite-tts）',ttsModelInput),
+    field('硅基流动 API Key（可选，国内直连 CosyVoice2）',sfKeyInput),
+    field('硅基流动 CosyVoice2 音色',sfVoiceSelect),
     voiceStatus,
     lines(
-      btn('▶ 试听 Gemini 声音',()=>{persistTts();speakWithGeminiOrFallback("Hello! Let's practice English together.");},'btn secondary'),
-      btn('停止朗读',stopSpeech,'btn ghost')
+      btn('▶ 试听当前云端语音',()=>{persistTts();speakWithGeminiOrFallback("Hello! Let's practice English together.");},'btn secondary'),
+      btn('停止朗读',stopSpeech,'btn ghost'),
+      btn('🗑 清空语音缓存',async()=>{await clearPersistentTtsAudio();geminiAudioCache.clear();cacheCountText.textContent='💾 本机已永久缓存 0 段语音';notify('已清空语音缓存，不影响学习记录与录音。');},'btn ghost')
     ),
     p('提示：若网络断开或接口限流，会自动无缝回退到本地离线朗读，不会中断学习。','tiny')
   );

@@ -22,6 +22,21 @@ export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
 export const GEMINI_TTS_FALLBACK_MODEL = 'gemini-3.8-flash-tts';
 export const GEMINI_TTS_DEFAULT_VOICE = 'Kore';
 export const GEMINI_TTS_MAX_CHARS = 4200;
+export const AUDIO_BOOKMARKS_KEY = 'yandao-audio-bookmarks.v1';
+export const SILICONFLOW_TTS_ENDPOINT = 'https://api.siliconflow.cn/v1/audio/speech';
+export const SILICONFLOW_TTS_DEFAULT_MODEL = 'FunAudioLLM/CosyVoice2-0.5B';
+export const SILICONFLOW_TTS_DEFAULT_VOICE = 'FunAudioLLM/CosyVoice2-0.5B:alex';
+
+export const SILICONFLOW_TTS_VOICES = Object.freeze([
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:alex', label: 'Alex · 沉稳男声（推荐）' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:anna', label: 'Anna · 沉稳女声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:bella', label: 'Bella · 激情女声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:claire', label: 'Claire · 温柔女声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:charles', label: 'Charles · 磁性男声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:david', label: 'David · 欢快男声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:diana', label: 'Diana · 欢快女声' },
+  { id: 'FunAudioLLM/CosyVoice2-0.5B:benjamin', label: 'Benjamin · 低沉男声' }
+]);
 
 export const GEMINI_TTS_VOICES = Object.freeze([
   { id: 'Kore', label: 'Kore · 清晰沉稳（推荐）' },
@@ -72,7 +87,10 @@ export function defaultAiConfig() {
     model: AI_PROVIDERS.google_ai.defaultModel,
     customEndpoint: '',
     ttsVoice: GEMINI_TTS_DEFAULT_VOICE,
-    ttsModel: GEMINI_TTS_DEFAULT_MODEL
+    ttsModel: GEMINI_TTS_DEFAULT_MODEL,
+    ttsEngine: 'gemini',
+    siliconflowApiKey: '',
+    siliconflowVoice: SILICONFLOW_TTS_DEFAULT_VOICE
   };
 }
 
@@ -94,7 +112,10 @@ export function loadAiConfig(storage = typeof localStorage !== 'undefined' ? loc
       model: (provider === 'google_ai' && cleanAi(parsed?.model) === 'gemini-2.5-flash' ? AI_PROVIDERS.google_ai.defaultModel : cleanAi(parsed?.model)) || AI_PROVIDERS[provider].defaultModel,
       customEndpoint: cleanAi(parsed?.customEndpoint),
       ttsVoice: validVoiceId(parsed?.ttsVoice),
-      ttsModel: normalizedTtsModel
+      ttsModel: normalizedTtsModel,
+      ttsEngine: parsed?.ttsEngine === 'siliconflow' ? 'siliconflow' : 'gemini',
+      siliconflowApiKey: cleanAi(parsed?.siliconflowApiKey),
+      siliconflowVoice: cleanAi(parsed?.siliconflowVoice) || SILICONFLOW_TTS_DEFAULT_VOICE
     };
   } catch {
     return base;
@@ -116,7 +137,10 @@ export function saveAiConfig(config = {}, storage = typeof localStorage !== 'und
     model: cleanAi(merged.model) || AI_PROVIDERS[provider].defaultModel,
     customEndpoint: cleanAi(merged.customEndpoint),
     ttsVoice: validVoiceId(merged.ttsVoice),
-    ttsModel: safeTtsModel
+    ttsModel: safeTtsModel,
+    ttsEngine: merged.ttsEngine === 'siliconflow' ? 'siliconflow' : 'gemini',
+    siliconflowApiKey: cleanAi(merged.siliconflowApiKey),
+    siliconflowVoice: cleanAi(merged.siliconflowVoice) || SILICONFLOW_TTS_DEFAULT_VOICE
   };
   try {
     storage.setItem(AI_CONFIG_KEY, JSON.stringify(safe));
@@ -630,4 +654,135 @@ export async function askAiSpeakingDemoCoach({ prompt = '', userTranscript = '',
     : 'You are an encouraging IELTS Speaking & teaching-demo coach. Respond IN CLEAR, NATURAL ENGLISH ONLY (never fabricate an official band score). Structure: 1) Fluency & Clarity Strength 2) Grammar / Naturalness Polish (max 3) 3) 2 Native-Sounding Upgrades + 1 Connected-Speech Tip.';
   const usr = `Speaking / Demo Prompt: ${cleanAi(prompt)}\nLearner Transcript / Draft: ${cleanAi(userTranscript)}`;
   return runAiPrompt(sys, usr, config, fetchImpl);
+}
+
+
+export function isSiliconFlowTtsReady(config = null) {
+  const cfg = config || loadAiConfig();
+  return cleanAi(cfg?.siliconflowApiKey).length >= 8;
+}
+
+export function isCloudTtsReady(config = null) {
+  const cfg = config || loadAiConfig();
+  if (cfg?.ttsEngine === 'siliconflow') return isSiliconFlowTtsReady(cfg) || isGeminiTtsReady(cfg);
+  return isGeminiTtsReady(cfg) || isSiliconFlowTtsReady(cfg);
+}
+
+export async function countPersistentTtsAudio() {
+  const db = await openTtsCacheDb();
+  if (!db) return 0;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readonly');
+      const req = tx.objectStore(TTS_CACHE_STORE_NAME).count();
+      req.onsuccess = () => resolve(Number(req.result) || 0);
+      req.onerror = () => resolve(0);
+    } catch {
+      resolve(0);
+    }
+  });
+}
+
+export function saveAudioBookmark(id, seconds, duration = 0, storage = typeof localStorage !== 'undefined' ? localStorage : null) {
+  const key = cleanAi(id);
+  const pos = Math.max(0, Math.floor(Number(seconds) || 0));
+  const dur = Math.max(0, Math.floor(Number(duration) || 0));
+  if (!key || !storage) return false;
+  try {
+    const raw = storage.getItem(AUDIO_BOOKMARKS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    if (pos < 3 || (dur > 10 && dur - pos <= 4)) {
+      delete map[key];
+    } else {
+      map[key] = { seconds: pos, duration: dur, updatedAt: Date.now() };
+      const keys = Object.keys(map);
+      if (keys.length > 50) {
+        keys.sort((a, b) => (map[a]?.updatedAt || 0) - (map[b]?.updatedAt || 0));
+        for (const old of keys.slice(0, keys.length - 50)) delete map[old];
+      }
+    }
+    storage.setItem(AUDIO_BOOKMARKS_KEY, JSON.stringify(map));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadAudioBookmark(id, storage = typeof localStorage !== 'undefined' ? localStorage : null) {
+  const key = cleanAi(id);
+  if (!key || !storage) return 0;
+  try {
+    const raw = storage.getItem(AUDIO_BOOKMARKS_KEY);
+    if (!raw) return 0;
+    const map = JSON.parse(raw);
+    const rec = map?.[key];
+    return Math.max(0, Math.floor(Number(rec?.seconds) || 0));
+  } catch {
+    return 0;
+  }
+}
+
+export function clearAudioBookmark(id, storage = typeof localStorage !== 'undefined' ? localStorage : null) {
+  return saveAudioBookmark(id, 0, 0, storage);
+}
+
+export function buildSiliconFlowTtsRequestSpec(text, config = null) {
+  const cfg = config || loadAiConfig();
+  const apiKey = cleanAi(cfg?.siliconflowApiKey);
+  if (!apiKey) throw Error('尚未配置硅基流动 API Key，无法调用 CosyVoice2 语音。');
+  const voice = cleanAi(cfg?.siliconflowVoice) || SILICONFLOW_TTS_DEFAULT_VOICE;
+  const cleanText = cleanAi(text).slice(0, GEMINI_TTS_MAX_CHARS);
+  if (!cleanText) throw Error('没有可朗读的文本。');
+  return {
+    url: SILICONFLOW_TTS_ENDPOINT,
+    model: SILICONFLOW_TTS_DEFAULT_MODEL,
+    voiceName: voice,
+    init: {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: SILICONFLOW_TTS_DEFAULT_MODEL,
+        input: cleanText,
+        voice,
+        response_format: 'mp3',
+        speed: 1.0
+      })
+    }
+  };
+}
+
+export async function synthesizeSiliconFlowSpeech(text, config = null, fetchImpl = typeof fetch !== 'undefined' ? fetch : null) {
+  const cfg = config || loadAiConfig();
+  if (!fetchImpl) throw Error('当前环境不支持网络请求。');
+  const spec = buildSiliconFlowTtsRequestSpec(text, cfg);
+  const resp = await fetchWithTimeoutAndRetry(fetchImpl, spec.url, spec.init, {
+    timeoutMs: 55000,
+    retries: 1,
+    retryStatuses: [502, 503, 504]
+  });
+  if (!resp.ok) {
+    let errText = '';
+    try { errText = (await resp.text()).slice(0, 180); } catch {}
+    throw Error(`硅基流动语音接口返回 ${resp.status}${errText ? `：${errText}` : ''}`);
+  }
+  const buf = await resp.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (!bytes.byteLength) throw Error('硅基流动语音接口未返回音频数据。');
+  return {
+    bytes,
+    mimeType: 'audio/mpeg',
+    modelUsed: spec.model,
+    voiceUsed: spec.voiceName
+  };
+}
+
+export async function synthesizeCloudSpeech(text, config = null, fetchImpl = typeof fetch !== 'undefined' ? fetch : null) {
+  const cfg = config || loadAiConfig();
+  if (cfg?.ttsEngine === 'siliconflow' && isSiliconFlowTtsReady(cfg)) {
+    return synthesizeSiliconFlowSpeech(text, cfg, fetchImpl);
+  }
+  return synthesizeGeminiSpeech(text, cfg, fetchImpl);
 }
