@@ -301,7 +301,8 @@ export function computeSegmentWatchdogMs(text = '', rate = 0.9) {
   const words = (cleanRad(text).match(/\b[A-Za-z][A-Za-z'-]*\b/g) || []).length;
   const safeRate = Math.max(0.5, Math.min(1.5, Number(rate) || 0.9));
   const estimatedMs = Math.round((words * 650) / safeRate);
-  return Math.min(45000, Math.max(12000, estimatedMs + 8000));
+  const ceiling = words > 120 ? 600000 : 45000;
+  return Math.min(ceiling, Math.max(12000, estimatedMs + 8000));
 }
 
 /**
@@ -533,4 +534,63 @@ export function summarizeRadioExposure(radioLog = {}) {
     exposureOnly: true,
     countsAsMasteryK: false
   };
+}
+
+
+/**
+ * Bundles multiple radio tracks into compact long-form podcast episodes (<= maxChars each)
+ * so an entire channel (e.g. all 16 YouTube speeches or all 13 Notebook clips) synthesizes
+ * in ONE single Gemini TTS request (1 RPD) and caches permanently in IndexedDB.
+ */
+export function buildRadioPodcastEpisodes(tracks = [], { channel = '', maxChars = 3600 } = {}) {
+  const list = Array.isArray(tracks) ? tracks.filter(t => t && cleanRad(t.text)) : [];
+  if (!list.length) return [];
+  const chMeta = RADIO_CHANNELS.find(c => c.id === channel);
+  const chLabel = chMeta ? chMeta.label : '随身播客';
+  const episodes = [];
+  let bucket = [];
+  let bucketText = '';
+
+  const flush = () => {
+    if (!bucket.length) return;
+    const epNum = episodes.length + 1;
+    const words = (bucketText.match(/\b[A-Za-z][A-Za-z'-]*\b/g) || []).length;
+    const estimatedMinutes = Math.max(1, Math.round((words / 145) * 10) / 10);
+    episodes.push({
+      id: `podcast:${channel || 'mix'}:ep${epNum}`,
+      badge: `🎙️ 整集播客 · 第 ${epNum} 集`,
+      title: `${chLabel}（合集 ${bucket.length} 条 · 仅耗 1 次额度）`,
+      text: bucketText.trim(),
+      trackCount: bucket.length,
+      estimatedMinutes,
+      tracksIncluded: bucket.map(t => ({
+        id: t.id,
+        title: t.title,
+        text: t.text,
+        subtext: t.subtext || '',
+        sourceUrl: t.sourceUrl || ''
+      })),
+      exposureOnly: true
+    });
+    bucket = [];
+    bucketText = '';
+  };
+
+  for (const track of list) {
+    const cleanBody = cleanRad(track.text);
+    const piece = cleanBody.endsWith('.') || cleanBody.endsWith('!') || cleanBody.endsWith('?')
+      ? cleanBody
+      : `${cleanBody}.`;
+    const candidate = bucketText ? `${bucketText}\n\n... ${piece}` : piece;
+    if (bucket.length && candidate.length > maxChars) {
+      flush();
+      bucket.push(track);
+      bucketText = piece;
+    } else {
+      bucket.push(track);
+      bucketText = candidate;
+    }
+  }
+  flush();
+  return episodes;
 }
