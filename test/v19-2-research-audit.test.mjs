@@ -11,8 +11,8 @@ import {
   migrateBackupPayload
 } from '../core.mjs';
 
-test('v19.2.0 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
-  assert.equal(APP_VERSION, '19.2.0');
+test('v19.2.1 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
+  assert.equal(APP_VERSION, '19.2.1');
   // Accepted UK/US variants (preserves original user text verbatim)
   const uk1 = compareAnswer('colour', 'color');
   assert.equal(uk1.status, 'correct');
@@ -37,7 +37,7 @@ test('v19.2.0 Blind Grading Audit: accepts UK/US variants & curly quotes while r
   assert.equal(compareAnswer('borrow', 'lend').status, 'incorrect');
 });
 
-test('v19.2.0 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
+test('v19.2.1 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
   const mem = new Map();
   const storage = {
     getItem: k => (mem.has(k) ? mem.get(k) : null),
@@ -54,7 +54,7 @@ test('v19.2.0 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite n
   assert.equal(JSON.parse(mem.get('store')).attempts.length, 2);
 });
 
-test('v19.2.0 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
+test('v19.2.1 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
   // 2026-11-21 23:59:59.500+08:00 to 2026-11-22 00:00:00.500+08:00 (1000ms split across Beijing midnight)
   const start = Date.parse('2026-11-21T23:59:59.500+08:00');
   const end = Date.parse('2026-11-22T00:00:00.500+08:00');
@@ -73,7 +73,7 @@ test('v19.2.0 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusi
   assert.equal(shadow.trackedCards, 0);
 });
 
-test('v19.2.0 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
+test('v19.2.1 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('e.isComposing'), 'IME composition Enter guard required');
@@ -82,15 +82,28 @@ test('v19.2.0 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport ke
   assert.ok(cssSrc.includes('html.v19-keyboard-open .mobile-nav'), 'Keyboard-open bottom nav hide rule required');
 });
 
-test('v19.2.0 Pocket Radio iOS Safari Recovery Guard: flushes silent WAV metadata, re-unlocks after background, and never freezes silently on autoplay block', () => {
+test('v19.2.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single audio owner, structured decode/autoplay recovery, and ArrayBuffer IndexedDB cache', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-  assert.ok(appSrc.includes('try { elA.load(); } catch {}'), 'playUrlOnRadioAudio must call elA.load() after swapping src');
+  const aiSrc = fs.readFileSync(new URL('../ai-tutor.mjs', import.meta.url), 'utf8');
+
+  // Bug 1 fix: IndexedDB stores iOS-safe ArrayBuffer bytes and supports single-entry eviction on decode_error
+  assert.ok(aiSrc.includes('export async function deletePersistentTtsAudio'), 'ai-tutor.mjs must export deletePersistentTtsAudio');
+  assert.ok(aiSrc.includes('new Blob([rec.bytes]'), 'readPersistentTtsAudio must reconstruct fresh Blob from stored ArrayBuffer bytes');
+  assert.ok(appSrc.includes('async function evictGeminiAudioCache'), 'app.js must support evicting corrupted cached audio');
+  assert.ok(appSrc.includes('playRes.reason === "decode_error" && entry.fromCache && !retryFresh'), 'playRadioPodcastAt must auto-evict corrupted cache and retry once instead of looping on autoplay prompt');
+  assert.ok(appSrc.includes('err?.name === "NotAllowedError"'), 'playUrlOnRadioAudio must distinguish NotAllowedError from decode_error');
+  assert.ok(!appSrc.includes('try { elA.load(); } catch {}'), 'playUrlOnRadioAudio must not call elA.load() synchronously before elA.play() on iOS Safari');
+
+  // Bug 2 fix: zero overlapping double voices on track/episode/channel switch and zero untracked new Audio()
+  assert.ok(appSrc.includes('function stopAllRadioPlayback()'), 'app.js must define unified stopAllRadioPlayback()');
+  assert.match(appSrc, /async function playRadioPodcastAt\([\s\S]{0,120}stopAllRadioPlayback\(\);/, 'playRadioPodcastAt must silence prior audio immediately');
+  assert.match(appSrc, /async function playRadioTrackAt\([\s\S]{0,80}stopAllRadioPlayback\(\);/, 'playRadioTrackAt must silence prior audio immediately');
+  const playUrlFn = appSrc.slice(appSrc.indexOf('function playUrlOnRadioAudio('), appSrc.indexOf('async function playRadioSegment('));
+  assert.ok(!playUrlFn.includes('new Audio('), 'playUrlOnRadioAudio must never spawn untracked new Audio() instances that cause double voices');
   assert.ok(appSrc.includes('if(document.hidden){radioAudioUnlocked=false;}'), 'visibilitychange(hidden) must reset radioAudioUnlocked for iOS');
-  assert.ok(appSrc.includes('点「▶ 继续」立即播放'), 'playRadioPodcastAt must transition to paused ready state instead of silent zombie when ok === false');
 });
 
-
-test('v19.2.0 revision survives backup migration and blocks stale after two successful consecutive writes',()=>{
+test('v19.2.1 revision survives backup migration and blocks stale after two successful consecutive writes',()=>{
   const mem=new Map(),store={getItem:key=>mem.get(key)||null,setItem:(key,value)=>mem.set(key,value)};
   const base={stateRevision:0,items:[],attempts:[],sessions:[]};
   const first=persistState(store,'learning',base);
@@ -107,7 +120,7 @@ test('v19.2.0 revision survives backup migration and blocks stale after two succ
 });
 
 
-test('v19.2.0 same-revision storage replacement is never clobbered by an old pagehide save',()=>{
+test('v19.2.1 same-revision storage replacement is never clobbered by an old pagehide save',()=>{
   const memory=new Map();
   const storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
   const key='learning';
