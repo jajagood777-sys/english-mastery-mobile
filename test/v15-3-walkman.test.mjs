@@ -13,7 +13,7 @@ import {
 import { APP_VERSION } from '../core.mjs';
 
 test('19.1.1 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
-  assert.equal(APP_VERSION, '19.1.1');
+  assert.equal(APP_VERSION, '19.2.0');
   assert.equal(RADIO_CHANNELS.length, 4);
   const ids = RADIO_CHANNELS.map(c => c.id);
   assert.deepEqual(ids, ['weak_sniper', 'youtube_speeches', 'sentences_listening', 'notebook_spoken']);
@@ -230,7 +230,7 @@ test('19.1.1 flagship dual-engine SiliconFlow TTS, audio bookmarks, expanded lib
 
 test('19.1.1 stability fixes: dual-engine single-track, pause bookmark flush, pause-aware watchdog, and clean page/stop teardown', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-  assert.equal(APP_VERSION, '19.1.1');
+  assert.equal(APP_VERSION, '19.2.0');
   // 1. Single-track prefetch & playback use dual-engine isCloudTtsReady + activeTtsVoiceForKey
   assert.doesNotMatch(appSrc, /function prefetchNextRadioTrack[\s\S]{0,400}isGeminiTtsReady/);
   assert.doesNotMatch(appSrc, /async function playRadioSegment[\s\S]{0,400}isGeminiTtsReady/);
@@ -256,7 +256,7 @@ test('19.1.1 stability fixes: dual-engine single-track, pause bookmark flush, pa
 test('19.1.1 Apple HIG minimal craft: decluttered microcopy, editorial reading rhythm, and tactile CSS polish', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-  assert.equal(APP_VERSION, '19.1.1');
+  assert.equal(APP_VERSION, '19.2.0');
   // Decluttered key copy across Home, Reading, Vocabulary, Settings, More
   assert.doesNotMatch(appSrc, /自由单项加练与明细（日常只需点上方/);
   assert.doesNotMatch(appSrc, /Roediger & Karpicke/);
@@ -264,7 +264,7 @@ test('19.1.1 Apple HIG minimal craft: decluttered microcopy, editorial reading r
   assert.match(appSrc, /自由单项加练与更多入口/);
   assert.match(appSrc, /双击或长按英文词即可标词或 AI 查词。/);
   // Apple HIG minimal craft CSS rules present without breaking site-header backdrop guard
-  assert.match(cssSrc, /v19\.1\.1 Apple HIG Minimal Craft/);
+  assert.match(cssSrc, /v19\.2\.0 Apple HIG Minimal Craft/);
   assert.match(cssSrc, /max-width:\s*65ch/);
   assert.match(cssSrc, /transform:\s*scale\(0\.982\)/);
 });

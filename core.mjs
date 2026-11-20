@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.1.1';
+export const APP_VERSION = '19.2.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -542,10 +542,28 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
   return out;
 }
 export function persistState(storage, key, state, previousRaw=null) {
+  let payload = state;
+  let revision = null;
+  if (payload && typeof payload === 'object' && typeof storage?.getItem === 'function') {
+    try {
+      const existingRaw = storage.getItem(key);
+      if (existingRaw) {
+        const existing = JSON.parse(existingRaw);
+        const existingRev = Number(existing?.stateRevision || 0);
+        const incomingRev = Number(payload.stateRevision || 0);
+        if (existingRev > 0 && incomingRev < existingRev) {
+          return {ok:false, conflict:'stale_tab_revision', error:'检测到另一标签页有更新的学习记录，已阻止旧页面覆盖。', serialized:null};
+        }
+        revision = Math.max(existingRev, incomingRev) + 1;
+      }
+    } catch {}
+    if(revision === null) revision = Math.max(0, Number(payload.stateRevision) || 0) + 1;
+    payload = { ...payload, stateRevision: revision };
+  }
   let serialized;
-  try { serialized = typeof state === 'string' ? state : JSON.stringify(state); }
+  try { serialized = typeof payload === 'string' ? payload : JSON.stringify(payload); }
   catch (error) { return {ok:false, error:error instanceof Error ? error.message : String(error), serialized:null}; }
-  try { storage.setItem(key, serialized); return {ok:true, serialized}; }
+  try { storage.setItem(key, serialized); return {ok:true, serialized, revision}; }
   catch (error) {
     if (previousRaw !== null) { try { storage.setItem(key, previousRaw); } catch {} }
     return {ok:false, error:error instanceof Error ? error.message : String(error), serialized};
@@ -589,6 +607,7 @@ export function mergeBackupState(current={}, restored={}) {
     vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
     manualReviewMarks:uniqueBy([...(current.manualReviewMarks||[]), ...(restored.manualReviewMarks||[])], 'word'),
     microLessonProgress:{...(restored.microLessonProgress||{}),...(current.microLessonProgress||{})},
+        v19:{disputes:uniqueBy([...(current.v19?.disputes||[]),...(restored.v19?.disputes||[])],'dispute_id'),confidenceLogs:uniqueBy([...(current.v19?.confidenceLogs||[]),...(restored.v19?.confidenceLogs||[])],'attemptId'),lifeTasks:uniqueBy([...(current.v19?.lifeTasks||[]),...(restored.v19?.lifeTasks||[])],'taskId'),exactResume:current.v19?.exactResume||restored.v19?.exactResume||null,stopCheckpoint:current.v19?.stopCheckpoint||restored.v19?.stopCheckpoint||null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(restored.v19?.prefs||{}),...(current.v19?.prefs||{})},speechRecallMode:current.v19?.speechRecallMode||restored.v19?.speechRecallMode||'full_text'},
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
     dailyJourney: current.dailyJourney || restored.dailyJourney || null,
@@ -855,12 +874,37 @@ export function normalizeAnswer(value) {
 }
 function answerKey(value) { return normalizeAnswer(value).replace(/[^\p{L}\p{N}]+/gu,''); }
 function editDistance(a,b){const row=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let prev=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const cur=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,prev+(a[i-1]===b[j-1]?0:1));prev=cur;}}return row[b.length];}
+
+const UK_US_SPELLING_EQUIV = Object.freeze([
+  ['colour','color'],['colours','colors'],['favourite','favorite'],['favour','favor'],
+  ['honour','honor'],['labour','labor'],['neighbour','neighbor'],['behaviour','behavior'],
+  ['centre','center'],['theatre','theater'],['metre','meter'],['litre','liter'],
+  ['defence','defense'],['offence','offense'],['licence','license'],
+  ['realise','realize'],['realised','realized'],['organise','organize'],['organised','organized'],
+  ['analyse','analyze'],['analysed','analyzed'],['apologise','apologize'],['recognise','recognize'],
+  ['programme','program'],['dialogue','dialog'],['catalogue','catalog'],
+  ['travelling','traveling'],['travelled','traveled'],['cancelling','canceling'],['cancelled','canceled'],
+  ['practise','practice'],['grey','gray'],['cheque','check']
+]);
+function isUkUsSpellingVariant(uNorm, rNorm) {
+  const uWords = uNorm.split(' '), rWords = rNorm.split(' ');
+  if (uWords.length !== rWords.length) return false;
+  let changed = false;
+  for (let i = 0; i < uWords.length; i += 1) {
+    if (uWords[i] === rWords[i]) continue;
+    const match = UK_US_SPELLING_EQUIV.some(([a, b]) => (uWords[i] === a && rWords[i] === b) || (uWords[i] === b && rWords[i] === a));
+    if (!match) return false;
+    changed = true;
+  }
+  return changed;
+}
 export function compareAnswer(user, reference, {accepted=[]} = {}) {
   const rawUser=clean(user), rawReference=clean(reference); if(!rawUser) return {status:'blank',user:rawUser,reference:rawReference,message:'没有填写答案。'};
   const userNorm=normalizeAnswer(rawUser), refNorm=normalizeAnswer(rawReference);
   if(rawUser===rawReference) return {status:'correct',user:rawUser,reference:rawReference,message:'答案正确。'};
   if(userNorm===refNorm) return {status:'case_or_punctuation',user:rawUser,reference:rawReference,message:'内容一致，只有大小写或标点不同。'};
   const acceptedNorm=accepted.map(normalizeAnswer); if(acceptedNorm.includes(userNorm)) return {status:'correct',user:rawUser,reference:rawReference,message:'答案符合允许表达。'};
+  if(isUkUsSpellingVariant(userNorm,refNorm)) return {status:'correct',variant_accepted:true,user:rawUser,reference:rawReference,message:'英美拼写变体等效，已保留你的原答。'};
   if(answerKey(rawUser)===answerKey(rawReference)) return {status:'case_or_punctuation',user:rawUser,reference:rawReference,message:'内容一致，只有大小写或标点不同。'};
   const distance=editDistance(answerKey(rawUser),answerKey(rawReference));
   if(distance===1&&answerKey(rawReference).length>=4) return {status:'minor_spelling',user:rawUser,reference:rawReference,message:describeReferenceDifference(rawUser,rawReference)||'可能有一个拼写差异，请比较参考表达。'};
@@ -1125,11 +1169,12 @@ export function validateBackup(value){
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
-  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
+  return {version:VERSION,stateRevision:Math.max(0,Number(value.stateRevision)||0),items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],
     manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],
-    microLessonProgress:value.microLessonProgress&&typeof value.microLessonProgress==='object'&&!Array.isArray(value.microLessonProgress)?value.microLessonProgress:{},reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
+    microLessonProgress:value.microLessonProgress&&typeof value.microLessonProgress==='object'&&!Array.isArray(value.microLessonProgress)?value.microLessonProgress:{},
+        v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
 export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[]}) {

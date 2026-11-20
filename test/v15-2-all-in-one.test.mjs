@@ -15,7 +15,7 @@ import {
 } from '../ai-tutor.mjs';
 
 test('19.1.1 APP_VERSION and microLessons normalization handle YouTube/etymology packs cleanly', () => {
-  assert.equal(APP_VERSION, '19.1.1');
+  assert.equal(APP_VERSION, '19.2.0');
   const pack = recordsFromLearningPack({
     pack_id: 'PACK-1520-TEST',
     title: 'All-in-One Micro + Story Pack',
@@ -69,7 +69,7 @@ test('19.1.1 app.js includes story bold-word chips, AI drawer modes, and micro-l
   assert.match(appSrc, /renderMicroLessonsCard/);
   assert.match(appSrc, /askAiCheckGrammar/);
   assert.match(appSrc, /askAiSpeakingDemoCoach/);
-  assert.match(appSrc, /19\.1\.1/);
+  assert.match(appSrc, /19\.2\.0/);
 });
 test('19.1.1 storyText, battleReportMarkdown aiCritique, central feedback, and microLessonProgress survive round-trip', async () => {
   const {
