@@ -1977,3 +1977,38 @@ export function buildRadioPodcastEpisodes(tracks = [], { channel = '', maxChars 
   flush();
   return episodes;
 }
+
+
+export function createRadioPlaybackClock() {
+  let activeMs = 0;
+  let clipsPlayed = 0;
+  let runningSince = 0;
+  let lastChannel = '';
+  return {
+    onPlaybackStarted(now = Date.now(), { clips = 0, channel = '' } = {}) {
+      const ts = Number(now) || Date.now();
+      if (!runningSince) runningSince = ts;
+      const addClips = Math.max(0, Number(clips) || 0);
+      if (addClips > 0) clipsPlayed += addClips;
+      if (channel) lastChannel = String(channel);
+    },
+    onPlaybackPausedOrStopped(now = Date.now()) {
+      const ts = Number(now) || Date.now();
+      if (runningSince > 0) {
+        activeMs += Math.max(0, ts - runningSince);
+        runningSince = 0;
+      }
+    },
+    snapshot(now = Date.now()) {
+      const ts = Number(now) || Date.now();
+      const extra = runningSince > 0 ? Math.max(0, ts - runningSince) : 0;
+      return { clipsPlayed, activeMs: activeMs + extra, lastChannel };
+    },
+    reset() {
+      activeMs = 0;
+      clipsPlayed = 0;
+      runningSince = 0;
+      lastChannel = '';
+    }
+  };
+}

@@ -19,7 +19,7 @@ test('merged recording controls update locally without replacing the entire page
   const end=app.indexOf('function stopActiveRecording(',start);
   assert.ok(start>=0&&end>start);
   const source=app.slice(start,end);
-  assert.match(source,/recorder\.start\(\);refreshRecordingPanel\(meta\)/);
+  assert.match(source,/recorder\.start\(\);\s*refreshRecordingPanel\(meta\)/);
   assert.match(source,/if\(controller\.renderAfterStop\)refreshRecordingPanel\(meta\)/);
   assert.doesNotMatch(source,/recorder\.start\(\);render\(\)/);
 });
