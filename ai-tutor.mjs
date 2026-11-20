@@ -265,6 +265,22 @@ function openTtsCacheDb() {
   });
 }
 
+export async function deletePersistentTtsAudio(key) {
+  if (!key) return false;
+  const db = await openTtsCacheDb();
+  if (!db) return false;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readwrite');
+      tx.objectStore(TTS_CACHE_STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 export async function readPersistentTtsAudio(key) {
   if (!key) return null;
   const db = await openTtsCacheDb();
@@ -276,10 +292,23 @@ export async function readPersistentTtsAudio(key) {
       const req = store.get(key);
       req.onsuccess = () => {
         const rec = req.result;
-        if (rec && rec.blob) {
+        const mimeType = rec?.mimeType || 'audio/wav';
+        let outBlob = null;
+        if (rec?.bytes) {
+          const byteLen = rec.bytes.byteLength || 0;
+          if (byteLen >= 64) {
+            outBlob = new Blob([rec.bytes], { type: mimeType });
+          }
+        } else if (rec?.blob && Number(rec.blob.size || 0) >= 64) {
+          outBlob = rec.blob;
+        }
+        if (outBlob) {
           try { store.put({ ...rec, lastUsedAt: Date.now() }); } catch {}
-          resolve({ blob: rec.blob, mimeType: rec.mimeType || 'audio/wav', modelUsed: rec.modelUsed || '' });
+          resolve({ blob: outBlob, mimeType, modelUsed: rec.modelUsed || '' });
         } else {
+          if (rec) {
+            try { store.delete(key); } catch {}
+          }
           resolve(null);
         }
       };
@@ -290,8 +319,22 @@ export async function readPersistentTtsAudio(key) {
   });
 }
 
-export async function writePersistentTtsAudio(key, { blob, mimeType = 'audio/wav', modelUsed = '' } = {}) {
-  if (!key || !blob) return false;
+export async function writePersistentTtsAudio(key, { blob, bytes = null, mimeType = 'audio/wav', modelUsed = '' } = {}) {
+  if (!key || (!blob && !bytes)) return false;
+  let rawBytes = null;
+  try {
+    if (bytes instanceof ArrayBuffer) {
+      rawBytes = bytes;
+    } else if (ArrayBuffer.isView(bytes)) {
+      rawBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    } else if (blob && typeof blob.arrayBuffer === 'function') {
+      rawBytes = await blob.arrayBuffer();
+    }
+  } catch {
+    rawBytes = null;
+  }
+  if (rawBytes && rawBytes.byteLength < 64) return false;
+  if (!rawBytes && blob && Number(blob.size || 0) < 64) return false;
   const db = await openTtsCacheDb();
   if (!db) return false;
   return new Promise(resolve => {
@@ -299,7 +342,15 @@ export async function writePersistentTtsAudio(key, { blob, mimeType = 'audio/wav
       const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readwrite');
       const store = tx.objectStore(TTS_CACHE_STORE_NAME);
       const now = Date.now();
-      store.put({ key, blob, mimeType, modelUsed, savedAt: now, lastUsedAt: now });
+      store.put({
+        key,
+        bytes: rawBytes || null,
+        blob: rawBytes ? null : blob,
+        mimeType,
+        modelUsed,
+        savedAt: now,
+        lastUsedAt: now
+      });
       const allReq = store.getAll();
       allReq.onsuccess = () => {
         const rows = Array.isArray(allReq.result) ? allReq.result : [];

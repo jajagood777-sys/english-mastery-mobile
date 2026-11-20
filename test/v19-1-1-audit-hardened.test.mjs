@@ -18,7 +18,7 @@ test('v19.1.1 export date uses Asia/Shanghai, including UTC midnight boundary',(
 test('v19.1.1 keyboard Enter submission does not trigger during IME composition',()=>{
   const handlers=(app.match(/(?:input|window)\.addEventListener\(['"]keydown['"][^\n]*/g)||[]);
   assert.ok(handlers.length>=5);
-  assert.equal(handlers.filter(s=>s.includes('e.isComposing || e.keyCode === 229')).length,handlers.length-1);
+  assert.equal(handlers.filter(s=>/e\.isComposing\s*\|\|\s*e\.keyCode\s*===\s*229/.test(s)).length,handlers.length-1);
   assert.match(app,/window\.addEventListener\("keydown", e => \{\s*if \(e\.isComposing \|\| e\.keyCode === 229\) return;/);
 });
 
@@ -38,7 +38,7 @@ test('v19.1.1 setup shows current isolated PWA or Safari entry; offline precache
   assert.match(app,/runtime-entry-notice/);
   assert.match(app,/本机学习记录、录音和缓存彼此隔离/);
   assert.match(sw,/\.\/release-safety\.mjs/);
-  assert.match(sw,/static-v19\.2\.0/);
+  assert.match(sw,/static-v19\.2\.1/);
 });
 
 function recordingHarness(size=7,includeAudioTracks=true){
