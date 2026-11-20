@@ -1,19 +1,27 @@
 /**
- * BYOK AI English Tutor & Gemini TTS Engine (15.1.4)
- * Supports Google AI Studio (Gemini chat + Gemini TTS), OpenRouter free router,
+ * BYOK AI English Tutor & Gemini TTS Engine (16.2.0)
+ * Supports Google AI Studio (Gemini chat + Dual-Model 429-Relay Gemini TTS),
+ * persistent IndexedDB audio caching, daily quota tracking, OpenRouter free router,
  * and any OpenAI-compatible endpoint.
  *
  * SECURITY & PRIVACY RULES:
  * 1. API keys are stored ONLY in isolated localStorage (`yandao-ai-tutor-config.v1`),
  *    NEVER embedded in repository code, NEVER included in exported backups or Battle Reports.
- * 2. AI feedback is strictly supplementary coaching and NEVER alters K/V/N or FSRS evidence.
+ * 2. Persistent TTS audio cache uses its own isolated IndexedDB (`yandao-tts-audio-cache-v1`),
+ *    NEVER touching learner progress, FSRS, K/V/N, or user voice recordings.
+ * 3. AI feedback is strictly supplementary coaching and NEVER alters K/V/N or FSRS evidence.
  */
 
 export const AI_CONFIG_KEY = 'yandao-ai-tutor-config.v1';
+export const TTS_QUOTA_KEY = 'yandao-tts-quota.v1';
+export const TTS_CACHE_DB_NAME = 'yandao-tts-audio-cache-v1';
+export const TTS_CACHE_STORE_NAME = 'clips';
+export const MAX_PERSISTENT_TTS_CLIPS = 36;
 
 export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
-export const GEMINI_TTS_FALLBACK_MODEL = 'gemini-2.5-flash-preview-tts';
+export const GEMINI_TTS_FALLBACK_MODEL = 'gemini-3.8-flash-tts';
 export const GEMINI_TTS_DEFAULT_VOICE = 'Kore';
+export const GEMINI_TTS_MAX_CHARS = 4200;
 
 export const GEMINI_TTS_VOICES = Object.freeze([
   { id: 'Kore', label: 'Kore · 清晰沉稳（推荐）' },
@@ -36,7 +44,7 @@ export const AI_PROVIDERS = Object.freeze({
   },
   google_ai: {
     id: 'google_ai',
-    label: 'Google AI Studio（免费层）',
+    label: 'Google AI Studio（免费层 / 付费层）',
     defaultModel: 'gemini-flash-latest',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
     keyHint: 'AQ.Ab8... 或 AIzaSy...'
@@ -76,13 +84,17 @@ export function loadAiConfig(storage = typeof localStorage !== 'undefined' ? loc
     if (!raw) return base;
     const parsed = JSON.parse(raw);
     const provider = AI_PROVIDERS[parsed?.provider] ? parsed.provider : 'google_ai';
+    const rawTtsModel = cleanAi(parsed?.ttsModel);
+    const normalizedTtsModel = (!rawTtsModel || rawTtsModel === 'gemini-2.5-flash-preview-tts')
+      ? GEMINI_TTS_DEFAULT_MODEL
+      : rawTtsModel;
     return {
       provider,
       apiKey: cleanAi(parsed?.apiKey),
       model: (provider === 'google_ai' && cleanAi(parsed?.model) === 'gemini-2.5-flash' ? AI_PROVIDERS.google_ai.defaultModel : cleanAi(parsed?.model)) || AI_PROVIDERS[provider].defaultModel,
       customEndpoint: cleanAi(parsed?.customEndpoint),
       ttsVoice: validVoiceId(parsed?.ttsVoice),
-      ttsModel: cleanAi(parsed?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL
+      ttsModel: normalizedTtsModel
     };
   } catch {
     return base;
@@ -94,13 +106,17 @@ export function saveAiConfig(config = {}, storage = typeof localStorage !== 'und
   const prev = loadAiConfig(storage);
   const merged = { ...prev, ...config };
   const provider = AI_PROVIDERS[merged.provider] ? merged.provider : 'google_ai';
+  const rawTtsModel = cleanAi(merged.ttsModel);
+  const safeTtsModel = (!rawTtsModel || rawTtsModel === 'gemini-2.5-flash-preview-tts')
+    ? GEMINI_TTS_DEFAULT_MODEL
+    : rawTtsModel;
   const safe = {
     provider,
     apiKey: cleanAi(merged.apiKey),
     model: cleanAi(merged.model) || AI_PROVIDERS[provider].defaultModel,
     customEndpoint: cleanAi(merged.customEndpoint),
     ttsVoice: validVoiceId(merged.ttsVoice),
-    ttsModel: cleanAi(merged.ttsModel) || GEMINI_TTS_DEFAULT_MODEL
+    ttsModel: safeTtsModel
   };
   try {
     storage.setItem(AI_CONFIG_KEY, JSON.stringify(safe));
@@ -130,6 +146,184 @@ export function isGeminiTtsReady(config = null) {
   const key = cleanAi(cfg?.apiKey);
   if (key.length < 8) return false;
   return cfg?.provider === 'google_ai' || key.startsWith('AQ.') || key.startsWith('AIza');
+}
+
+/**
+ * Computes Pacific-time calendar day key (`YYYY-MM-DD`) aligned with Google AI Studio's
+ * daily RPD reset schedule (midnight Pacific time = 16:00 Beijing winter / 15:00 summer).
+ */
+export function pacificQuotaDayKey(now = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(now);
+    const y = parts.find(p => p.type === 'year')?.value;
+    const m = parts.find(p => p.type === 'month')?.value;
+    const d = parts.find(p => p.type === 'day')?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {}
+  return new Date(now.getTime() - 8 * 3600000).toISOString().slice(0, 10);
+}
+
+export function getDailyTtsUsage(storage = typeof localStorage !== 'undefined' ? localStorage : null, now = new Date()) {
+  const day = pacificQuotaDayKey(now);
+  const empty = { day, count: 0, byModel: {} };
+  if (!storage) return empty;
+  try {
+    const raw = storage.getItem(TTS_QUOTA_KEY);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    if (parsed?.day !== day) return empty;
+    return {
+      day,
+      count: Math.max(0, Number(parsed.count) || 0),
+      byModel: parsed.byModel && typeof parsed.byModel === 'object' ? parsed.byModel : {}
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export function recordTtsApiCall(model = GEMINI_TTS_DEFAULT_MODEL, storage = typeof localStorage !== 'undefined' ? localStorage : null, now = new Date()) {
+  const usage = getDailyTtsUsage(storage, now);
+  const m = cleanAi(model) || GEMINI_TTS_DEFAULT_MODEL;
+  const next = {
+    day: usage.day,
+    count: usage.count + 1,
+    byModel: { ...usage.byModel, [m]: (Number(usage.byModel[m]) || 0) + 1 }
+  };
+  if (storage) {
+    try { storage.setItem(TTS_QUOTA_KEY, JSON.stringify(next)); } catch {}
+  }
+  return next;
+}
+
+/**
+ * Deterministic, collision-resistant cache key for persistent TTS audio clips.
+ * Intentionally omits model name so clips synthesized by either Flash-Lite or Flash
+ * share the same local cache entry for a given voice + text.
+ */
+export function makeTtsCacheKey(text = '', voice = GEMINI_TTS_DEFAULT_VOICE) {
+  const normText = cleanAi(text).replace(/\s+/g, ' ');
+  const normVoice = validVoiceId(voice);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < normText.length; i++) {
+    const c = normText.charCodeAt(i);
+    h1 ^= c;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= (c + i);
+    h2 = Math.imul(h2, 0x85ebca6b);
+  }
+  return `tts:${normVoice}:${normText.length}:${(h1 >>> 0).toString(36)}_${(h2 >>> 0).toString(36)}`;
+}
+
+function openTtsCacheDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(TTS_CACHE_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(TTS_CACHE_STORE_NAME)) {
+          db.createObjectStore(TTS_CACHE_STORE_NAME, { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+export async function readPersistentTtsAudio(key) {
+  if (!key) return null;
+  const db = await openTtsCacheDb();
+  if (!db) return null;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(TTS_CACHE_STORE_NAME);
+      const req = store.get(key);
+      req.onsuccess = () => {
+        const rec = req.result;
+        if (rec && rec.blob) {
+          try { store.put({ ...rec, lastUsedAt: Date.now() }); } catch {}
+          resolve({ blob: rec.blob, mimeType: rec.mimeType || 'audio/wav', modelUsed: rec.modelUsed || '' });
+        } else {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+export async function writePersistentTtsAudio(key, { blob, mimeType = 'audio/wav', modelUsed = '' } = {}) {
+  if (!key || !blob) return false;
+  const db = await openTtsCacheDb();
+  if (!db) return false;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(TTS_CACHE_STORE_NAME);
+      const now = Date.now();
+      store.put({ key, blob, mimeType, modelUsed, savedAt: now, lastUsedAt: now });
+      const allReq = store.getAll();
+      allReq.onsuccess = () => {
+        const rows = Array.isArray(allReq.result) ? allReq.result : [];
+        if (rows.length > MAX_PERSISTENT_TTS_CLIPS) {
+          rows.sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0));
+          const toDelete = rows.slice(0, rows.length - MAX_PERSISTENT_TTS_CLIPS);
+          for (const row of toDelete) {
+            try { store.delete(row.key); } catch {}
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+export async function hasPersistentTtsAudio(key) {
+  if (!key) return false;
+  const db = await openTtsCacheDb();
+  if (!db) return false;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readonly');
+      const req = tx.objectStore(TTS_CACHE_STORE_NAME).count(key);
+      req.onsuccess = () => resolve((req.result || 0) > 0);
+      req.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+export async function clearPersistentTtsAudio() {
+  const db = await openTtsCacheDb();
+  if (!db) return false;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(TTS_CACHE_STORE_NAME, 'readwrite');
+      tx.objectStore(TTS_CACHE_STORE_NAME).clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 /**
@@ -179,6 +373,7 @@ export function pcm16ToWavBytes(pcmBytes, sampleRate = 24000, channels = 1) {
 
 /**
  * Builds the REST request spec for Google AI Studio Gemini TTS (`generateContent` with AUDIO modality).
+ * Supports long-form single-request synthesis (up to 4,200 chars) to maximize Free Tier RPD efficiency.
  */
 export function buildGeminiTtsRequestSpec(text, config = null, modelOverride = '') {
   const cfg = config || loadAiConfig();
@@ -186,7 +381,7 @@ export function buildGeminiTtsRequestSpec(text, config = null, modelOverride = '
   if (!apiKey) throw Error('尚未配置 Google AI Studio API Key，无法调用 Gemini 语音。');
   const voiceName = validVoiceId(cfg?.ttsVoice);
   const model = cleanAi(modelOverride) || cleanAi(cfg?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL;
-  const cleanText = cleanAi(text).slice(0, 1800);
+  const cleanText = cleanAi(text).slice(0, GEMINI_TTS_MAX_CHARS);
   if (!cleanText) throw Error('没有可朗读的文本。');
   const url = `${AI_PROVIDERS.google_ai.endpoint}/${encodeURIComponent(model)}:generateContent`;
   return {
@@ -212,10 +407,15 @@ export function buildGeminiTtsRequestSpec(text, config = null, modelOverride = '
 }
 
 /**
- * Resilient fetch wrapper with AbortController timeout and single automatic retry
- * on transient 429/502/503/504 responses or network blips (subway/mobile safe).
+ * Resilient fetch wrapper with AbortController timeout and automatic retry
+ * on transient server/network responses (subway/mobile safe).
  */
-export async function fetchWithTimeoutAndRetry(fetchImpl, url, init = {}, { timeoutMs = 22000, retries = 1, retryDelayMs = 450 } = {}) {
+export async function fetchWithTimeoutAndRetry(
+  fetchImpl,
+  url,
+  init = {},
+  { timeoutMs = 22000, retries = 1, retryDelayMs = 450, retryStatuses = [429, 502, 503, 504] } = {}
+) {
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -224,7 +424,7 @@ export async function fetchWithTimeoutAndRetry(fetchImpl, url, init = {}, { time
       const reqInit = controller ? { ...init, signal: init.signal || controller.signal } : init;
       const resp = await fetchImpl(url, reqInit);
       if (timer) clearTimeout(timer);
-      if (!resp.ok && attempt < retries && [429, 502, 503, 504].includes(resp.status)) {
+      if (!resp.ok && attempt < retries && retryStatuses.includes(resp.status)) {
         await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
         continue;
       }
@@ -248,27 +448,32 @@ function hasRiffWavHeader(bytes) {
 
 /**
  * Synthesizes natural English speech via Gemini TTS and returns playable WAV/audio bytes.
- * Automatically wraps raw L16/PCM responses in a standard WAV header and falls back to
- * `gemini-2.5-flash-preview-tts` if the primary TTS model returns 404/400/503.
+ * Automatically wraps raw L16/PCM responses in a standard WAV header and relays from
+ * `gemini-3.8-flash-lite-tts` to `gemini-3.8-flash-tts` on 429/404/400/503 (independent Free Tier pools).
  */
 export async function synthesizeGeminiSpeech(text, config = null, fetchImpl = typeof fetch !== 'undefined' ? fetch : null) {
   const cfg = config || loadAiConfig();
   if (!fetchImpl) throw Error('当前环境不支持网络请求。');
-  const primaryModel = cleanAi(cfg?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL;
+  const rawPrimary = cleanAi(cfg?.ttsModel) || GEMINI_TTS_DEFAULT_MODEL;
+  const primaryModel = rawPrimary === 'gemini-2.5-flash-preview-tts' ? GEMINI_TTS_DEFAULT_MODEL : rawPrimary;
   const modelsToTry = primaryModel === GEMINI_TTS_FALLBACK_MODEL
-    ? [primaryModel]
+    ? [primaryModel, GEMINI_TTS_DEFAULT_MODEL]
     : [primaryModel, GEMINI_TTS_FALLBACK_MODEL];
 
   let lastError = null;
   for (let i = 0; i < modelsToTry.length; i++) {
     const model = modelsToTry[i];
     const spec = buildGeminiTtsRequestSpec(text, cfg, model);
-    const resp = await fetchWithTimeoutAndRetry(fetchImpl, spec.url, spec.init, { timeoutMs: 22000, retries: 1 });
+    const resp = await fetchWithTimeoutAndRetry(fetchImpl, spec.url, spec.init, {
+      timeoutMs: 55000,
+      retries: 1,
+      retryStatuses: [502, 503, 504]
+    });
     if (!resp.ok) {
       let errText = '';
       try { errText = (await resp.text()).slice(0, 180); } catch {}
       lastError = Error(`Gemini 语音接口返回 ${resp.status}${errText ? `：${errText}` : ''}`);
-      if (i + 1 < modelsToTry.length && (resp.status === 404 || resp.status === 400 || resp.status === 503)) {
+      if (i + 1 < modelsToTry.length && (resp.status === 429 || resp.status === 404 || resp.status === 400 || resp.status === 503)) {
         continue;
       }
       throw lastError;
@@ -412,6 +617,7 @@ export async function askAiFreeTutor({ question = '', pageContext = '' } = {}, c
   const usr = `${pageContext ? `Current study context: ${cleanAi(pageContext).slice(0, 400)}\n` : ''}Learner question: ${cleanAi(question)}`;
   return runAiPrompt(sys, usr, config, fetchImpl);
 }
+
 export async function askAiCheckGrammar({ prompt = '', userAnswer = '', referenceAnswer = '', grammarFocus = '' } = {}, config = null, fetchImpl = undefined) {
   const sys = 'You are a concise, encouraging English grammar coach. Respond IN CLEAR ENGLISH ONLY (no Chinese unless asked). Structure: 1) Accuracy Verdict (Correct / Minor Fix Needed / Needs Rework) 2) Rule Breakdown (1–2 crisp sentences) 3) Corrected Sentence & 1 Parallel Practice Variation.';
   const usr = `Grammar Prompt: ${cleanAi(prompt)}${grammarFocus ? `\nGrammar Focus: ${cleanAi(grammarFocus)}` : ''}\nLearner Answer: ${cleanAi(userAnswer)}\nReference Answer: ${cleanAi(referenceAnswer) || 'N/A'}`;

@@ -75,7 +75,7 @@ test('15.1.4 battle report and central feedback include manualReviewMarks from o
     items: [],
     manualReviewMarks: manualMarks
   });
-  assert.equal(report.app_version, '16.1.0');
+  assert.equal(report.app_version, '16.2.0');
   assert.equal(report.manual_review_marks.length, 1);
   assert.equal(report.manual_review_marks[0].word, 'vortex');
 
@@ -133,7 +133,7 @@ test('15.1.4 Gemini TTS request spec, WAV header wrapping, and fallback model wo
       assert.match(url, /gemini-3\.8-flash-lite-tts/);
       return { ok: false, status: 404, text: async () => 'not found' };
     }
-    assert.match(url, /gemini-2\.5-flash-preview-tts/);
+    assert.match(url, /gemini-3\.8-flash-tts/);
     return {
       ok: true,
       json: async () => ({
@@ -157,6 +157,6 @@ test('15.1.4 Gemini TTS request spec, WAV header wrapping, and fallback model wo
   }, mockFetch);
   assert.equal(calls, 2);
   assert.equal(audio.mimeType, 'audio/wav');
-  assert.equal(audio.modelUsed, 'gemini-2.5-flash-preview-tts');
+  assert.equal(audio.modelUsed, 'gemini-3.8-flash-tts');
   assert.equal(String.fromCharCode(audio.bytes[0], audio.bytes[1], audio.bytes[2], audio.bytes[3]), 'RIFF');
 });

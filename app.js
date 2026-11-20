@@ -11,9 +11,9 @@ import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
-import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,summarizeRadioExposure} from './radio.mjs';
+import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
-import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,synthesizeGeminiSpeech,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
+import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,synthesizeGeminiSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,hasPersistentTtsAudio,clearPersistentTtsAudio,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
 
 const STORE='central-english-mastery.v2';
@@ -260,6 +260,12 @@ let radioOpen = false;
 let radioChannel = "youtube_speeches";
 let radioScope = "all";
 let radioVoiceMode = "gemini";
+let radioPlayMode = "podcast";
+let radioPaused = false;
+let radioEpisodes = [];
+let radioEpisodeIndex = 0;
+let radioAudioStatus = "";
+let readingAudioStatus = "";
 let radioRate = 0.9;
 let radioStopAfterRound = true;
 let radioShuffle = false;
@@ -332,6 +338,98 @@ function stopRadioAudioElement() {
   } catch {}
 }
 
+function fmtAudioClock(sec) {
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function pausePocketRadio() {
+  if (radioPlayMode === "podcast" && radioAudioEl && radioAudioEl.src && !radioAudioEl.ended) {
+    try { radioAudioEl.pause(); } catch {}
+    if (radioPlaying && radioPlayStartAt) {
+      radioSessionLog.activeMs += Math.max(0, Date.now() - radioPlayStartAt);
+      radioPlayStartAt = 0;
+    }
+    radioPaused = true;
+    render();
+    return;
+  }
+  stopPocketRadio(true);
+}
+
+function resumePocketRadio() {
+  if (radioPlayMode === "podcast" && radioPaused && radioAudioEl && radioAudioEl.src && !radioAudioEl.ended) {
+    radioPaused = false;
+    if (!radioPlayStartAt) radioPlayStartAt = Date.now();
+    radioAudioEl.play().then(() => render()).catch(() => {
+      radioPaused = false;
+      playRadioPodcastAt(radioEpisodeIndex);
+    });
+    render();
+    return;
+  }
+  if (radioPlayMode === "podcast") playRadioPodcastAt(radioEpisodeIndex);
+  else playRadioTrackAt(radioIndex);
+}
+
+function seekAudioElement(audioEl, deltaSeconds) {
+  if (!audioEl || !Number.isFinite(audioEl.duration) || audioEl.duration <= 0) return;
+  const next = Math.max(0, Math.min(audioEl.duration - 0.2, (audioEl.currentTime || 0) + deltaSeconds));
+  try { audioEl.currentTime = next; } catch {}
+  syncAudioScrubbers();
+}
+
+function syncAudioScrubbers() {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.audio-scrubber-bar').forEach(bar => {
+    const kind = bar.dataset.scrubberKind;
+    const elA = kind === 'radio' ? radioAudioEl : geminiAudioEl;
+    const curEl = bar.querySelector('.scrubber-cur');
+    const durEl = bar.querySelector('.scrubber-dur');
+    const range = bar.querySelector('.audio-scrubber-range');
+    if (!elA || !Number.isFinite(elA.duration) || elA.duration <= 0) return;
+    if (curEl) curEl.textContent = fmtAudioClock(elA.currentTime);
+    if (durEl) durEl.textContent = fmtAudioClock(elA.duration);
+    if (range && document.activeElement !== range) {
+      range.max = String(Math.floor(elA.duration));
+      range.value = String(Math.floor(elA.currentTime));
+    }
+  });
+}
+
+function buildAudioScrubberBar(kind, audioEl, statusText = '') {
+  const bar = div('audio-scrubber-bar');
+  bar.dataset.scrubberKind = kind;
+  const cur = Number.isFinite(audioEl?.currentTime) ? audioEl.currentTime : 0;
+  const dur = Number.isFinite(audioEl?.duration) && audioEl.duration > 0 ? audioEl.duration : 0;
+  const topRow = div('audio-scrubber-meta');
+  const curSpan = el('span', fmtAudioClock(cur), 'tiny scrubber-cur');
+  const statusSpan = el('span', statusText || (dur ? '🎧 长音频就绪' : '⏳ 音频加载中'), 'tts-status-pill');
+  const durSpan = el('span', dur ? fmtAudioClock(dur) : '--:--', 'tiny scrubber-dur');
+  topRow.append(curSpan, statusSpan, durSpan);
+
+  const controlsRow = div('audio-scrubber-row');
+  const backBtn = btn('-15s', () => seekAudioElement(audioEl, -15), 'btn ghost audio-skip-btn');
+  const range = el('input', '', 'audio-scrubber-range');
+  range.type = 'range';
+  range.min = '0';
+  range.max = String(dur ? Math.floor(dur) : 100);
+  range.value = String(dur ? Math.floor(cur) : 0);
+  range.setAttribute('aria-label', '音频播放进度');
+  range.addEventListener('input', () => {
+    if (audioEl && Number.isFinite(audioEl.duration) && audioEl.duration > 0) {
+      try { audioEl.currentTime = Number(range.value) || 0; } catch {}
+      curSpan.textContent = fmtAudioClock(audioEl.currentTime);
+    }
+  });
+  const fwdBtn = btn('+15s', () => seekAudioElement(audioEl, 15), 'btn ghost audio-skip-btn');
+  controlsRow.append(backBtn, range, fwdBtn);
+  bar.append(topRow, controlsRow);
+  return bar;
+}
+
 function stopPocketRadio(keepOpen = true) {
   if (radioTimer) { clearTimeout(radioTimer); radioTimer = null; }
   if (radioPlaying && radioPlayStartAt) {
@@ -339,6 +437,7 @@ function stopPocketRadio(keepOpen = true) {
     radioPlayStartAt = 0;
   }
   radioPlaying = false;
+  radioPaused = false;
   radioActiveEngine = "";
   stopRadioAudioElement();
   stopSpeech();
@@ -359,10 +458,14 @@ function refreshRadioTracks(forceShuffle = false) {
     vocabularyAttempts: [...(data.vocabularyAttempts || []), ...(data.dailyJourney?.vocabularyAttempts || [])],
     speeches: data.speeches || []
   });
+  radioEpisodes = buildRadioPodcastEpisodes(radioTracks, { channel: radioChannel, maxChars: 3600 });
   if (radioIndex >= radioTracks.length) radioIndex = 0;
+  if (radioEpisodeIndex >= radioEpisodes.length) radioEpisodeIndex = 0;
 }
 
 function prefetchNextRadioTrack(nextIdx) {
+  // v16.2.0 quota guard: never burn unrequested background API calls in podcast mode or free-tier playback.
+  if (radioPlayMode === "podcast") return;
   if (radioVoiceMode !== "gemini" || !radioTracks.length) return;
   const cfg = loadAiConfig();
   if (!isGeminiTtsReady(cfg)) return;
@@ -371,7 +474,102 @@ function prefetchNextRadioTrack(nextIdx) {
   const nextTrack = radioTracks[wrapped];
   const firstSeg = Array.isArray(nextTrack?.segments) && nextTrack.segments.length ? nextTrack.segments[0] : nextTrack?.text;
   if (firstSeg) {
-    fetchGeminiAudioUrl(firstSeg, cfg).catch(() => {});
+    const pKey = makeTtsCacheKey(firstSeg, cfg.ttsVoice);
+    hasPersistentTtsAudio(pKey).then(cached => {
+      if (cached) fetchGeminiAudioUrl(firstSeg, cfg).catch(() => {});
+    }).catch(() => {});
+  }
+}
+
+async function playRadioPodcastAt(epIdx) {
+  unlockRadioAudio();
+  if (!radioEpisodes.length) refreshRadioTracks();
+  if (!radioEpisodes.length) {
+    notify("当前频道暂无可播放条目，请切换到「YouTube 励志演讲」或「Notebook 口语与对话」。");
+    stopPocketRadio(true);
+    return;
+  }
+  if (radioStopAfterRound && epIdx >= radioEpisodes.length) {
+    notify("✓ 本轮整集播客已全部播完并自动停播。");
+    stopPocketRadio(true);
+    return;
+  }
+  if (radioSleepDeadline && Date.now() >= radioSleepDeadline) {
+    notify("🌙 睡眠定时时间已到，随身电台已自动停止播放。");
+    radioSleepDeadline = 0;
+    radioSleepMinutes = 0;
+    stopPocketRadio(true);
+    return;
+  }
+  radioEpisodeIndex = ((epIdx % radioEpisodes.length) + radioEpisodes.length) % radioEpisodes.length;
+  const episode = radioEpisodes[radioEpisodeIndex];
+  const myPlayToken = Date.now() + Math.random();
+  radioPlaying = myPlayToken;
+  radioPaused = false;
+  if (!radioPlayStartAt) radioPlayStartAt = Date.now();
+  radioSessionLog.clipsPlayed += Math.max(1, episode.trackCount || 1);
+  radioSessionLog.lastChannel = `${radioChannel}:podcast`;
+
+  const cfg = loadAiConfig();
+  if (radioVoiceMode !== "gemini" || !isGeminiTtsReady(cfg)) {
+    notify("当前未启用 Gemini 语音，已自动切回逐条离线朗读。");
+    radioPlayMode = "single";
+    playRadioTrackAt(0);
+    return;
+  }
+
+  const cacheKey = makeTtsCacheKey(episode.text, cfg.ttsVoice);
+  const alreadyCached = geminiAudioCache.has(cacheKey) || await hasPersistentTtsAudio(cacheKey);
+  if (radioPlaying !== myPlayToken) return;
+  radioAudioStatus = alreadyCached ? "💾 本地已缓存 · 0消耗" : "⏳ 首次合成整集约需 6–15 秒，完成后永久缓存…";
+  if (!alreadyCached) notify("⏳ 正在一次性合成整集播客（约 6–15 秒），合成后将永久缓存在本机，以后 0 消耗秒开。");
+  render();
+
+  try {
+    const entry = await fetchGeminiAudioEntry(episode.text, cfg);
+    if (radioPlaying !== myPlayToken) return;
+    const usage = getDailyTtsUsage();
+    radioAudioStatus = entry.fromCache
+      ? "💾 本地永久缓存 · 本次 0 消耗"
+      : `✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;
+    const audio = ensureRadioAudioElement();
+    audio.ontimeupdate = () => syncAudioScrubbers();
+    audio.onloadedmetadata = () => syncAudioScrubbers();
+    registerMediaSession({
+      title: episode.title,
+      artist: "言道修炼殿 16.2 整集播客",
+      album: data.dailyPack?.title || "English Cultivation",
+      onPlay: () => resumePocketRadio(),
+      onPause: () => pausePocketRadio(),
+      onPrev: () => playRadioPodcastAt(radioEpisodeIndex - 1),
+      onNext: () => playRadioPodcastAt(radioEpisodeIndex + 1)
+    });
+    try {
+      if (typeof navigator !== "undefined" && navigator.mediaSession?.setActionHandler) {
+        navigator.mediaSession.setActionHandler("seekbackward", () => seekAudioElement(audio, -15));
+        navigator.mediaSession.setActionHandler("seekforward", () => seekAudioElement(audio, 15));
+      }
+    } catch {}
+    render();
+    const watchdogMs = computeSegmentWatchdogMs(episode.text, radioRate);
+    const ok = await playUrlOnRadioAudio(entry.url, radioRate, watchdogMs, myPlayToken, false);
+    if (radioPlaying !== myPlayToken) return;
+    if (ok) {
+      if (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length) {
+        notify("✓ 本集播客已播完。");
+        stopPocketRadio(true);
+      } else {
+        radioTimer = setTimeout(() => {
+          if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex + 1);
+        }, 1200);
+      }
+    }
+  } catch (err) {
+    if (radioPlaying !== myPlayToken) return;
+    radioAudioStatus = "";
+    notify(`Gemini 整集合成暂不可用，已切换本地逐条朗读：${String(err?.message || err).slice(0, 55)}`);
+    radioPlayMode = "single";
+    playRadioTrackAt(0);
   }
 }
 
@@ -557,6 +755,8 @@ async function playRadioTrackAt(idx) {
 function renderPocketRadioDrawer() {
   if (!radioOpen) return el("span", "");
   refreshRadioTracks();
+  const isPodcast = radioPlayMode === "podcast";
+  const episode = radioEpisodes[radioEpisodeIndex] || null;
   const track = radioTracks[radioIndex] || null;
   const speedPreset = RADIO_SPEED_PRESETS.find(p => Math.abs(p.rate - radioRate) < 0.01) || RADIO_SPEED_PRESETS[1];
   const overlay = div("lexicon-drawer-backdrop");
@@ -574,16 +774,51 @@ function renderPocketRadioDrawer() {
     const b = btn(ch.label, () => {
       radioChannel = ch.id;
       radioIndex = 0;
+      radioEpisodeIndex = 0;
+      radioAudioStatus = "";
       refreshRadioTracks();
-      if (radioPlaying) playRadioTrackAt(0);
-      else render();
+      if (radioPlaying) {
+        if (radioPlayMode === "podcast") playRadioPodcastAt(0);
+        else playRadioTrackAt(0);
+      } else {
+        render();
+      }
     }, radioChannel === ch.id ? "btn primary small-btn" : "btn secondary small-btn");
     chRow.append(b);
   });
   panel.append(chRow);
 
   const nowCard = section("radio-now-playing");
-  if (track) {
+  if (isPodcast && episode) {
+    const badgeRow = div("radio-card-meta");
+    badgeRow.append(
+      el("span", `${episode.badge} · ${radioEpisodeIndex + 1} / ${radioEpisodes.length}`, "chip tiny"),
+      el("span", `约 ${episode.estimatedMinutes} 分钟 · 含 ${episode.trackCount} 条`, "tiny")
+    );
+    const previewText = episode.tracksIncluded.slice(0, 2).map(t => t.title).join(" · ");
+    nowCard.append(
+      badgeRow,
+      h("h3", episode.title),
+      p(`本集连播：${previewText}${episode.trackCount > 2 ? ` 等 ${episode.trackCount} 段内容` : ""}`, "subtle")
+    );
+    if (radioPlaying || radioPaused || radioAudioStatus) {
+      nowCard.append(buildAudioScrubberBar("radio", radioAudioEl, radioAudioStatus));
+    }
+    const scriptDetails = el("details", "", "radio-episode-script");
+    scriptDetails.append(el("summary", `📖 展开查看本集全部英文原文（共 ${episode.trackCount} 条）`));
+    const scriptBody = div("radio-script-list");
+    episode.tracksIncluded.forEach((item, idx) => {
+      const row = div("radio-script-item");
+      row.append(
+        el("strong", `${idx + 1}. ${item.title}`, "tiny"),
+        p(item.text, "tiny"),
+        item.subtext ? p(item.subtext, "tiny subtle") : el("span", "")
+      );
+      scriptBody.append(row);
+    });
+    scriptDetails.append(scriptBody);
+    nowCard.append(scriptDetails);
+  } else if (track) {
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
       el("span", `${track.badge} · ${radioIndex + 1} / ${radioTracks.length}`, "chip tiny"),
@@ -608,19 +843,34 @@ function renderPocketRadioDrawer() {
   panel.append(nowCard);
 
   const controls = div("radio-transport-row");
-  const prevBtn = btn("⏮", () => playRadioTrackAt(radioIndex - 1), "btn secondary radio-icon-btn");
-  prevBtn.setAttribute("aria-label", "上一条");
-  const playBtn = btn(radioPlaying ? "⏸ 暂停" : "▶ 开始", () => {
-    if (radioPlaying) stopPocketRadio(true);
-    else playRadioTrackAt(radioIndex);
+  const prevBtn = btn("⏮", () => {
+    if (isPodcast) playRadioPodcastAt(radioEpisodeIndex - 1);
+    else playRadioTrackAt(radioIndex - 1);
+  }, "btn secondary radio-icon-btn");
+  prevBtn.setAttribute("aria-label", isPodcast ? "上一集" : "上一条");
+  const isActivelyPlaying = Boolean(radioPlaying && !radioPaused);
+  const playLabel = isActivelyPlaying ? "⏸ 暂停" : (radioPaused ? "▶ 继续" : "▶ 开始");
+  const playBtn = btn(playLabel, () => {
+    if (isActivelyPlaying) pausePocketRadio();
+    else resumePocketRadio();
   }, "btn primary radio-play-btn");
-  const nextBtn = btn("⏭", () => playRadioTrackAt(radioIndex + 1), "btn secondary radio-icon-btn");
-  nextBtn.setAttribute("aria-label", "下一条");
+  const nextBtn = btn("⏭", () => {
+    if (isPodcast) playRadioPodcastAt(radioEpisodeIndex + 1);
+    else playRadioTrackAt(radioIndex + 1);
+  }, "btn secondary radio-icon-btn");
+  nextBtn.setAttribute("aria-label", isPodcast ? "下一集" : "下一条");
   controls.append(prevBtn, playBtn, nextBtn);
   panel.append(controls);
 
   const quickBar = div("radio-quick-bar");
   quickBar.append(
+    btn(isPodcast ? "🎙️ 整集省额" : "🎵 逐条跟读", () => {
+      stopPocketRadio(true);
+      radioPlayMode = isPodcast ? "single" : "podcast";
+      radioAudioStatus = "";
+      notify(radioPlayMode === "podcast" ? "已切换为「整集播客·省额模式」（1 次请求连播整频道）。" : "已切换为「逐条跟读模式」。");
+      render();
+    }, isPodcast ? "btn primary small-btn" : "btn secondary small-btn"),
     btn(`⚡ ${speedPreset.rate}×`, () => {
       const idx = RADIO_SPEED_PRESETS.findIndex(p => Math.abs(p.rate - radioRate) < 0.01);
       const next = RADIO_SPEED_PRESETS[(idx + 1) % RADIO_SPEED_PRESETS.length];
@@ -636,29 +886,22 @@ function renderPocketRadioDrawer() {
       radioSleepDeadline = nextMin ? Date.now() + nextMin * 60000 : 0;
       notify(nextMin ? `已开启 ${nextMin} 分钟睡眠定时。` : "已关闭睡眠定时。");
       render();
-    }, radioSleepMinutes ? "btn primary small-btn" : "btn secondary small-btn"),
-    btn(radioShuffle ? "🔀 随机:开" : "🔀 顺序", () => {
-      radioShuffle = !radioShuffle;
-      radioIndex = 0;
-      refreshRadioTracks(radioShuffle);
-      render();
-    }, radioShuffle ? "btn primary small-btn" : "btn secondary small-btn"),
-    ...(radioChannel === "weak_sniper" || radioChannel === "sentences_listening" ? [
-      btn(radioScope === "today" ? "📦 今日" : "📚 全部", () => {
-        radioScope = radioScope === "today" ? "all" : "today";
-        radioIndex = 0;
-        refreshRadioTracks();
-        if (radioPlaying) playRadioTrackAt(0);
-        else render();
-      }, "btn secondary small-btn")
-    ] : [])
+    }, radioSleepMinutes ? "btn primary small-btn" : "btn secondary small-btn")
   );
   panel.append(quickBar);
 
   const moreDetails = el("details", "", "radio-more-details");
-  moreDetails.append(el("summary", "更多播放选项"));
+  const usageNow = getDailyTtsUsage();
+  moreDetails.append(el("summary", `更多播放选项 · 今日语音请求 ${usageNow.count} 次`));
   const moreOpts = div("radio-quick-bar");
   moreOpts.append(
+    btn(radioShuffle ? "🔀 随机:开" : "🔀 顺序", () => {
+      radioShuffle = !radioShuffle;
+      radioIndex = 0;
+      radioEpisodeIndex = 0;
+      refreshRadioTracks(radioShuffle);
+      render();
+    }, radioShuffle ? "btn primary small-btn" : "btn secondary small-btn"),
     btn(radioStopAfterRound ? "⏹ 播完停播" : "🔁 单轮循环", () => {
       radioStopAfterRound = !radioStopAfterRound;
       render();
@@ -666,10 +909,33 @@ function renderPocketRadioDrawer() {
     btn(radioVoiceMode === "gemini" ? "切换离线语音" : "切回 Gemini 语音", () => {
       radioVoiceMode = radioVoiceMode === "gemini" ? "local" : "gemini";
       notify(radioVoiceMode === "gemini" ? "已恢复 Gemini 语音连播。" : "已切换为仅本地离线语音。");
-      if (radioPlaying) playRadioTrackAt(radioIndex);
-      else render();
+      if (radioPlaying) {
+        if (radioPlayMode === "podcast" && radioVoiceMode === "gemini") playRadioPodcastAt(radioEpisodeIndex);
+        else playRadioTrackAt(radioIndex);
+      } else render();
+    }, "btn ghost small-btn"),
+    btn("🗑 清空语音缓存", async () => {
+      await clearPersistentTtsAudio();
+      geminiAudioCache.clear();
+      radioAudioStatus = "";
+      notify("已清空本机语音缓存（不影响任何学习记录与录音）。");
+      render();
     }, "btn ghost small-btn")
   );
+  if (radioChannel === "weak_sniper" || radioChannel === "sentences_listening") {
+    moreOpts.append(
+      btn(radioScope === "today" ? "📦 今日" : "📚 全部", () => {
+        radioScope = radioScope === "today" ? "all" : "today";
+        radioIndex = 0;
+        radioEpisodeIndex = 0;
+        refreshRadioTracks();
+        if (radioPlaying) {
+          if (radioPlayMode === "podcast") playRadioPodcastAt(0);
+          else playRadioTrackAt(0);
+        } else render();
+      }, "btn secondary small-btn")
+    );
+  }
   moreDetails.append(moreOpts);
   panel.append(moreDetails);
 
@@ -760,7 +1026,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (16.1.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (16.2.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -1111,13 +1377,14 @@ async function speakNaturalOrDevice(text,segments=null,{silentMissing=false}={})
 let geminiAudioEl=null;let readingGeminiAudioEl=null;let readingAudioUnlocked=false;let geminiPlaybackToken=0;const geminiAudioCache=new Map();
 function ensureReadingGeminiAudio(){if(!readingGeminiAudioEl){readingGeminiAudioEl=new Audio();readingGeminiAudioEl.preload='auto';readingGeminiAudioEl.playsInline=true;readingGeminiAudioEl.setAttribute('playsinline','');readingGeminiAudioEl.setAttribute('webkit-playsinline','');}return readingGeminiAudioEl;}
 function unlockReadingGeminiAudio(){try{if(typeof navigator!=='undefined'&&navigator.audioSession&&'type'in navigator.audioSession)navigator.audioSession.type='playback';}catch{}const a=ensureReadingGeminiAudio();if(!readingAudioUnlocked){try{a.src=getSilentWavBlobUrl();const p=a.play();if(p&&typeof p.then==='function')p.then(()=>{readingAudioUnlocked=true;}).catch(()=>{});}catch{}}}
-function geminiSpeechChunks(text){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return [];const sentences=clean.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[clean];const chunks=[];let current='';for(const sentence of sentences){const s=sentence.trim();if(!s)continue;const next=current?`${current} ${s}`:s;if(current&&next.length>560){chunks.push(current);current=s;}else current=next;}if(current)chunks.push(current);return chunks;}
+function geminiSpeechChunks(text){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return [];if(clean.length<=3800)return [clean];const sentences=clean.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g)||[clean];const chunks=[];let current='';for(const sentence of sentences){const s=sentence.trim();if(!s)continue;const next=current?`${current} ${s}`:s;if(current&&next.length>3800){chunks.push(current);current=s;}else current=next;}if(current)chunks.push(current);return chunks;}
 function isSpeechCurrentlyPlaying(){return Boolean((geminiAudioEl&&!geminiAudioEl.paused&&!geminiAudioEl.ended)||(speechQueue.length>0&&!speechPaused&&typeof window!=="undefined"&&"speechSynthesis"in window&&window.speechSynthesis.speaking));}
 function isSpeechCurrentlyPaused(){return Boolean((geminiAudioEl&&geminiAudioEl.paused&&!geminiAudioEl.ended)||(speechQueue.length>0&&speechPaused));}
 function syncReadingPlayButtons(){if(typeof document==="undefined")return;const playing=isSpeechCurrentlyPlaying();document.querySelectorAll(".reading-play-toggle").forEach(b=>{b.textContent=playing?"⏸":"▶";b.setAttribute("aria-pressed",playing?"true":"false");b.title=playing?"暂停朗读":"朗读英文文章";});}
 function stopGeminiAudio(){geminiPlaybackToken++;if(geminiAudioEl){try{geminiAudioEl.onplay=null;geminiAudioEl.onpause=null;geminiAudioEl.onended=null;geminiAudioEl.onerror=null;geminiAudioEl.pause();geminiAudioEl.currentTime=0;}catch{}geminiAudioEl=null;}syncReadingPlayButtons();}
-async function fetchGeminiAudioUrl(chunkText,cfg){const cacheKey=`${cfg.ttsVoice||'Kore'}|${cfg.ttsModel||GEMINI_TTS_DEFAULT_MODEL}|${chunkText}`;if(geminiAudioCache.has(cacheKey))return geminiAudioCache.get(cacheKey);const result=await synthesizeGeminiSpeech(chunkText,cfg);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return url;}
-async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{notify('🔊 正在用 Gemini 语音朗读……');let nextPromise=fetchGeminiAudioUrl(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const url=await nextPromise;if(token!==geminiPlaybackToken||!url)return false;if(i+1<chunks.length)nextPromise=fetchGeminiAudioUrl(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;elA.src=url;elA.playbackRate=rate;geminiAudioEl=elA;elA.onplay=()=>syncReadingPlayButtons();elA.onpause=()=>syncReadingPlayButtons();elA.onended=()=>{if(geminiAudioEl===elA)geminiAudioEl=null;syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
+async function fetchGeminiAudioEntry(chunkText,cfg){const cacheKey=makeTtsCacheKey(chunkText,cfg?.ttsVoice);if(geminiAudioCache.has(cacheKey))return {url:geminiAudioCache.get(cacheKey),fromCache:true,modelUsed:'memory'};const persisted=await readPersistentTtsAudio(cacheKey);if(persisted?.blob){const url=URL.createObjectURL(persisted.blob);geminiAudioCache.set(cacheKey,url);return {url,fromCache:true,modelUsed:persisted.modelUsed||'indexeddb'};}const result=await synthesizeGeminiSpeech(chunkText,cfg);recordTtsApiCall(result.modelUsed);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});writePersistentTtsAudio(cacheKey,{blob,mimeType:result.mimeType||'audio/wav',modelUsed:result.modelUsed||''}).catch(()=>{});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return {url,fromCache:false,modelUsed:result.modelUsed||''};}
+async function fetchGeminiAudioUrl(chunkText,cfg){const entry=await fetchGeminiAudioEntry(chunkText,cfg);return entry.url;}
+async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isGeminiTtsReady(cfg)){if(!silentFallback)notify('尚未配置 Google AI Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{const firstKey=makeTtsCacheKey(chunks[0],cfg.ttsVoice);const firstCached=geminiAudioCache.has(firstKey)||await hasPersistentTtsAudio(firstKey);readingAudioStatus=firstCached?'💾 本地永久缓存 · 0消耗':'⏳ 首次合成整篇约需 5–12 秒，完成后永久缓存…';notify(firstCached?'🔊 秒开本机缓存的 Gemini 语音…':'⏳ 正在一次性合成整篇语音（约 5–12 秒），完成后将永久缓存在本机。');if(page==='reading')render();let nextPromise=fetchGeminiAudioEntry(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const entry=await nextPromise;if(token!==geminiPlaybackToken||!entry?.url)return false;const usage=getDailyTtsUsage();readingAudioStatus=entry.fromCache?'💾 本地永久缓存 · 本次 0 消耗':`✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;if(i+1<chunks.length)nextPromise=fetchGeminiAudioEntry(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;elA.ontimeupdate=()=>syncAudioScrubbers();elA.onloadedmetadata=()=>syncAudioScrubbers();elA.src=entry.url;elA.playbackRate=rate;geminiAudioEl=elA;registerMediaSession({title:'阅读文章朗读',artist:'言道修炼殿 16.2 Gemini 语音',album:data.dailyPack?.title||'Reading Chamber',onPlay:()=>resumeSpeech(),onPause:()=>pauseSpeech()});try{if(typeof navigator!=='undefined'&&navigator.mediaSession?.setActionHandler){navigator.mediaSession.setActionHandler('seekbackward',()=>seekAudioElement(elA,-15));navigator.mediaSession.setActionHandler('seekforward',()=>seekAudioElement(elA,15));}}catch{}elA.onplay=()=>{syncReadingPlayButtons();if(page==='reading')render();};elA.onpause=()=>{syncReadingPlayButtons();syncAudioScrubbers();};elA.onended=()=>{if(geminiAudioEl===elA)geminiAudioEl=null;syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;readingAudioStatus='';stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
@@ -2772,7 +3039,7 @@ moreGrid.append(
   renderAiReplyWidget('🤖 AI 拆解长难句',()=>askAiExplainSentence({sentence:window.getSelection?.()?.toString().trim()||selectedText||reading.text.slice(0,260),context:selectedParagraphText||reading.text.slice(0,500)}))
 );
 moreTools.append(moreGrid);
-toolbar.append(primaryDock,moreTools);list.append(article,toolbar);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
+if(geminiAudioEl||readingAudioStatus)toolbar.append(buildAudioScrubberBar('reading',geminiAudioEl,readingAudioStatus));toolbar.append(primaryDock,moreTools);list.append(article,toolbar);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
 function trendSummary(days){const endDay=dateKeyInTimeZone(new Date());const startDay=dateKeyInTimeZone(new Date(Date.now()-(Math.max(1,days)-1)*86400000));const sessions=data.sessions.filter(x=>{const day=dateKeyInTimeZone(x.endedAt);return day&&day>=startDay&&day<=endDay;});const time=summarizeSessionTime(data.sessions,startDay,endDay);return {minutes:Math.round(time.knownMs/60000),unallocatedMs:time.unknownMs,sessions:sessions.length,attempts:sessions.reduce((sum,x)=>sum+Number(x.count||0),0)};}
 /** Non-destructive local audit: IndexedDB recording metadata and StorageManager are read only. */
 function dataSafetyPanel(){

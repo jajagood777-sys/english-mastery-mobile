@@ -1467,3 +1467,80 @@ html[data-theme="night"] .daily-module-list {
 /* v16.1.0 Pocket Radio Single-Screen Fit Polish */
 .pocket-radio-panel { padding: 16px 16px 20px !important; }
 .pocket-radio-panel .radio-now-playing { padding: 14px !important; margin-bottom: 10px !important; }
+
+
+/* ==========================================================================
+   v16.2.0 Podcast Engine & Persistent Cache Audio Scrubber
+   ========================================================================== */
+.audio-scrubber-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin: 8px 0 6px;
+  border-radius: 14px;
+  background: rgba(128, 128, 148, 0.08);
+  border: 1px solid var(--border);
+}
+.audio-scrubber-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tts-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.audio-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audio-scrubber-range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 4px;
+  cursor: pointer;
+}
+.audio-skip-btn {
+  padding: 4px 8px !important;
+  min-height: 28px !important;
+  font-size: 11px !important;
+  font-weight: 700;
+  border-radius: 999px !important;
+  white-space: nowrap;
+}
+.radio-episode-script {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.radio-episode-script summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.radio-script-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding-right: 4px;
+}
+.radio-script-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(128, 128, 148, 0.06);
+}
+.radio-script-item p {
+  margin: 3px 0 0;
+}
