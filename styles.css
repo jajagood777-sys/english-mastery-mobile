@@ -971,8 +971,9 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
   gap: 8px;
 }
 .radio-now-playing h3 { font-size: 18px; font-weight: 740; letter-spacing: -0.02em; margin: 2px 0 0; }
-.radio-transport-row { display: grid; grid-template-columns: 1fr 1.45fr 1fr; gap: 8px; }
-.radio-transport-row .btn { min-height: 52px; border-radius: 16px; font-weight: 700; }
+.radio-transport-row { display: grid; grid-template-columns: 0.72fr 0.95fr 1.35fr 0.95fr 0.72fr; gap: 6px; align-items: stretch; }
+.radio-transport-row .btn { min-height: 50px; border-radius: 14px; font-weight: 700; padding: 8px 6px; font-size: 13px; white-space: nowrap; }
+.radio-seek-btn { font-variant-numeric: tabular-nums; }
 .lexicon-results-list { display: grid; gap: 10px; margin-top: 12px; }
 .lexicon-hit-card { padding: 14px; border-radius: 14px; border: 1px solid var(--theme-border); background: var(--surface-elevated); }
 
@@ -1614,7 +1615,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v18.0.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v18.1.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 

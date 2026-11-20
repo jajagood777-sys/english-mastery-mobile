@@ -1,4 +1,4 @@
-const CACHE='english-cultivation-static-v18.0.1';
+const CACHE='english-cultivation-static-v18.1.0';
 const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './discourse.mjs',
   './immersion.mjs',
