@@ -1544,3 +1544,218 @@ html[data-theme="night"] .daily-module-list {
 .radio-script-item p {
   margin: 3px 0 0;
 }
+
+
+/* ==========================================================================
+   v17.0.0 Flagship Edition: 7-Day Consistency, Reading Comfort & Quota Card
+   ========================================================================== */
+.home-week-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(128, 128, 148, 0.06);
+}
+.home-week-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.week-dot-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.week-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.week-dot.is-active {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+.reading-scroll-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: 3px;
+  width: 100%;
+  background: rgba(128, 128, 148, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.reading-scroll-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.12s linear;
+}
+.reading-article.font-sm .reading-paragraph { font-size: 15px; line-height: 1.72; }
+.reading-article.font-md .reading-paragraph { font-size: 17px; line-height: 1.82; }
+.reading-article.font-lg .reading-paragraph { font-size: 19px; line-height: 1.92; }
+.tts-quota-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  margin: 8px 0 12px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid var(--border);
+}
+
+
+/* ==========================================================================
+   v18.0.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
+   ========================================================================== */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.085em;
+  opacity: 0.72;
+  margin-bottom: 6px;
+}
+
+h1 {
+  letter-spacing: -0.026em;
+  line-height: 1.22;
+}
+
+h2 {
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+}
+
+.lead {
+  font-size: 0.96rem;
+  line-height: 1.58;
+  color: var(--theme-muted);
+  margin-top: 6px;
+  max-width: 54ch;
+}
+
+/* Tactile iOS spring press feedback on interactive surfaces */
+.btn,
+.mode-card,
+.daily-module-row,
+.vocab-option-btn {
+  transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+              background-color 0.16s ease,
+              border-color 0.16s ease,
+              box-shadow 0.16s ease;
+}
+
+.btn:active:not(:disabled),
+.mode-card:active,
+.daily-module-row:active,
+.vocab-option-btn:active:not(:disabled) {
+  transform: scale(0.982);
+}
+
+/* Calm, airy card rhythm */
+.panel,
+.settings-card,
+.voice-settings,
+.daily-overview,
+.daily-journey-card,
+.home-hero {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+/* Readwise Reader / WeRead editorial reading ergonomics */
+.reading-article {
+  max-width: 65ch;
+  margin-inline: auto;
+  padding-inline: 2px;
+}
+
+.reading-article .reading-paragraph {
+  line-height: 1.82;
+  margin-bottom: 1.15em;
+  letter-spacing: 0.004em;
+}
+
+/* Clean iOS inset-grouped <details> disclosures */
+details.secondary-modes-drawer,
+details.progress-accordion,
+details.reading-more-tools,
+details.radio-episode-script {
+  border: 1px solid var(--theme-border);
+  border-radius: var(--radius-md);
+  background: var(--theme-card);
+  padding: 12px 16px;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+details.secondary-modes-drawer > summary,
+details.progress-accordion > summary,
+details.reading-more-tools > summary,
+details.radio-episode-script > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--theme-text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+details.secondary-modes-drawer > summary::-webkit-details-marker,
+details.progress-accordion > summary::-webkit-details-marker,
+details.reading-more-tools > summary::-webkit-details-marker,
+details.radio-episode-script > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.secondary-modes-drawer > summary::after,
+details.progress-accordion > summary::after,
+details.reading-more-tools > summary::after,
+details.radio-episode-script > summary::after {
+  content: "›";
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--theme-muted);
+  transition: transform 0.18s ease;
+}
+
+details[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+/* Crisp mobile nav active pill polish */
+.mobile-nav button.active {
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .site-wrap {
+    padding-inline: 14px;
+  }
+  .panel,
+  .settings-card,
+  .voice-settings,
+  .daily-overview,
+  .daily-journey-card,
+  .home-hero {
+    padding: 18px 16px;
+  }
+}
