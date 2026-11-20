@@ -1,0 +1,32 @@
+name: Kokoro V5.4 Chromium synthesis smoke
+on:
+  push:
+    branches:
+      - work/v5-4-kokoro-isolated-prototype-20261101
+    paths:
+      - kokoro-runtime/dist/kokoro-engine.mjs
+      - scripts/kokoro-browser-smoke.mjs
+      - .github/workflows/kokoro-browser-smoke.yml
+      - kokoro-test.html
+      - kokoro-test.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install browser test client only
+        run: npm install --no-save --no-package-lock playwright-core@1.56.1
+      - name: Serve standalone Kokoro lab
+        run: |
+          python3 -m http.server 4175 --bind 127.0.0.1 >/tmp/kokoro-browser-server.log 2>&1 &
+          sleep 2
+          curl --fail --silent http://127.0.0.1:4175/kokoro-test.html >/dev/null
+      - name: Test real Chromium WASM inference and playable audio
+        run: node scripts/kokoro-browser-smoke.mjs
