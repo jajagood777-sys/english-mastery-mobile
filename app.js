@@ -378,6 +378,19 @@ function resumePocketRadio() {
   else playRadioTrackAt(radioIndex);
 }
 
+function seekPocketRadio(deltaSeconds) {
+  if (!radioAudioEl || !Number.isFinite(radioAudioEl.duration) || radioAudioEl.duration <= 0) {
+    notify("请先点击开始播放音频，再使用 5 秒快进/后退。");
+    return;
+  }
+  seekAudioElement(radioAudioEl, deltaSeconds);
+  if (radioPlayMode === "podcast") {
+    const ep = radioEpisodes[radioEpisodeIndex];
+    if (ep) saveAudioBookmark(ep.id, radioAudioEl.currentTime, radioAudioEl.duration);
+  }
+  notify(deltaSeconds < 0 ? `⏪ 已后退 ${Math.abs(deltaSeconds)} 秒` : `⏩ 已前进 ${deltaSeconds} 秒`);
+}
+
 function seekAudioElement(audioEl, deltaSeconds) {
   if (!audioEl || !Number.isFinite(audioEl.duration) || audioEl.duration <= 0) return;
   const next = Math.max(0, Math.min(audioEl.duration - 0.2, (audioEl.currentTime || 0) + deltaSeconds));
@@ -415,7 +428,8 @@ function buildAudioScrubberBar(kind, audioEl, statusText = '') {
   topRow.append(curSpan, statusSpan, durSpan);
 
   const controlsRow = div('audio-scrubber-row');
-  const backBtn = btn('-15s', () => seekAudioElement(audioEl, -15), 'btn ghost audio-skip-btn');
+  const skipStep = kind === 'radio' ? 5 : 15;
+  const backBtn = btn(`-${skipStep}s`, () => kind === 'radio' ? seekPocketRadio(-5) : seekAudioElement(audioEl, -15), 'btn ghost audio-skip-btn');
   const range = el('input', '', 'audio-scrubber-range');
   range.type = 'range';
   range.min = '0';
@@ -428,7 +442,7 @@ function buildAudioScrubberBar(kind, audioEl, statusText = '') {
       curSpan.textContent = fmtAudioClock(audioEl.currentTime);
     }
   });
-  const fwdBtn = btn('+15s', () => seekAudioElement(audioEl, 15), 'btn ghost audio-skip-btn');
+  const fwdBtn = btn(`+${skipStep}s`, () => kind === 'radio' ? seekPocketRadio(5) : seekAudioElement(audioEl, 15), 'btn ghost audio-skip-btn');
   controlsRow.append(backBtn, range, fwdBtn);
   bar.append(topRow, controlsRow);
   return bar;
@@ -755,7 +769,7 @@ async function playRadioTrackAt(idx) {
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
-    artist: "言道修炼殿 18.0 随身听 (云端真人语音优先)",
+    artist: "言道修炼殿 18.1 随身听 (云端真人语音优先)",
     album: data.dailyPack?.title || "English Cultivation",
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
@@ -899,12 +913,16 @@ function renderPocketRadioDrawer() {
     if (isActivelyPlaying) pausePocketRadio();
     else resumePocketRadio();
   }, "btn primary radio-play-btn");
+  const rewind5Btn = btn("⏪ 5秒", () => seekPocketRadio(-5), "btn secondary radio-seek-btn");
+  rewind5Btn.setAttribute("aria-label", "后退 5 秒");
+  const forward5Btn = btn("5秒 ⏩", () => seekPocketRadio(5), "btn secondary radio-seek-btn");
+  forward5Btn.setAttribute("aria-label", "前进 5 秒");
   const nextBtn = btn("⏭", () => {
     if (isPodcast) playRadioPodcastAt(radioEpisodeIndex + 1);
     else playRadioTrackAt(radioIndex + 1);
   }, "btn secondary radio-icon-btn");
   nextBtn.setAttribute("aria-label", isPodcast ? "下一集" : "下一条");
-  controls.append(prevBtn, playBtn, nextBtn);
+  controls.append(prevBtn, rewind5Btn, playBtn, forward5Btn, nextBtn);
   panel.append(controls);
 
   const quickBar = div("radio-quick-bar");
@@ -1071,7 +1089,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (18.0.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (18.1.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -2393,7 +2411,7 @@ function inputFile(accept,fn){const x=el('input','','input');x.type='file';x.acc
 function showCardDialog(item){document.getElementById('card-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='card-dialog';const card=section('switch-dialog card-dialog');const history=data.attempts.filter(attempt=>attempt.itemId===item.id).slice(-8).reverse();card.append(el('div','卡片详情 · CARD DETAIL','eyebrow'),h('h2',item.kind==='word'?item.target:item.text),p(`${item.status==='UNTESTED'?'未测试':item.status} · ${item.paused?'已暂停复习':'正在复习'} · ${item.attempts||0} 次记录`,'subtle'));if(item.example)card.append(p(item.example,'small-block'));if(item.context)card.append(p(`原文上下文：${item.context}`,'hint'));if(item.meaningZh)card.append(p(`中文释义：${item.meaningZh}`,'hint'));const list=el('ul','','list');if(history.length)history.forEach(row=>{const li=el('li');li.append(el('span',`${row.status||'?'} · ${row.answer||'跳过'} · ${row.initial_check?.status||'未检查'}`,'item-sub'),el('span',new Date(row.at).toLocaleDateString('zh-CN'),'chip'));list.append(li);});else list.append(el('li','还没有真实练习记录。','item-sub'));card.append(h('h3','最近练习'),list,lines(btn('编辑卡片',()=>{backdrop.remove();showEditDialog(item);},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
 function showEditDialog(item){document.getElementById('edit-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='edit-dialog';const card=section('switch-dialog card-dialog');const target=textInput(item.kind==='word'?item.target:item.text,'英文目标内容');const example=textarea(item.kind==='word'?item.example:item.context||item.text,'English example or original sentence');const meaning=textInput(item.meaningZh||'','可选中文释义');const tags=textInput((item.tags||[]).join('、'),'标签，用顿号分隔');card.append(el('div','编辑学习卡片','eyebrow'),p('修改资料不会清除历史 K/V/N、作答或复习日期。','subtle'),field(item.kind==='word'?'目标词或词块':'原句',target),field('英文例句或上下文',example),field('中文释义（可选）',meaning),field('标签（可选）',tags),lines(btn('保存修改',()=>{const nextTarget=target.value.trim(),nextExample=example.value.trim();if(!nextTarget||!nextExample){notify('英文目标和例句不能为空。');return;}if(item.kind==='word'){item.target=nextTarget;item.example=nextExample;}else{item.text=nextTarget;item.context=nextExample;}item.meaningZh=meaning.value.trim();item.tags=tags.value.split(/[、,;|]/).map(x=>x.trim()).filter(Boolean);if(!save())return;backdrop.remove();notify('卡片资料已更新，历史记录保留。');render();},'btn primary'),btn('取消',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
 function chooseImport(raw,filename){importRaw=raw;importFilename=filename;draft=null;try{if(filename.toLowerCase().endsWith('.json')){const parsed=JSON.parse(raw);if(isFullBackup(parsed))throw Error('这是完整数据备份，请从“设置 → 恢复 JSON 备份”导入；学习包入口只接受 daily learning pack。');if(!Array.isArray(parsed.items)&&Array.isArray(parsed.weaknesses)){draft={items:[],readings:[],weaknesses:parsed.weaknesses,transferTasks:Array.isArray(parsed.transfer_tasks)?parsed.transfer_tasks:[],errors:[],sourceType:'weakness'};}else{draft=recordsFromLearningPack(parsed,{source:'中央仙窍英语资料库'});draft.sourcePack=preserveSourcePack(raw,parsed,filename);if(draft.sourcePack.unavailableReason)draft.sourcePackUnavailableReason=draft.sourcePack.unavailableReason;}}else draft=filename.toLowerCase().endsWith('.csv')?recordsFromCSV(raw,{includeExamples:true,source:filename}):sentencesFromText(raw,{source:filename});if(!draft.items.length&&!(draft.readings||[]).length&&!(draft.weaknesses||[]).length&&!draft.storyPractice&&!(draft.speeches||[]).length&&!(draft.vocabularyPractice||[]).length)throw Error('学习包没有可识别的英语材料。');if(!filename.toLowerCase().endsWith('.csv')&&!filename.toLowerCase().endsWith('.json'))draft.reading={id:`reading:${Date.now()}`,title:filename,source:filename,text:raw,createdAt:new Date().toISOString()};notify(`预览已准备：${draft.items.length} 张卡片${draft.storyPractice?'，含纸上故事练习':''}${draft.weaknesses?.length?`，${draft.weaknesses.length} 个弱项`:''}。`);}catch(e){draft={error:e.message};notify(`导入预览失败：${e.message}`);}render();}
-function renderLibrary(){const libraryTitle=h('h1','资料库');libraryTitle.setAttribute('aria-label','导入与管理英语资料');app.append(el('div','资料库 · LIBRARY','eyebrow'),libraryTitle,p('支持每日学习包 ZIP / JSON、CSV 与文本导入。','lead'));
+function renderLibrary(){app.append(el('div','资料库 · LIBRARY','eyebrow'),h('h1','资料库'),p('支持每日学习包 ZIP / JSON、CSV 与文本导入。','lead'));
 const panel=section();panel.append(h('h2','导入学习材料'),p('导入每日学习包后自动分配全部模块。','subtle'));
 panel.append(lines(btn('打开英语阅读室',()=>setPage('reading'),'btn secondary')));panel.append(field('导入每日学习包 ZIP（JSON + speech-manifest.json + MP3）',inputStudyZip()),field('从 iPhone“文件”App 选择资料',inputFile('.json,.csv,.txt,.md,application/json,text/csv,text/plain',chooseImport)));
 const text=textarea('',`Paste English sentences or a short story here…`);text.rows=5;panel.append(field('或粘贴英文材料',text),lines(btn('预览粘贴内容',()=>chooseImport(text.value,'Pasted English text'),'btn secondary')));
