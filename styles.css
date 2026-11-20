@@ -953,7 +953,7 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
   box-shadow: var(--shadow-lg), var(--glass-highlight);
   animation: sheetUp 0.22s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
-.pocket-radio-panel { display: grid; gap: 14px; }
+.pocket-radio-panel { display: grid; gap: 10px; }
 .radio-channel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .radio-channel-grid .btn {
   min-height: 44px;
@@ -1155,25 +1155,46 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
 }
 .radio-transport-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 52px;
-  gap: 10px;
+  grid-template-columns: 42px 56px minmax(0, 1fr) 56px 42px;
+  gap: 7px;
   align-items: center;
-  margin: 12px 0 10px;
+  margin: 8px 0 6px;
 }
 .radio-icon-btn {
-  width: 52px;
-  height: 48px;
+  width: 42px;
+  min-width: 42px;
+  height: 44px;
+  min-height: 44px !important;
   padding: 0 !important;
   border-radius: 999px !important;
-  font-size: 19px;
+  font-size: 18px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.radio-play-btn {
-  height: 48px;
+.radio-seek-btn {
+  width: 56px;
+  min-width: 56px;
+  height: 44px;
+  min-height: 44px !important;
+  padding: 0 4px !important;
   border-radius: 999px !important;
-  font-size: 15px;
+  font-size: 12.5px !important;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+.radio-play-btn {
+  width: 100%;
+  height: 48px;
+  min-height: 48px !important;
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  font-size: 15px !important;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1466,7 +1487,7 @@ html[data-theme="night"] .daily-module-list {
 }
 
 /* v16.1.0 Pocket Radio Single-Screen Fit Polish */
-.pocket-radio-panel { padding: 16px 16px 20px !important; }
+.pocket-radio-panel { padding: 14px 16px 18px !important; }
 .pocket-radio-panel .radio-now-playing { padding: 14px !important; margin-bottom: 10px !important; }
 
 
@@ -1615,7 +1636,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v18.1.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v18.2.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
