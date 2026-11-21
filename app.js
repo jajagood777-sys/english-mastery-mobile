@@ -1134,8 +1134,6 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       radioSessionLog.activeMs += Math.max(0, Date.now() - radioPlayStartAt);
       radioPlayStartAt = 0;
     }
-let aiDictRequestSerial = 0;
-function invalidateAiDictRequest(){ aiDictRequestSerial++; aiDictLoading = false; }
     if (radioPlaying !== myPlayToken) return;
     if (playRes.ok) {
       advanceAfterEpisode();
@@ -1827,6 +1825,65 @@ function renderPocketRadioDrawer() {
   overlay.append(panel);
   overlay.addEventListener("click", e => { if (e.target === overlay) stopPocketRadio(false); });
   return overlay;
+}
+
+let zenFocusMode = false;
+let readingBlurMode = false;
+let retellingRefVisible = {};
+let lexiconDrawerOpen = false;
+let lexiconQuery = "";
+let swWaitingWorker = null;
+
+function toggleZenFocusMode() {
+  zenFocusMode = !zenFocusMode;
+  if (typeof document !== "undefined") document.body.classList.toggle("zen-focus-mode", zenFocusMode);
+  render();
+}
+
+function renderPwaUpdateBanner() {
+  if (!swWaitingWorker) return el("span", "");
+  const banner = section("pwa-update-banner");
+  banner.append(
+    el("span", "✨ 发现言道修炼殿新版本，点击即可无损更新（不删除任何学习记录与录音）", "tiny"),
+    btn("立即无损更新", () => {
+      try { swWaitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
+      setTimeout(() => window.location.reload(), 350);
+    }, "btn primary small-btn")
+  );
+  return banner;
+}
+
+let aiDictReplyText = "";
+let aiDictLoading = false;
+let aiDictRequestSerial = 0;
+function invalidateAiDictRequest(){ aiDictRequestSerial++; aiDictLoading = false; }
+let aiDictAutoRunQuery = "";
+let lastGlobalSelectionText = "";
+let lastGlobalSelectionAt = 0;
+
+if (typeof document !== "undefined") {
+  document.addEventListener("selectionchange", () => {
+    try {
+      const picked = String(window.getSelection?.()?.toString() || "").trim();
+      if (picked && picked.length <= 200) {
+        lastGlobalSelectionText = picked;
+        lastGlobalSelectionAt = Date.now();
+      }
+    } catch {}
+  });
+}
+
+function captureCurrentSelectionText() {
+  try {
+    const live = String(window.getSelection?.()?.toString() || "").trim();
+    if (live && live.length <= 200) {
+      lastGlobalSelectionText = live;
+      lastGlobalSelectionAt = Date.now();
+      return live;
+    }
+  } catch {}
+  if (lastGlobalSelectionText && Date.now() - lastGlobalSelectionAt < 30000) return lastGlobalSelectionText;
+  return "";
 }
 
 function openAiLexiconDrawer(explicitText = "") {
