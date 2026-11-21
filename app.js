@@ -29,8 +29,8 @@ import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmiss
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
-import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
-import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary} from './radio-offline.mjs';
+import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
+import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings} from './handover.mjs';
 import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS} from './vocab.mjs';
@@ -328,6 +328,15 @@ let radioAbLoop = false;
 let radioBlindScript = false;
 let radioSearchQuery = "";
 let radioFilterDownloadedOnly = false;
+let radioSubtitleOffsetSec = 0;
+let radioPauseAfterQ = false;
+let radioHideAnswers = false;
+let radioSentenceLoopIdx = -1;
+let radioActiveSubIdx = -1;
+let radioSubUserScrolledAt = 0;
+let radioPrevTimeForPause = 0;
+const radioPausedQIndices = new Set();
+const radioRevealedAnswerIndices = new Set();
 const radioPreloadedKeys = new Set();
 const SILENT_WAV_DATA_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 let _silentWavBlobUrl = null;
@@ -568,20 +577,28 @@ function clearVersionedRadioBookmark(episodeId, contentHash) {
 }
 
 function refreshRadioTracks(forceShuffle = false) {
-  if (radioChannel === "my_audio") {
-    const myTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
-    radioEpisodes = myTracks.map((t, i) => ({
+  if (radioChannel === "speaking_qa" || radioChannel === "my_audio") {
+    const allMyTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
+    const filtered = radioChannel === "speaking_qa"
+      ? allMyTracks.filter(t => t && (t.channel === "speaking_qa" || t.hasSubtitles || Number(t.segmentCount) > 0))
+      : allMyTracks;
+    radioEpisodes = filtered.map((t, i) => ({
       id: t.id,
       audioSha256: t.audioSha256,
-      title: t.title || t.filename || `我的音频 ${i + 1}`,
-      badge: `🎵 我的音频 · 节目原声`,
+      title: t.title || t.filename || (radioChannel === "speaking_qa" ? `口语问答 ${i + 1}` : `我的音频 ${i + 1}`),
+      badge: radioChannel === "speaking_qa"
+        ? `🎤 口语问答 · 同步字幕${t.segmentCount ? ` (${t.segmentCount}句)` : ""}`
+        : `🎵 我的音频 · 节目原声${t.hasSubtitles ? " · 含字幕" : ""}`,
       text: "",
       isOriginalAudio: true,
+      hasSubtitles: Boolean(t.hasSubtitles || Number(t.segmentCount) > 0),
+      hasQaRoles: Boolean(t.hasQaRoles),
+      segmentCount: Number(t.segmentCount) || 0,
       estimatedMinutes: Math.max(1, Math.round((Number(t.durationSec) || 60) / 60)),
       durationSec: Number(t.durationSec) || 0,
       bytes: Number(t.bytes) || 0,
-      trackCount: 1,
-      tracksIncluded: [{ title: t.title || t.filename, text: "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
+      trackCount: Math.max(1, Number(t.segmentCount) || 1),
+      tracksIncluded: [{ title: t.title || t.filename, text: t.hasSubtitles ? `已配同步字幕（${t.segmentCount || 0} 句 · 节目原声）` : "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
     }));
     radioTracks = radioEpisodes.map(ep => ({
       id: ep.id,
@@ -656,12 +673,60 @@ async function probeAudioDurationSec(blob) {
   });
 }
 
+async function attachSubtitleToTrack(track, subtitleFile) {
+  if (!track || !subtitleFile) return false;
+  try {
+    const rawSub = await subtitleFile.text();
+    const segs = parseSubtitleText(rawSub);
+    if (!segs.length) {
+      notify(`字幕文件未解析出有效时间轴：${subtitleFile.name}`);
+      return false;
+    }
+    await updateRawAudioSegments(track.audioSha256, segs, subtitleFile.name);
+    track.hasSubtitles = true;
+    track.segmentCount = segs.length;
+    track.hasQaRoles = segs.some(x => x.role === "Q" || x.role === "A");
+    track.subtitleName = subtitleFile.name;
+    track.channel = "speaking_qa";
+    save();
+    refreshRadioTracks();
+    notify(`✓ 已为「${track.title}」配好同步字幕（${segs.length} 句），已加入「🎤 口语问答·同步字幕」。`);
+    render();
+    return true;
+  } catch (err) {
+    notify(`字幕读取失败：${err?.message || err}`);
+    return false;
+  }
+}
+
+function triggerSubtitlePickerForTrack(track) {
+  const input = el("input", "");
+  input.type = "file";
+  input.accept = ".srt,.vtt,text/vtt,application/x-subrip,text/plain";
+  input.addEventListener("change", async () => {
+    const f = input.files?.[0];
+    if (f) await attachSubtitleToTrack(track, f);
+  });
+  input.click();
+}
+
 async function importRawAudioFiles(fileList) {
-  const files = Array.from(fileList || []).filter(f => f && /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
-  if (!files.length) return;
-  let importedCount = 0, skippedCount = 0, totalDurationSec = 0, totalBytes = 0;
+  const { pairs, orphanSubtitles } = pairAudioAndSubtitleFiles(fileList);
+  if (!pairs.length) {
+    if (orphanSubtitles.length) {
+      const curEp = radioEpisodes[radioEpisodeIndex];
+      const curTrack = curEp?.audioSha256 ? (data.myAudioTracks || []).find(t => t.audioSha256 === curEp.audioSha256) : null;
+      if (curTrack) {
+        await attachSubtitleToTrack(curTrack, orphanSubtitles[0]);
+        return;
+      }
+      notify("已选字幕文件，请同时选中对应的 MP3 音频，或在「📦 已下载」点「📝 配字幕」。");
+    }
+    return;
+  }
+  let importedCount = 0, skippedCount = 0, subtitledCount = 0, totalDurationSec = 0, totalBytes = 0;
   data.myAudioTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
-  for (const file of files) {
+  for (const { audioFile: file, subtitleFile } of pairs) {
     if (file.size > 50 * 1024 * 1024) {
       notify(`文件过大（超过 50 MB）已跳过：${file.name}`);
       continue;
@@ -672,6 +737,12 @@ async function importRawAudioFiles(fileList) {
         notify(`音频文件为空或损坏，已跳过：${file.name}`);
         continue;
       }
+      let segments = [];
+      if (subtitleFile) {
+        try { segments = parseSubtitleText(await subtitleFile.text()); } catch { segments = []; }
+      }
+      const hasSubtitles = segments.length > 0;
+      const hasQaRoles = segments.some(x => x.role === "Q" || x.role === "A");
       const audioSha256 = await sha256Hex(new Uint8Array(buf));
       const durationSec = await probeAudioDurationSec(new Blob([buf], { type: file.type || "audio/mpeg" }));
       const plan = planRawAudioImport(data.myAudioTracks, {
@@ -680,30 +751,51 @@ async function importRawAudioFiles(fileList) {
         audioSha256,
         bytes: buf.byteLength,
         durationSec,
-        mimeType: file.type || "audio/mpeg"
+        mimeType: file.type || "audio/mpeg",
+        channel: hasSubtitles ? "speaking_qa" : "my_audio",
+        hasSubtitles,
+        segmentCount: segments.length,
+        hasQaRoles,
+        subtitleName: subtitleFile?.name || ""
       });
       if (plan.action === "skip_duplicate") {
-        skippedCount++;
+        if (hasSubtitles && plan.existing) {
+          await updateRawAudioSegments(audioSha256, segments, subtitleFile?.name || "");
+          plan.existing.hasSubtitles = true;
+          plan.existing.segmentCount = segments.length;
+          plan.existing.hasQaRoles = hasQaRoles;
+          plan.existing.subtitleName = subtitleFile?.name || "";
+          plan.existing.channel = "speaking_qa";
+          subtitledCount++;
+        } else {
+          skippedCount++;
+        }
         continue;
       }
-      await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg");
+      await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg", {
+        segments,
+        channel: hasSubtitles ? "speaking_qa" : "my_audio",
+        subtitleName: subtitleFile?.name || ""
+      });
       data.myAudioTracks.push(plan.track);
       importedCount++;
+      if (hasSubtitles) subtitledCount++;
       totalDurationSec += durationSec;
       totalBytes += buf.byteLength;
     } catch (err) {
       notify(`导入失败（${file.name}）：${err?.message || err}`);
     }
   }
-  if (importedCount > 0) {
-    radioChannel = "my_audio";
+  if (importedCount > 0 || subtitledCount > 0) {
+    radioChannel = subtitledCount > 0 ? "speaking_qa" : "my_audio";
     radioPlayMode = "podcast";
-    radioEpisodeIndex = Math.max(0, data.myAudioTracks.length - importedCount);
     save();
     refreshRadioTracks();
+    radioEpisodeIndex = Math.max(0, radioEpisodes.length - Math.max(1, importedCount));
   }
   const summary = formatRadioImportSummary({ importedCount, skippedCount, totalDurationSec, totalBytes, unit: "首" });
-  notify(`${summary}。已保存在本机，建议保留「文件」里的原 MP3 以便换机或清理后恢复。`);
+  const subNote = subtitledCount > 0 ? `（含 ${subtitledCount} 首同步滚动字幕，已放入「🎤 口语问答·同步字幕」）` : "";
+  notify(`${summary}${subNote}。已保存在本机，建议保留「文件」里的原文件以便恢复。`);
   render();
 }
 
@@ -717,7 +809,14 @@ async function importOfflineRadioZipFile(file) {
     notify("⏳ 正在预检并导入离线电台音频包 ZIP…");
     const files = await unpackSpeechZip(file);
     const manifestFile = files.find(item => item.name === "speech-manifest.json" || item.name === "manifest.json");
-    if (!manifestFile) throw Error("ZIP 中缺少 speech-manifest.json 音频清单。");
+    if (!manifestFile) {
+      const zipMedia = files.filter(item => /\.(mp3|m4a|aac|wav|srt|vtt)$/i.test(item.name || ""));
+      if (zipMedia.some(item => /\.(mp3|m4a|aac|wav)$/i.test(item.name || ""))) {
+        await importRawAudioFiles(zipMedia);
+        return;
+      }
+      throw Error("ZIP 中缺少 speech-manifest.json 或可导入的 MP3+SRT/VTT 音频文件。");
+    }
     const audioSummary = await importSpeechClips(files);
     const radioPackFile = files.find(item => item.name === "radio-pack.json");
     let customPackTitle = "";
@@ -764,14 +863,14 @@ function triggerOfflineRadioZipPicker() {
   const input = el("input", "");
   input.type = "file";
   input.multiple = true;
-  input.accept = ".zip,.mp3,.m4a,.aac,.wav,audio/*,application/zip";
+  input.accept = ".zip,.mp3,.m4a,.aac,.wav,.srt,.vtt,audio/*,application/zip,text/vtt,application/x-subrip";
   input.addEventListener("change", async () => {
     const picked = Array.from(input.files || []);
     if (!picked.length) return;
     const zips = picked.filter(f => /\.zip$/i.test(f.name || ""));
-    const rawAudios = picked.filter(f => /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
+    const mediaAndSubs = picked.filter(f => /\.(mp3|m4a|aac|wav|srt|vtt)$/i.test(f.name || ""));
     for (const z of zips) await importOfflineRadioZipFile(z);
-    if (rawAudios.length) await importRawAudioFiles(rawAudios);
+    if (mediaAndSubs.length) await importRawAudioFiles(mediaAndSubs);
   });
   input.click();
 }
@@ -811,6 +910,36 @@ async function maybePreloadNextPodcastEpisode(curEpIdx, cfg, audioEl) {
     radioPreloadedKeys.delete(nextKey);
   } finally {
     radioPreloadInFlight = false;
+  }
+}
+
+function syncRadioSubtitlesDom(curTimeSec = 0, { forceCenter = false } = {}) {
+  if (typeof document === "undefined" || !radioActiveSegments.length) return;
+  const idx = findActiveSegmentIndex(radioActiveSegments, curTimeSec, { offsetSec: radioSubtitleOffsetSec });
+  const listEl = document.querySelector(".radio-subtitle-list");
+  if (!listEl) {
+    radioActiveSubIdx = idx;
+    return;
+  }
+  const changed = idx !== radioActiveSubIdx;
+  radioActiveSubIdx = idx;
+  if (changed || forceCenter) {
+    listEl.querySelectorAll(".radio-sub-line.is-active").forEach(n => n.classList.remove("is-active"));
+    if (idx >= 0) {
+      const activeEl = listEl.querySelector(`.radio-sub-line[data-sub-idx="${idx}"]`);
+      if (activeEl) {
+        activeEl.classList.add("is-active");
+        const userRecentlyScrolled = !forceCenter && (Date.now() - radioSubUserScrolledAt < 3500);
+        if (!userRecentlyScrolled && typeof activeEl.scrollIntoView === "function") {
+          try { activeEl.scrollIntoView({ block: "center", behavior: "smooth" }); } catch {}
+        }
+      }
+    }
+  }
+  const recenterBtn = document.querySelector(".radio-sub-recenter-btn");
+  if (recenterBtn) {
+    const showRecenter = idx >= 0 && (Date.now() - radioSubUserScrolledAt < 12000) && radioSubUserScrolledAt > 0;
+    recenterBtn.hidden = !showRecenter;
   }
 }
 
@@ -902,6 +1031,12 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   radioPlaying = myPlayToken;
   radioPaused = false;
   radioActiveSegments = [];
+  radioActiveSubIdx = -1;
+  radioSentenceLoopIdx = -1;
+  radioSubUserScrolledAt = 0;
+  radioPrevTimeForPause = 0;
+  radioPausedQIndices.clear();
+  radioRevealedAnswerIndices.clear();
   radioAbA = null;
   radioAbB = null;
   radioAbLoop = false;
@@ -914,7 +1049,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   }
 
   const cfg = loadAiConfig();
-  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio");
+  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio" || radioChannel === "speaking_qa");
   const contentHash = isOriginalAudio
     ? String(episode.audioSha256 || episode.id)
     : await speechTextHash(episode.text || "");
@@ -922,9 +1057,11 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   radioActiveEpisodeHash = contentHash;
 
   let offlineRec = null;
+  let originalRec = null;
   let originalBlob = null;
   if (isOriginalAudio) {
-    originalBlob = await getRawAudioBlob(episode.audioSha256);
+    originalRec = await getRawAudioRecord(episode.audioSha256);
+    originalBlob = originalRec?.blob || null;
     if (radioPlaying !== myPlayToken) return;
     if (!originalBlob) {
       radioAudioStatus = "⚠️ 原 MP3 文件未找到 · 请从「文件」重新导入";
@@ -979,7 +1116,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       entry = { url: URL.createObjectURL(originalBlob), fromCache: true, fromOfflinePack: true, isOriginalAudio: true, modelUsed: "original-audio", cacheKey };
       revokeAfterPlay = true;
       radioActiveSourceLabel = RADIO_SOURCE_LABELS.original_audio;
-      radioActiveSegments = [];
+      radioActiveSegments = Array.isArray(originalRec?.segments) ? originalRec.segments : [];
     } else if (offlineRec) {
       entry = { url: URL.createObjectURL(offlineRec.blob), fromCache: true, fromOfflinePack: true, modelUsed: offlineRec.engine || "onnxruntime-q8-cmudict-ipa", cacheKey };
       revokeAfterPlay = true;
@@ -1018,6 +1155,32 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
         radioLastStepTimeSec = curT;
         radioLastStepWallMs = nowWall;
       }
+      if (radioSentenceLoopIdx >= 0 && radioActiveSegments[radioSentenceLoopIdx]) {
+        const loopSeg = radioActiveSegments[radioSentenceLoopIdx];
+        if (curT >= Number(loopSeg.endSec) - 0.05 || curT < Number(loopSeg.startSec) - 0.25) {
+          try { audio.currentTime = Number(loopSeg.startSec); } catch {}
+          radioPrevTimeForPause = Number(loopSeg.startSec);
+          syncRadioSubtitlesDom(Number(loopSeg.startSec));
+          return;
+        }
+      }
+      if (!audio.paused && radioPauseAfterQ && radioActiveSegments.length) {
+        const qCheck = shouldAutoPauseAfterQuestion(radioActiveSegments, radioPrevTimeForPause, curT, {
+          pauseAfterQ: radioPauseAfterQ,
+          offsetSec: radioSubtitleOffsetSec,
+          pausedIndices: radioPausedQIndices
+        });
+        if (qCheck.shouldPause) {
+          radioPausedQIndices.add(qCheck.segmentIndex);
+          pausePocketRadio();
+          radioAudioStatus = "🎤 考官问完啦！先自己答一遍，再点「▶ 继续」听示范";
+          notify("🎤 考官问完啦！先自己张嘴回答，准备好点「▶ 继续」听原声示范。");
+          render();
+          return;
+        }
+      }
+      radioPrevTimeForPause = curT;
+      syncRadioSubtitlesDom(curT);
       if (radioAbLoop && isValidAudioLoop(radioAbA, radioAbB, audio.duration) && curT >= radioAbB - 0.05) {
         try { audio.currentTime = radioAbA; } catch {}
         return;
@@ -1435,6 +1598,7 @@ function renderPocketRadioDrawer() {
             notify(`已插播到待听队列最前：${t.title}`);
             render();
           }, "btn secondary small-btn"),
+          btn(t.hasSubtitles ? "📝 换字幕" : "📝 配字幕", () => triggerSubtitlePickerForTrack(t), "btn secondary small-btn"),
           btn("改名", () => {
             const next = typeof prompt === "function" ? prompt("输入新的音频标题：", t.title) : null;
             if (next && next.trim()) {
@@ -1633,6 +1797,110 @@ function renderPocketRadioDrawer() {
     if (radioPlaying || radioPaused || radioAudioStatus) {
       nowCard.append(buildAudioScrubberBar("radio", radioAudioEl, radioAudioStatus));
     }
+    if (Array.isArray(radioActiveSegments) && radioActiveSegments.length > 0) {
+      const hasQa = radioActiveSegments.some(seg => seg.role === "Q" || seg.role === "A");
+      const subPanel = div("radio-subtitle-panel");
+      const subTools = div("radio-sub-toolbar");
+      subTools.append(
+        btn(radioSentenceLoopIdx >= 0 ? "⏹ 停止复读本句" : "🔁 单句循环", () => {
+          if (radioSentenceLoopIdx >= 0) {
+            radioSentenceLoopIdx = -1;
+            notify("已关闭单句循环。");
+          } else {
+            const cur = radioAudioEl?.currentTime || 0;
+            const idx = Math.max(0, findActiveSegmentIndex(radioActiveSegments, cur, { offsetSec: radioSubtitleOffsetSec }));
+            radioSentenceLoopIdx = idx;
+            notify(`🔁 已开启第 ${idx + 1} 句单句循环跟读。`);
+          }
+          render();
+        }, radioSentenceLoopIdx >= 0 ? "btn primary small-btn" : "btn secondary small-btn")
+      );
+      if (hasQa) {
+        subTools.append(
+          btn(radioPauseAfterQ ? "⏸ 问完停顿:开" : "⏸ 问完停顿:关", () => {
+            radioPauseAfterQ = !radioPauseAfterQ;
+            radioPausedQIndices.clear();
+            notify(radioPauseAfterQ ? "已开启「问完停顿」：考官 Q 播完后自动暂停等你先答。" : "已关闭问完停顿，连续连播。");
+            render();
+          }, radioPauseAfterQ ? "btn primary small-btn" : "btn secondary small-btn"),
+          btn(radioHideAnswers ? "👁️ 显示回答" : "🙈 遮住回答", () => {
+            radioHideAnswers = !radioHideAnswers;
+            radioRevealedAnswerIndices.clear();
+            render();
+          }, radioHideAnswers ? "btn primary small-btn" : "btn secondary small-btn")
+        );
+      }
+      subTools.append(
+        btn("字幕 -0.2s", () => {
+          radioSubtitleOffsetSec = Number(Math.max(-3, radioSubtitleOffsetSec - 0.2).toFixed(1));
+          notify(`字幕偏移已微调为 ${radioSubtitleOffsetSec >= 0 ? "+" : ""}${radioSubtitleOffsetSec}s`);
+          syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+          render();
+        }, "btn ghost small-btn"),
+        btn("字幕 +0.2s", () => {
+          radioSubtitleOffsetSec = Number(Math.min(3, radioSubtitleOffsetSec + 0.2).toFixed(1));
+          notify(`字幕偏移已微调为 ${radioSubtitleOffsetSec >= 0 ? "+" : ""}${radioSubtitleOffsetSec}s`);
+          syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+          render();
+        }, "btn ghost small-btn")
+      );
+      if (Math.abs(radioSubtitleOffsetSec) >= 0.1) {
+        subTools.append(el("span", `偏移 ${radioSubtitleOffsetSec > 0 ? "+" : ""}${radioSubtitleOffsetSec}s`, "chip tiny"));
+      }
+      subPanel.append(subTools);
+
+      const subList = div("radio-subtitle-list");
+      subList.setAttribute("role", "region");
+      subList.setAttribute("aria-label", "同步滚动字幕");
+      const markManualScroll = () => {
+        radioSubUserScrolledAt = Date.now();
+        const rc = subPanel.querySelector(".radio-sub-recenter-btn");
+        if (rc && radioActiveSubIdx >= 0) rc.hidden = false;
+      };
+      subList.addEventListener("touchstart", markManualScroll, { passive: true });
+      subList.addEventListener("wheel", markManualScroll, { passive: true });
+
+      const curNow = radioAudioEl?.currentTime || 0;
+      const curActiveIdx = findActiveSegmentIndex(radioActiveSegments, curNow, { offsetSec: radioSubtitleOffsetSec });
+      radioActiveSubIdx = curActiveIdx;
+      radioActiveSegments.forEach((seg, idx) => {
+        const isMasked = Boolean(radioHideAnswers && seg.role === "A" && !radioRevealedAnswerIndices.has(idx));
+        const lineBtn = el("button", "", `radio-sub-line${idx === curActiveIdx ? " is-active" : ""}${seg.role === "Q" ? " is-role-q" : seg.role === "A" ? " is-role-a" : ""}${isMasked ? " is-masked" : ""}${radioSentenceLoopIdx === idx ? " is-looping" : ""}`);
+        lineBtn.type = "button";
+        lineBtn.dataset.subIdx = String(idx);
+        const metaRow = div("radio-sub-line-meta");
+        if (seg.role === "Q") metaRow.append(el("span", seg.speaker || "Q · 提问", "radio-sub-role-badge is-q"));
+        else if (seg.role === "A") metaRow.append(el("span", seg.speaker || "A · 示范", "radio-sub-role-badge is-a"));
+        else if (seg.speaker) metaRow.append(el("span", seg.speaker, "radio-sub-role-badge"));
+        metaRow.append(el("span", fmtAudioClock(seg.startSec || 0), "radio-sub-time"));
+        lineBtn.append(metaRow, el("span", isMasked ? "点击揭晓本句示范回答…" : String(seg.text || ""), "radio-sub-text"));
+        lineBtn.addEventListener("click", () => {
+          if (isMasked) {
+            radioRevealedAnswerIndices.add(idx);
+            render();
+            return;
+          }
+          if (radioAudioEl && Number.isFinite(Number(seg.startSec))) {
+            radioSubUserScrolledAt = 0;
+            radioPrevTimeForPause = Number(seg.startSec);
+            if (radioSentenceLoopIdx >= 0) radioSentenceLoopIdx = idx;
+            try { radioAudioEl.currentTime = Number(seg.startSec); } catch {}
+            if (radioPaused) resumePocketRadio();
+            syncAudioScrubbers();
+            syncRadioSubtitlesDom(Number(seg.startSec), { forceCenter: true });
+          }
+        });
+        subList.append(lineBtn);
+      });
+      const recenterBtn = btn("🎯 回到当前句", () => {
+        radioSubUserScrolledAt = 0;
+        syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+        recenterBtn.hidden = true;
+      }, "btn primary small-btn radio-sub-recenter-btn");
+      recenterBtn.hidden = true;
+      subPanel.append(subList, recenterBtn);
+      nowCard.append(subPanel);
+    }
     if (!episode.isOriginalAudio) {
       const scriptDetails = el("details", "", "radio-episode-script");
       scriptDetails.append(el("summary", `📖 展开原文与句内搜索（共 ${episode.trackCount} 条）`));
@@ -1677,9 +1945,11 @@ function renderPocketRadioDrawer() {
     );
   } else {
     nowCard.append(p(
-      radioChannel === "my_audio"
-        ? "「我的音频」暂无文件。点上方「➕ 导入音频」，从 iPhone「文件」选 MP3 即可立即离线收听原声。"
-        : "当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。",
+      radioChannel === "speaking_qa"
+        ? "「口语问答·同步字幕」还是空的。点上方「➕ 导入音频」，从 iPhone「文件」同时选中 YouTube 原声 MP3 + 同名 .srt/.vtt 字幕，或导入我为你打好的问答 ZIP，即可边听真人原声边看同步滚动字幕。"
+        : radioChannel === "my_audio"
+          ? "「我的音频」暂无文件。点上方「➕ 导入音频」，从 iPhone「文件」选 MP3 即可立即离线收听原声。"
+          : "当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。",
       "subtle"
     ));
   }
@@ -1811,7 +2081,7 @@ function renderPocketRadioDrawer() {
       render();
     }, "btn ghost small-btn")
   );
-  if (radioChannel === "weak_sniper" || radioChannel === "sentences_listening") {
+  if (radioChannel === "sentences_listening") {
     moreOpts.append(btn(radioScope === "today" ? "范围：今日包" : "范围：全词库", () => {
       radioScope = radioScope === "today" ? "all" : "today";
       radioIndex = 0;
@@ -1911,8 +2181,8 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.2)", "eyebrow"),
-    btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.3)", "eyebrow"),
+    btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
   input.setAttribute("aria-label", "AI 全英文词典输入框");
@@ -2030,7 +2300,7 @@ function renderOfflineLexiconDrawer() {
       listBox.append(card);
     });
   };
-  input.addEventListener("input", () => { invalidateAiDictRequest(); aiDictReplyText = ""; renderAiOut(); updateList(input.value); });
+  input.addEventListener("input", () => updateList(input.value));
   panel.append(head, input, actionRow, aiOut, listBox);
   updateList(lexiconQuery);
   overlay.append(panel);
@@ -2282,7 +2552,7 @@ async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=fals
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){if(activeReadingBookmarkId&&Number.isFinite(geminiAudioEl.currentTime))saveAudioBookmark(activeReadingBookmarkId,geminiAudioEl.currentTime,geminiAudioEl.duration);try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
-function emptyData(){return {version:VERSION,stateRevision:0,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
+function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
     const raw=localStorage.getItem(STORE);

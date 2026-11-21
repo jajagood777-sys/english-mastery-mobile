@@ -19,7 +19,7 @@
 const cleanRad = value => String(value ?? '').replace(/\r/g, '').trim();
 
 export const RADIO_CHANNELS = Object.freeze([
-  { id: 'weak_sniper', label: '🎯 错词与难词狙击', desc: '优先连播今日错选词、N/V 弱词与易混对比句' },
+  { id: 'speaking_qa', label: '🎤 口语问答·同步字幕', desc: '导入 YouTube 真人口语 MP3 + SRT/VTT 字幕或问答 ZIP，支持实时滚动高亮、Q&A 问完停顿与盲答' },
   { id: 'youtube_speeches', label: '🎬 YouTube 励志演讲', desc: '精选 YouTube 经典励志演讲原声字幕分段，用 Gemini 语音流畅连播' },
   { id: 'sentences_listening', label: '🎧 句子与听力精磨', desc: '专攻完整英文句子与听力语段，适合影子跟读' },
   { id: 'notebook_spoken', label: '📓 Notebook 口语与对话', desc: '内置美音连读短语、词根高频口语与地道长对话，随时可找 Gemini 更新曲库' }
