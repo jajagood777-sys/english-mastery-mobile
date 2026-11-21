@@ -502,3 +502,122 @@ export function resolveEpisodeByIdentity(episodes = [], { episodeId = '', conten
   }
   return { status: 'not_found', index: -1, episode: null };
 }
+
+// ==========================================================================
+// v19.5.0 Batch 1: Commute Radio UX Helpers (#1, #6, #12, #15, #16, #17, #27, #92)
+// ==========================================================================
+export function naturalSortTracks(tracks = []) {
+  return [...(Array.isArray(tracks) ? tracks : [])].sort((a, b) => {
+    const ta = String(a?.title || a?.filename || a?.name || '');
+    const tb = String(b?.title || b?.filename || b?.name || '');
+    return ta.localeCompare(tb, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' });
+  });
+}
+
+export function createUnclearMark({
+  channel = '',
+  episodeId = '',
+  contentHash = '',
+  title = '',
+  timeSec = 0,
+  sentenceText = '',
+  segmentStartSec = null,
+  segmentEndSec = null,
+  dateKey = ''
+} = {}) {
+  const safeTime = Math.max(0, Number(timeSec) || 0);
+  const hasSegStart = segmentStartSec !== null && Number.isFinite(Number(segmentStartSec));
+  const hasSegEnd = segmentEndSec !== null && Number.isFinite(Number(segmentEndSec));
+  const resumeAtSec = hasSegStart
+    ? Math.max(0, Number(segmentStartSec) - 0.5)
+    : Math.max(0, safeTime - 3);
+  const endAtSec = hasSegEnd
+    ? Math.max(resumeAtSec + 2, Number(segmentEndSec) + 1.2)
+    : safeTime + 6;
+  const iso = new Date().toISOString();
+  const shanghaiDate = dateKey || iso.slice(0, 10);
+  return {
+    id: `unclear_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    channel: String(channel || ''),
+    episodeId: String(episodeId || ''),
+    contentHash: String(contentHash || ''),
+    title: String(title || '当前节目'),
+    timeSec: Number(safeTime.toFixed(2)),
+    resumeAtSec: Number(resumeAtSec.toFixed(2)),
+    endAtSec: Number(endAtSec.toFixed(2)),
+    sentenceText: String(sentenceText || '').trim().slice(0, 220),
+    dateKey: shanghaiDate,
+    resolved: false,
+    replayedCount: 0,
+    createdAt: iso
+  };
+}
+
+export function buildUnclearReplayQueue(marks = [], { episodeId = null, dateKey = null } = {}) {
+  const list = Array.isArray(marks) ? marks : [];
+  return list
+    .filter(m => m && !m.resolved)
+    .filter(m => !episodeId || m.episodeId === episodeId)
+    .filter(m => !dateKey || m.dateKey === dateKey)
+    .sort((a, b) => {
+      if (a.episodeId === b.episodeId) return (Number(a.resumeAtSec) || 0) - (Number(b.resumeAtSec) || 0);
+      return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+    });
+}
+
+export function computeScrubberUndoTarget(prevSec, nextSec, minDeltaSec = 8) {
+  const a = Number(prevSec);
+  const b = Number(nextSec);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || Math.abs(b - a) < minDeltaSec) {
+    return { canUndo: false, fromSec: 0, toSec: 0 };
+  }
+  return {
+    canUndo: true,
+    fromSec: Math.max(0, Number(a.toFixed(1))),
+    toSec: Math.max(0, Number(b.toFixed(1)))
+  };
+}
+
+export function computeInterruptionResumeAction(segments = [], pausedSec = 0) {
+  const safePaused = Math.max(0, Number(pausedSec) || 0);
+  const segs = Array.isArray(segments) ? segments : [];
+  const activeIdx = findActiveSegmentIndex(segs, safePaused);
+  if (activeIdx >= 0 && segs[activeIdx] && Number.isFinite(Number(segs[activeIdx].startSec))) {
+    return {
+      hasSentenceBoundary: true,
+      primaryLabel: '从刚才那句开头听',
+      primarySec: Math.max(0, Number(segs[activeIdx].startSec)),
+      secondaryLabel: '从暂停处继续',
+      secondarySec: safePaused
+    };
+  }
+  return {
+    hasSentenceBoundary: false,
+    primaryLabel: '退 5 秒继续',
+    primarySec: Math.max(0, Number((safePaused - 5).toFixed(1))),
+    secondaryLabel: '从暂停处继续',
+    secondarySec: safePaused
+  };
+}
+
+export function computeCommuteReadiness(episodes = [], readyFlags = []) {
+  const eps = Array.isArray(episodes) ? episodes : [];
+  const flags = Array.isArray(readyFlags) ? readyFlags : [];
+  const totalCount = eps.length;
+  const missingEpisodes = [];
+  let readyCount = 0;
+  eps.forEach((ep, idx) => {
+    if (flags[idx]) readyCount++;
+    else missingEpisodes.push({ index: idx, number: idx + 1, id: ep?.id || '', title: ep?.title || `第 ${idx + 1} 集` });
+  });
+  let summaryText = '';
+  if (totalCount === 0) {
+    summaryText = '当前频道暂无可离线播放节目';
+  } else if (missingEpisodes.length === 0) {
+    summaryText = `✅ ${readyCount}/${totalCount} 集已就绪，可直接离线通勤`;
+  } else {
+    const firstMissing = missingEpisodes[0];
+    summaryText = `⚠️ ${readyCount}/${totalCount} 集已就绪，第 ${firstMissing.number} 集需要重导${missingEpisodes.length > 1 ? `（共缺 ${missingEpisodes.length} 集）` : ''}`;
+  }
+  return { readyCount, totalCount, missingEpisodes, summaryText };
+}
