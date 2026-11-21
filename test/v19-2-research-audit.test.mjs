@@ -5,6 +5,7 @@ import {
   APP_VERSION,
   compareAnswer,
   persistState,
+  migrateBackupPayload,
   addActiveInterval,
   summarizeSessionTime,
   replayFsrsShadowHistory
@@ -112,4 +113,20 @@ test('v19.2.2 Offline Radio Pack ZIP & Seamless Preload Guard: offline-first af_
   assert.ok(appSrc.includes('offlineRec = await getSpeechClipRecord(episode.text, "af_heart")'), 'playRadioPodcastAt must check offline af_heart audio pack BEFORE cloud AI TTS');
   assert.ok(appSrc.includes('async function maybePreloadNextPodcastEpisode'), 'app.js must support seamless next-episode preloading');
   assert.ok(appSrc.includes('radioAutoPreloadNext'), 'app.js must expose seamless preload toggle');
+});
+
+
+test('v19.2.2 legacy migration keeps stateRevision while retaining offline radio collections', () => {
+  const data = migrateBackupPayload({
+    version: 4.3, stateRevision: 8, items: [], attempts: [], sessions: [],
+    customRadioPacks:[{id:'pack-A'}], myAudioTracks:[{id:'audio-A'}],
+    radioMoments:[{id:'moment-A'}], radioQueue:[{id:'queue-A'}],
+    radioBookmarksV2:{'ep-A':12}
+  });
+  assert.equal(data.stateRevision, 8);
+  assert.equal(data.customRadioPacks[0].id, 'pack-A');
+  assert.equal(data.myAudioTracks[0].id, 'audio-A');
+  assert.equal(data.radioMoments[0].id, 'moment-A');
+  assert.equal(data.radioQueue[0].id, 'queue-A');
+  assert.equal(data.radioBookmarksV2['ep-A'], 12);
 });
