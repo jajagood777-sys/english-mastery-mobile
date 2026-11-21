@@ -59,15 +59,36 @@ export async function getSpeechClipRecord(text,voice='af_heart'){
     };
   }catch{return null;}
 }
-export async function putRawAudioBlob(audioSha256,bytesOrBlob,mimeType='audio/mpeg'){
+export async function putRawAudioBlob(audioSha256,bytesOrBlob,mimeType='audio/mpeg',meta={}){
   if(!audioSha256||typeof indexedDB==='undefined')return false;
   let buf=null;
   if(bytesOrBlob instanceof ArrayBuffer)buf=bytesOrBlob;
   else if(ArrayBuffer.isView(bytesOrBlob))buf=bytesOrBlob.buffer.slice(bytesOrBlob.byteOffset,bytesOrBlob.byteOffset+bytesOrBlob.byteLength);
   else if(bytesOrBlob&&typeof bytesOrBlob.arrayBuffer==='function')buf=await bytesOrBlob.arrayBuffer();
   if(!buf||buf.byteLength<64)throw Error('音频文件过小或已损坏。');
-  await putClip({key:'raw:'+audioSha256,bytes:buf,mimeType:mimeType||'audio/mpeg',blob:null,voice:'original',source:'my_audio',created:Date.now()});
+  const segments=Array.isArray(meta?.segments)?meta.segments:[];
+  await putClip({key:'raw:'+audioSha256,bytes:buf,mimeType:mimeType||'audio/mpeg',blob:null,voice:'original',source:meta?.channel||'my_audio',segments,subtitleName:meta?.subtitleName||'',created:Date.now()});
   return true;
+}
+export async function getRawAudioRecord(audioSha256){
+  if(!audioSha256||typeof indexedDB==='undefined')return null;
+  try{
+    const database=await db();
+    const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get('raw:'+audioSha256);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
+    const blob=local?.bytes&&local.bytes.byteLength>=64?new Blob([local.bytes],{type:local.mimeType||'audio/mpeg'}):(local?.blob?.size>=64?local.blob:null);
+    if(!blob)return null;
+    return {blob,segments:Array.isArray(local.segments)?local.segments:[],mimeType:local.mimeType||'audio/mpeg',subtitleName:local.subtitleName||''};
+  }catch{return null;}
+}
+export async function updateRawAudioSegments(audioSha256,segments=[],subtitleName=''){
+  if(!audioSha256||typeof indexedDB==='undefined')return false;
+  try{
+    const database=await db();
+    const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get('raw:'+audioSha256);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
+    if(!local)return false;
+    await putClip({...local,segments:Array.isArray(segments)?segments:[],subtitleName:String(subtitleName||local.subtitleName||''),updatedAt:Date.now()});
+    return true;
+  }catch{return false;}
 }
 export async function getRawAudioBlob(audioSha256){
   if(!audioSha256||typeof indexedDB==='undefined')return null;

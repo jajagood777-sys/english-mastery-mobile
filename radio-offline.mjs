@@ -1,5 +1,5 @@
 /**
- * v19.2.2 Offline-First Pocket Radio Engine.
+ * v19.2.3 Offline-First Pocket Radio Engine.
  * Pure, testable logic for content-addressed episode matching, versioned bookmarks,
  * real sentence-level rewind, moment bookmarks, commute queue, raw MP3 ("我的音频")
  * deduplication/management, honest listening coverage tracking, and guarded 40s preload.
@@ -13,7 +13,7 @@ export const RADIO_SOURCE_LABELS = Object.freeze({
 });
 
 export function resolveRadioSourceLabel({ channel = '', fromOfflinePack = false, engine = '', isDeviceTts = false } = {}) {
-  if (channel === 'my_audio') return RADIO_SOURCE_LABELS.original_audio;
+  if (channel === 'my_audio' || channel === 'speaking_qa') return RADIO_SOURCE_LABELS.original_audio;
   if (fromOfflinePack || /kokoro|onnxruntime|af_heart/i.test(String(engine || ''))) {
     return RADIO_SOURCE_LABELS.kokoro_offline;
   }
@@ -206,7 +206,7 @@ export function shouldTriggerCloudPreload({
 } = {}) {
   if (!cloudPreloadEnabled) return false;
   if (offlineOnly) return false;
-  if (channel === 'my_audio') return false;
+  if (channel === 'my_audio' || channel === 'speaking_qa') return false;
   if (!isPlaying || isPaused) return false;
   if (singleLoop) return false;
   if (sleepDeadlineMs > 0 && (sleepDeadlineMs - nowMs) <= 45000) return false;
@@ -247,6 +247,11 @@ export function planRawAudioImport(existingTracks = [], incoming = {}) {
     durationSec: Math.max(0, Number(incoming.durationSec) || 0),
     mimeType: String(incoming.mimeType || 'audio/mpeg'),
     sourceType: 'original_audio',
+    channel: incoming.channel || (incoming.hasSubtitles ? 'speaking_qa' : 'my_audio'),
+    hasSubtitles: Boolean(incoming.hasSubtitles || (Number(incoming.segmentCount) || 0) > 0),
+    segmentCount: Math.max(0, Number(incoming.segmentCount) || 0),
+    hasQaRoles: Boolean(incoming.hasQaRoles),
+    subtitleName: String(incoming.subtitleName || '').trim(),
     importedAt: incoming.importedAt || new Date().toISOString()
   };
   return { action: 'add', track };
@@ -291,4 +296,149 @@ export function formatRadioImportSummary({ importedCount = 0, skippedCount = 0, 
   if (totalDurationSec > 0) parts.push(`共 ${formatDurationZh(totalDurationSec)}`);
   if (totalBytes > 0) parts.push(`占用 ${formatBytesHuman(totalBytes)}`);
   return parts.join('，') || '未导入新音频';
+}
+
+
+/**
+ * v19.2.3 Synced Subtitles & Speaking Q&A Engine
+ * Supports standard SRT and WebVTT (.vtt) with speaker/Q&A role detection,
+ * live active-cue tracking, ±offset fine-tuning, and Q-end auto-pause.
+ */
+export function parseSubtitleTimestamp(raw = '') {
+  const clean = String(raw || '').trim().replace(',', '.');
+  if (!clean) return NaN;
+  const parts = clean.split(':').map(Number);
+  if (parts.some(n => !Number.isFinite(n) || n < 0)) return NaN;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return NaN;
+}
+
+export function detectSubtitleSpeakerRole(rawLine = '') {
+  let text = String(rawLine || '').replace(/\r/g, '').trim();
+  let speaker = '';
+  let role = '';
+  const voiceMatch = text.match(/^<v\s+([^>]+)>/i);
+  if (voiceMatch) {
+    speaker = voiceMatch[1].trim();
+    text = text.replace(/^<v\s+[^>]+>/i, '').replace(/<\/v>/gi, '').trim();
+  }
+  text = text.replace(/<\/?[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  if (!speaker) {
+    const prefixMatch = text.match(/^(Q|Question|Examiner|Interviewer|Host|A|Answer|Candidate|Guest|Model|Speaker\s*\d+)\s*[:：-]\s*(.+)$/i);
+    if (prefixMatch) {
+      speaker = prefixMatch[1].trim();
+      text = prefixMatch[2].trim();
+    }
+  }
+  const sp = speaker.toLowerCase();
+  if (/^(q|question|examiner|interviewer|host)$/.test(sp)) {
+    role = 'Q';
+  } else if (/^(a|answer|candidate|guest|model)$/.test(sp)) {
+    role = 'A';
+  } else if (!role && text.endsWith('?') && text.length <= 180) {
+    role = 'Q';
+  }
+  return { role, speaker, text };
+}
+
+export function parseSubtitleText(rawText = '') {
+  const src = String(rawText || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
+  if (!src) return [];
+  const blocks = src.split(/\n{2,}/);
+  const cues = [];
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (/^WEBVTT\b/i.test(lines[0]) || /^NOTE\b/i.test(lines[0]) || /^STYLE\b/i.test(lines[0])) continue;
+    const timeIdx = lines.findIndex(l => l.includes('-->'));
+    if (timeIdx < 0) continue;
+    const timeLine = lines[timeIdx];
+    const [startRaw, endAndSettings] = timeLine.split('-->');
+    const endRaw = String(endAndSettings || '').trim().split(/\s+/)[0];
+    const startSec = parseSubtitleTimestamp(startRaw);
+    const endSec = parseSubtitleTimestamp(endRaw);
+    if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) continue;
+    const body = lines.slice(timeIdx + 1).join(' ').trim();
+    if (!body) continue;
+    const parsed = detectSubtitleSpeakerRole(body);
+    if (!parsed.text) continue;
+    cues.push({
+      index: cues.length,
+      startSec: Number(startSec.toFixed(2)),
+      endSec: Number(endSec.toFixed(2)),
+      text: parsed.text,
+      role: parsed.role,
+      speaker: parsed.speaker
+    });
+  }
+  cues.sort((a, b) => a.startSec - b.startSec);
+  return cues.map((c, idx) => ({ ...c, index: idx }));
+}
+
+export function findActiveSegmentIndex(segments = [], currentTimeSec = 0, { offsetSec = 0 } = {}) {
+  if (!Array.isArray(segments) || !segments.length) return -1;
+  const t = Math.max(0, (Number(currentTimeSec) || 0) + (Number(offsetSec) || 0));
+  let lo = 0, hi = segments.length - 1, ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const s = Number(segments[mid]?.startSec);
+    const e = Number(segments[mid]?.endSec);
+    if (t >= s && t < e) return mid;
+    if (t < s) {
+      hi = mid - 1;
+    } else {
+      ans = mid;
+      lo = mid + 1;
+    }
+  }
+  // Keep previous line highlighted briefly only if inside a tiny gap (< 1.2s)
+  if (ans >= 0 && t - Number(segments[ans].endSec) <= 1.2) return ans;
+  return -1;
+}
+
+export function shouldAutoPauseAfterQuestion(segments = [], prevTimeSec = 0, currentTimeSec = 0, { pauseAfterQ = false, offsetSec = 0, pausedIndices = null } = {}) {
+  if (!pauseAfterQ || !Array.isArray(segments) || !segments.length) {
+    return { shouldPause: false, segmentIndex: -1, segment: null };
+  }
+  const prevT = Math.max(0, (Number(prevTimeSec) || 0) + (Number(offsetSec) || 0));
+  const curT = Math.max(0, (Number(currentTimeSec) || 0) + (Number(offsetSec) || 0));
+  if (curT <= prevT || (curT - prevT) > 4.0) {
+    return { shouldPause: false, segmentIndex: -1, segment: null };
+  }
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg || seg.role !== 'Q') continue;
+    if (pausedIndices && pausedIndices.has(i)) continue;
+    const end = Number(seg.endSec);
+    if (prevT < end && curT >= end - 0.08) {
+      return { shouldPause: true, segmentIndex: i, segment: seg };
+    }
+  }
+  return { shouldPause: false, segmentIndex: -1, segment: null };
+}
+
+export function pairAudioAndSubtitleFiles(fileList = []) {
+  const files = Array.from(fileList || []).filter(Boolean);
+  const audios = files.filter(f => /\.(mp3|m4a|aac|wav)$/i.test(f.name || ''));
+  const subs = files.filter(f => /\.(srt|vtt)$/i.test(f.name || ''));
+  const stem = (name) => String(name || '').replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').trim().toLowerCase();
+  const subByStem = new Map();
+  for (const s of subs) {
+    const k = stem(s.name);
+    if (!subByStem.has(k)) subByStem.set(k, s);
+  }
+  const usedSubs = new Set();
+  const pairs = audios.map(a => {
+    const matched = subByStem.get(stem(a.name)) || null;
+    if (matched) usedSubs.add(matched);
+    return { audioFile: a, subtitleFile: matched };
+  });
+  // Convenience: if user picked exactly 1 audio + 1 subtitle with different names, still pair them
+  if (pairs.length === 1 && !pairs[0].subtitleFile && subs.length === 1) {
+    pairs[0].subtitleFile = subs[0];
+    usedSubs.add(subs[0]);
+  }
+  const orphanSubtitles = subs.filter(s => !usedSubs.has(s));
+  return { pairs, orphanSubtitles };
 }

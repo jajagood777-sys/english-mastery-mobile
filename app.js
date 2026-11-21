@@ -29,8 +29,8 @@ import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmiss
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
-import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
-import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary} from './radio-offline.mjs';
+import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
+import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings} from './handover.mjs';
 import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS} from './vocab.mjs';
@@ -42,7 +42,6 @@ import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWa
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
-import {shanghaiDateStamp, validRecordingBlob, isCurrentAiLookup, runtimeEntryMode} from './release-safety.mjs';
 
 const STORE='central-english-mastery.v2';
 const LEGACY_STORE='english-mastery-v1';
@@ -328,6 +327,15 @@ let radioAbLoop = false;
 let radioBlindScript = false;
 let radioSearchQuery = "";
 let radioFilterDownloadedOnly = false;
+let radioSubtitleOffsetSec = 0;
+let radioPauseAfterQ = false;
+let radioHideAnswers = false;
+let radioSentenceLoopIdx = -1;
+let radioActiveSubIdx = -1;
+let radioSubUserScrolledAt = 0;
+let radioPrevTimeForPause = 0;
+const radioPausedQIndices = new Set();
+const radioRevealedAnswerIndices = new Set();
 const radioPreloadedKeys = new Set();
 const SILENT_WAV_DATA_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 let _silentWavBlobUrl = null;
@@ -568,20 +576,28 @@ function clearVersionedRadioBookmark(episodeId, contentHash) {
 }
 
 function refreshRadioTracks(forceShuffle = false) {
-  if (radioChannel === "my_audio") {
-    const myTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
-    radioEpisodes = myTracks.map((t, i) => ({
+  if (radioChannel === "speaking_qa" || radioChannel === "my_audio") {
+    const allMyTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
+    const filtered = radioChannel === "speaking_qa"
+      ? allMyTracks.filter(t => t && (t.channel === "speaking_qa" || t.hasSubtitles || Number(t.segmentCount) > 0))
+      : allMyTracks;
+    radioEpisodes = filtered.map((t, i) => ({
       id: t.id,
       audioSha256: t.audioSha256,
-      title: t.title || t.filename || `我的音频 ${i + 1}`,
-      badge: `🎵 我的音频 · 节目原声`,
+      title: t.title || t.filename || (radioChannel === "speaking_qa" ? `口语问答 ${i + 1}` : `我的音频 ${i + 1}`),
+      badge: radioChannel === "speaking_qa"
+        ? `🎤 口语问答 · 同步字幕${t.segmentCount ? ` (${t.segmentCount}句)` : ""}`
+        : `🎵 我的音频 · 节目原声${t.hasSubtitles ? " · 含字幕" : ""}`,
       text: "",
       isOriginalAudio: true,
+      hasSubtitles: Boolean(t.hasSubtitles || Number(t.segmentCount) > 0),
+      hasQaRoles: Boolean(t.hasQaRoles),
+      segmentCount: Number(t.segmentCount) || 0,
       estimatedMinutes: Math.max(1, Math.round((Number(t.durationSec) || 60) / 60)),
       durationSec: Number(t.durationSec) || 0,
       bytes: Number(t.bytes) || 0,
-      trackCount: 1,
-      tracksIncluded: [{ title: t.title || t.filename, text: "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
+      trackCount: Math.max(1, Number(t.segmentCount) || 1),
+      tracksIncluded: [{ title: t.title || t.filename, text: t.hasSubtitles ? `已配同步字幕（${t.segmentCount || 0} 句 · 节目原声）` : "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
     }));
     radioTracks = radioEpisodes.map(ep => ({
       id: ep.id,
@@ -656,12 +672,60 @@ async function probeAudioDurationSec(blob) {
   });
 }
 
+async function attachSubtitleToTrack(track, subtitleFile) {
+  if (!track || !subtitleFile) return false;
+  try {
+    const rawSub = await subtitleFile.text();
+    const segs = parseSubtitleText(rawSub);
+    if (!segs.length) {
+      notify(`字幕文件未解析出有效时间轴：${subtitleFile.name}`);
+      return false;
+    }
+    await updateRawAudioSegments(track.audioSha256, segs, subtitleFile.name);
+    track.hasSubtitles = true;
+    track.segmentCount = segs.length;
+    track.hasQaRoles = segs.some(x => x.role === "Q" || x.role === "A");
+    track.subtitleName = subtitleFile.name;
+    track.channel = "speaking_qa";
+    save();
+    refreshRadioTracks();
+    notify(`✓ 已为「${track.title}」配好同步字幕（${segs.length} 句），已加入「🎤 口语问答·同步字幕」。`);
+    render();
+    return true;
+  } catch (err) {
+    notify(`字幕读取失败：${err?.message || err}`);
+    return false;
+  }
+}
+
+function triggerSubtitlePickerForTrack(track) {
+  const input = el("input", "");
+  input.type = "file";
+  input.accept = ".srt,.vtt,text/vtt,application/x-subrip,text/plain";
+  input.addEventListener("change", async () => {
+    const f = input.files?.[0];
+    if (f) await attachSubtitleToTrack(track, f);
+  });
+  input.click();
+}
+
 async function importRawAudioFiles(fileList) {
-  const files = Array.from(fileList || []).filter(f => f && /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
-  if (!files.length) return;
-  let importedCount = 0, skippedCount = 0, totalDurationSec = 0, totalBytes = 0;
+  const { pairs, orphanSubtitles } = pairAudioAndSubtitleFiles(fileList);
+  if (!pairs.length) {
+    if (orphanSubtitles.length) {
+      const curEp = radioEpisodes[radioEpisodeIndex];
+      const curTrack = curEp?.audioSha256 ? (data.myAudioTracks || []).find(t => t.audioSha256 === curEp.audioSha256) : null;
+      if (curTrack) {
+        await attachSubtitleToTrack(curTrack, orphanSubtitles[0]);
+        return;
+      }
+      notify("已选字幕文件，请同时选中对应的 MP3 音频，或在「📦 已下载」点「📝 配字幕」。");
+    }
+    return;
+  }
+  let importedCount = 0, skippedCount = 0, subtitledCount = 0, totalDurationSec = 0, totalBytes = 0;
   data.myAudioTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
-  for (const file of files) {
+  for (const { audioFile: file, subtitleFile } of pairs) {
     if (file.size > 50 * 1024 * 1024) {
       notify(`文件过大（超过 50 MB）已跳过：${file.name}`);
       continue;
@@ -672,6 +736,12 @@ async function importRawAudioFiles(fileList) {
         notify(`音频文件为空或损坏，已跳过：${file.name}`);
         continue;
       }
+      let segments = [];
+      if (subtitleFile) {
+        try { segments = parseSubtitleText(await subtitleFile.text()); } catch { segments = []; }
+      }
+      const hasSubtitles = segments.length > 0;
+      const hasQaRoles = segments.some(x => x.role === "Q" || x.role === "A");
       const audioSha256 = await sha256Hex(new Uint8Array(buf));
       const durationSec = await probeAudioDurationSec(new Blob([buf], { type: file.type || "audio/mpeg" }));
       const plan = planRawAudioImport(data.myAudioTracks, {
@@ -680,30 +750,51 @@ async function importRawAudioFiles(fileList) {
         audioSha256,
         bytes: buf.byteLength,
         durationSec,
-        mimeType: file.type || "audio/mpeg"
+        mimeType: file.type || "audio/mpeg",
+        channel: hasSubtitles ? "speaking_qa" : "my_audio",
+        hasSubtitles,
+        segmentCount: segments.length,
+        hasQaRoles,
+        subtitleName: subtitleFile?.name || ""
       });
       if (plan.action === "skip_duplicate") {
-        skippedCount++;
+        if (hasSubtitles && plan.existing) {
+          await updateRawAudioSegments(audioSha256, segments, subtitleFile?.name || "");
+          plan.existing.hasSubtitles = true;
+          plan.existing.segmentCount = segments.length;
+          plan.existing.hasQaRoles = hasQaRoles;
+          plan.existing.subtitleName = subtitleFile?.name || "";
+          plan.existing.channel = "speaking_qa";
+          subtitledCount++;
+        } else {
+          skippedCount++;
+        }
         continue;
       }
-      await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg");
+      await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg", {
+        segments,
+        channel: hasSubtitles ? "speaking_qa" : "my_audio",
+        subtitleName: subtitleFile?.name || ""
+      });
       data.myAudioTracks.push(plan.track);
       importedCount++;
+      if (hasSubtitles) subtitledCount++;
       totalDurationSec += durationSec;
       totalBytes += buf.byteLength;
     } catch (err) {
       notify(`导入失败（${file.name}）：${err?.message || err}`);
     }
   }
-  if (importedCount > 0) {
-    radioChannel = "my_audio";
+  if (importedCount > 0 || subtitledCount > 0) {
+    radioChannel = subtitledCount > 0 ? "speaking_qa" : "my_audio";
     radioPlayMode = "podcast";
-    radioEpisodeIndex = Math.max(0, data.myAudioTracks.length - importedCount);
     save();
     refreshRadioTracks();
+    radioEpisodeIndex = Math.max(0, radioEpisodes.length - Math.max(1, importedCount));
   }
   const summary = formatRadioImportSummary({ importedCount, skippedCount, totalDurationSec, totalBytes, unit: "首" });
-  notify(`${summary}。已保存在本机，建议保留「文件」里的原 MP3 以便换机或清理后恢复。`);
+  const subNote = subtitledCount > 0 ? `（含 ${subtitledCount} 首同步滚动字幕，已放入「🎤 口语问答·同步字幕」）` : "";
+  notify(`${summary}${subNote}。已保存在本机，建议保留「文件」里的原文件以便恢复。`);
   render();
 }
 
@@ -717,7 +808,14 @@ async function importOfflineRadioZipFile(file) {
     notify("⏳ 正在预检并导入离线电台音频包 ZIP…");
     const files = await unpackSpeechZip(file);
     const manifestFile = files.find(item => item.name === "speech-manifest.json" || item.name === "manifest.json");
-    if (!manifestFile) throw Error("ZIP 中缺少 speech-manifest.json 音频清单。");
+    if (!manifestFile) {
+      const zipMedia = files.filter(item => /\.(mp3|m4a|aac|wav|srt|vtt)$/i.test(item.name || ""));
+      if (zipMedia.some(item => /\.(mp3|m4a|aac|wav)$/i.test(item.name || ""))) {
+        await importRawAudioFiles(zipMedia);
+        return;
+      }
+      throw Error("ZIP 中缺少 speech-manifest.json 或可导入的 MP3+SRT/VTT 音频文件。");
+    }
     const audioSummary = await importSpeechClips(files);
     const radioPackFile = files.find(item => item.name === "radio-pack.json");
     let customPackTitle = "";
@@ -764,14 +862,14 @@ function triggerOfflineRadioZipPicker() {
   const input = el("input", "");
   input.type = "file";
   input.multiple = true;
-  input.accept = ".zip,.mp3,.m4a,.aac,.wav,audio/*,application/zip";
+  input.accept = ".zip,.mp3,.m4a,.aac,.wav,.srt,.vtt,audio/*,application/zip,text/vtt,application/x-subrip";
   input.addEventListener("change", async () => {
     const picked = Array.from(input.files || []);
     if (!picked.length) return;
     const zips = picked.filter(f => /\.zip$/i.test(f.name || ""));
-    const rawAudios = picked.filter(f => /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
+    const mediaAndSubs = picked.filter(f => /\.(mp3|m4a|aac|wav|srt|vtt)$/i.test(f.name || ""));
     for (const z of zips) await importOfflineRadioZipFile(z);
-    if (rawAudios.length) await importRawAudioFiles(rawAudios);
+    if (mediaAndSubs.length) await importRawAudioFiles(mediaAndSubs);
   });
   input.click();
 }
@@ -811,6 +909,36 @@ async function maybePreloadNextPodcastEpisode(curEpIdx, cfg, audioEl) {
     radioPreloadedKeys.delete(nextKey);
   } finally {
     radioPreloadInFlight = false;
+  }
+}
+
+function syncRadioSubtitlesDom(curTimeSec = 0, { forceCenter = false } = {}) {
+  if (typeof document === "undefined" || !radioActiveSegments.length) return;
+  const idx = findActiveSegmentIndex(radioActiveSegments, curTimeSec, { offsetSec: radioSubtitleOffsetSec });
+  const listEl = document.querySelector(".radio-subtitle-list");
+  if (!listEl) {
+    radioActiveSubIdx = idx;
+    return;
+  }
+  const changed = idx !== radioActiveSubIdx;
+  radioActiveSubIdx = idx;
+  if (changed || forceCenter) {
+    listEl.querySelectorAll(".radio-sub-line.is-active").forEach(n => n.classList.remove("is-active"));
+    if (idx >= 0) {
+      const activeEl = listEl.querySelector(`.radio-sub-line[data-sub-idx="${idx}"]`);
+      if (activeEl) {
+        activeEl.classList.add("is-active");
+        const userRecentlyScrolled = !forceCenter && (Date.now() - radioSubUserScrolledAt < 3500);
+        if (!userRecentlyScrolled && typeof activeEl.scrollIntoView === "function") {
+          try { activeEl.scrollIntoView({ block: "center", behavior: "smooth" }); } catch {}
+        }
+      }
+    }
+  }
+  const recenterBtn = document.querySelector(".radio-sub-recenter-btn");
+  if (recenterBtn) {
+    const showRecenter = idx >= 0 && (Date.now() - radioSubUserScrolledAt < 12000) && radioSubUserScrolledAt > 0;
+    recenterBtn.hidden = !showRecenter;
   }
 }
 
@@ -902,6 +1030,12 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   radioPlaying = myPlayToken;
   radioPaused = false;
   radioActiveSegments = [];
+  radioActiveSubIdx = -1;
+  radioSentenceLoopIdx = -1;
+  radioSubUserScrolledAt = 0;
+  radioPrevTimeForPause = 0;
+  radioPausedQIndices.clear();
+  radioRevealedAnswerIndices.clear();
   radioAbA = null;
   radioAbB = null;
   radioAbLoop = false;
@@ -914,7 +1048,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   }
 
   const cfg = loadAiConfig();
-  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio");
+  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio" || radioChannel === "speaking_qa");
   const contentHash = isOriginalAudio
     ? String(episode.audioSha256 || episode.id)
     : await speechTextHash(episode.text || "");
@@ -922,9 +1056,11 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   radioActiveEpisodeHash = contentHash;
 
   let offlineRec = null;
+  let originalRec = null;
   let originalBlob = null;
   if (isOriginalAudio) {
-    originalBlob = await getRawAudioBlob(episode.audioSha256);
+    originalRec = await getRawAudioRecord(episode.audioSha256);
+    originalBlob = originalRec?.blob || null;
     if (radioPlaying !== myPlayToken) return;
     if (!originalBlob) {
       radioAudioStatus = "⚠️ 原 MP3 文件未找到 · 请从「文件」重新导入";
@@ -979,7 +1115,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       entry = { url: URL.createObjectURL(originalBlob), fromCache: true, fromOfflinePack: true, isOriginalAudio: true, modelUsed: "original-audio", cacheKey };
       revokeAfterPlay = true;
       radioActiveSourceLabel = RADIO_SOURCE_LABELS.original_audio;
-      radioActiveSegments = [];
+      radioActiveSegments = Array.isArray(originalRec?.segments) ? originalRec.segments : [];
     } else if (offlineRec) {
       entry = { url: URL.createObjectURL(offlineRec.blob), fromCache: true, fromOfflinePack: true, modelUsed: offlineRec.engine || "onnxruntime-q8-cmudict-ipa", cacheKey };
       revokeAfterPlay = true;
@@ -1018,6 +1154,32 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
         radioLastStepTimeSec = curT;
         radioLastStepWallMs = nowWall;
       }
+      if (radioSentenceLoopIdx >= 0 && radioActiveSegments[radioSentenceLoopIdx]) {
+        const loopSeg = radioActiveSegments[radioSentenceLoopIdx];
+        if (curT >= Number(loopSeg.endSec) - 0.05 || curT < Number(loopSeg.startSec) - 0.25) {
+          try { audio.currentTime = Number(loopSeg.startSec); } catch {}
+          radioPrevTimeForPause = Number(loopSeg.startSec);
+          syncRadioSubtitlesDom(Number(loopSeg.startSec));
+          return;
+        }
+      }
+      if (!audio.paused && radioPauseAfterQ && radioActiveSegments.length) {
+        const qCheck = shouldAutoPauseAfterQuestion(radioActiveSegments, radioPrevTimeForPause, curT, {
+          pauseAfterQ: radioPauseAfterQ,
+          offsetSec: radioSubtitleOffsetSec,
+          pausedIndices: radioPausedQIndices
+        });
+        if (qCheck.shouldPause) {
+          radioPausedQIndices.add(qCheck.segmentIndex);
+          pausePocketRadio();
+          radioAudioStatus = "🎤 考官问完啦！先自己答一遍，再点「▶ 继续」听示范";
+          notify("🎤 考官问完啦！先自己张嘴回答，准备好点「▶ 继续」听原声示范。");
+          render();
+          return;
+        }
+      }
+      radioPrevTimeForPause = curT;
+      syncRadioSubtitlesDom(curT);
       if (radioAbLoop && isValidAudioLoop(radioAbA, radioAbB, audio.duration) && curT >= radioAbB - 0.05) {
         try { audio.currentTime = radioAbA; } catch {}
         return;
@@ -1435,6 +1597,7 @@ function renderPocketRadioDrawer() {
             notify(`已插播到待听队列最前：${t.title}`);
             render();
           }, "btn secondary small-btn"),
+          btn(t.hasSubtitles ? "📝 换字幕" : "📝 配字幕", () => triggerSubtitlePickerForTrack(t), "btn secondary small-btn"),
           btn("改名", () => {
             const next = typeof prompt === "function" ? prompt("输入新的音频标题：", t.title) : null;
             if (next && next.trim()) {
@@ -1633,6 +1796,110 @@ function renderPocketRadioDrawer() {
     if (radioPlaying || radioPaused || radioAudioStatus) {
       nowCard.append(buildAudioScrubberBar("radio", radioAudioEl, radioAudioStatus));
     }
+    if (Array.isArray(radioActiveSegments) && radioActiveSegments.length > 0) {
+      const hasQa = radioActiveSegments.some(seg => seg.role === "Q" || seg.role === "A");
+      const subPanel = div("radio-subtitle-panel");
+      const subTools = div("radio-sub-toolbar");
+      subTools.append(
+        btn(radioSentenceLoopIdx >= 0 ? "⏹ 停止复读本句" : "🔁 单句循环", () => {
+          if (radioSentenceLoopIdx >= 0) {
+            radioSentenceLoopIdx = -1;
+            notify("已关闭单句循环。");
+          } else {
+            const cur = radioAudioEl?.currentTime || 0;
+            const idx = Math.max(0, findActiveSegmentIndex(radioActiveSegments, cur, { offsetSec: radioSubtitleOffsetSec }));
+            radioSentenceLoopIdx = idx;
+            notify(`🔁 已开启第 ${idx + 1} 句单句循环跟读。`);
+          }
+          render();
+        }, radioSentenceLoopIdx >= 0 ? "btn primary small-btn" : "btn secondary small-btn")
+      );
+      if (hasQa) {
+        subTools.append(
+          btn(radioPauseAfterQ ? "⏸ 问完停顿:开" : "⏸ 问完停顿:关", () => {
+            radioPauseAfterQ = !radioPauseAfterQ;
+            radioPausedQIndices.clear();
+            notify(radioPauseAfterQ ? "已开启「问完停顿」：考官 Q 播完后自动暂停等你先答。" : "已关闭问完停顿，连续连播。");
+            render();
+          }, radioPauseAfterQ ? "btn primary small-btn" : "btn secondary small-btn"),
+          btn(radioHideAnswers ? "👁️ 显示回答" : "🙈 遮住回答", () => {
+            radioHideAnswers = !radioHideAnswers;
+            radioRevealedAnswerIndices.clear();
+            render();
+          }, radioHideAnswers ? "btn primary small-btn" : "btn secondary small-btn")
+        );
+      }
+      subTools.append(
+        btn("字幕 -0.2s", () => {
+          radioSubtitleOffsetSec = Number(Math.max(-3, radioSubtitleOffsetSec - 0.2).toFixed(1));
+          notify(`字幕偏移已微调为 ${radioSubtitleOffsetSec >= 0 ? "+" : ""}${radioSubtitleOffsetSec}s`);
+          syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+          render();
+        }, "btn ghost small-btn"),
+        btn("字幕 +0.2s", () => {
+          radioSubtitleOffsetSec = Number(Math.min(3, radioSubtitleOffsetSec + 0.2).toFixed(1));
+          notify(`字幕偏移已微调为 ${radioSubtitleOffsetSec >= 0 ? "+" : ""}${radioSubtitleOffsetSec}s`);
+          syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+          render();
+        }, "btn ghost small-btn")
+      );
+      if (Math.abs(radioSubtitleOffsetSec) >= 0.1) {
+        subTools.append(el("span", `偏移 ${radioSubtitleOffsetSec > 0 ? "+" : ""}${radioSubtitleOffsetSec}s`, "chip tiny"));
+      }
+      subPanel.append(subTools);
+
+      const subList = div("radio-subtitle-list");
+      subList.setAttribute("role", "region");
+      subList.setAttribute("aria-label", "同步滚动字幕");
+      const markManualScroll = () => {
+        radioSubUserScrolledAt = Date.now();
+        const rc = subPanel.querySelector(".radio-sub-recenter-btn");
+        if (rc && radioActiveSubIdx >= 0) rc.hidden = false;
+      };
+      subList.addEventListener("touchstart", markManualScroll, { passive: true });
+      subList.addEventListener("wheel", markManualScroll, { passive: true });
+
+      const curNow = radioAudioEl?.currentTime || 0;
+      const curActiveIdx = findActiveSegmentIndex(radioActiveSegments, curNow, { offsetSec: radioSubtitleOffsetSec });
+      radioActiveSubIdx = curActiveIdx;
+      radioActiveSegments.forEach((seg, idx) => {
+        const isMasked = Boolean(radioHideAnswers && seg.role === "A" && !radioRevealedAnswerIndices.has(idx));
+        const lineBtn = el("button", "", `radio-sub-line${idx === curActiveIdx ? " is-active" : ""}${seg.role === "Q" ? " is-role-q" : seg.role === "A" ? " is-role-a" : ""}${isMasked ? " is-masked" : ""}${radioSentenceLoopIdx === idx ? " is-looping" : ""}`);
+        lineBtn.type = "button";
+        lineBtn.dataset.subIdx = String(idx);
+        const metaRow = div("radio-sub-line-meta");
+        if (seg.role === "Q") metaRow.append(el("span", seg.speaker || "Q · 提问", "radio-sub-role-badge is-q"));
+        else if (seg.role === "A") metaRow.append(el("span", seg.speaker || "A · 示范", "radio-sub-role-badge is-a"));
+        else if (seg.speaker) metaRow.append(el("span", seg.speaker, "radio-sub-role-badge"));
+        metaRow.append(el("span", fmtAudioClock(seg.startSec || 0), "radio-sub-time"));
+        lineBtn.append(metaRow, el("span", isMasked ? "点击揭晓本句示范回答…" : String(seg.text || ""), "radio-sub-text"));
+        lineBtn.addEventListener("click", () => {
+          if (isMasked) {
+            radioRevealedAnswerIndices.add(idx);
+            render();
+            return;
+          }
+          if (radioAudioEl && Number.isFinite(Number(seg.startSec))) {
+            radioSubUserScrolledAt = 0;
+            radioPrevTimeForPause = Number(seg.startSec);
+            if (radioSentenceLoopIdx >= 0) radioSentenceLoopIdx = idx;
+            try { radioAudioEl.currentTime = Number(seg.startSec); } catch {}
+            if (radioPaused) resumePocketRadio();
+            syncAudioScrubbers();
+            syncRadioSubtitlesDom(Number(seg.startSec), { forceCenter: true });
+          }
+        });
+        subList.append(lineBtn);
+      });
+      const recenterBtn = btn("🎯 回到当前句", () => {
+        radioSubUserScrolledAt = 0;
+        syncRadioSubtitlesDom(radioAudioEl?.currentTime || 0, { forceCenter: true });
+        recenterBtn.hidden = true;
+      }, "btn primary small-btn radio-sub-recenter-btn");
+      recenterBtn.hidden = true;
+      subPanel.append(subList, recenterBtn);
+      nowCard.append(subPanel);
+    }
     if (!episode.isOriginalAudio) {
       const scriptDetails = el("details", "", "radio-episode-script");
       scriptDetails.append(el("summary", `📖 展开原文与句内搜索（共 ${episode.trackCount} 条）`));
@@ -1677,9 +1944,11 @@ function renderPocketRadioDrawer() {
     );
   } else {
     nowCard.append(p(
-      radioChannel === "my_audio"
-        ? "「我的音频」暂无文件。点上方「➕ 导入音频」，从 iPhone「文件」选 MP3 即可立即离线收听原声。"
-        : "当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。",
+      radioChannel === "speaking_qa"
+        ? "「口语问答·同步字幕」还是空的。点上方「➕ 导入音频」，从 iPhone「文件」同时选中 YouTube 原声 MP3 + 同名 .srt/.vtt 字幕，或导入我为你打好的问答 ZIP，即可边听真人原声边看同步滚动字幕。"
+        : radioChannel === "my_audio"
+          ? "「我的音频」暂无文件。点上方「➕ 导入音频」，从 iPhone「文件」选 MP3 即可立即离线收听原声。"
+          : "当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。",
       "subtle"
     ));
   }
@@ -1811,7 +2080,7 @@ function renderPocketRadioDrawer() {
       render();
     }, "btn ghost small-btn")
   );
-  if (radioChannel === "weak_sniper" || radioChannel === "sentences_listening") {
+  if (radioChannel === "sentences_listening") {
     moreOpts.append(btn(radioScope === "today" ? "范围：今日包" : "范围：全词库", () => {
       radioScope = radioScope === "today" ? "all" : "today";
       radioIndex = 0;
@@ -1827,69 +2096,10 @@ function renderPocketRadioDrawer() {
   return overlay;
 }
 
-let zenFocusMode = false;
-let readingBlurMode = false;
-let retellingRefVisible = {};
-let lexiconDrawerOpen = false;
-let lexiconQuery = "";
-let swWaitingWorker = null;
-
-function toggleZenFocusMode() {
-  zenFocusMode = !zenFocusMode;
-  if (typeof document !== "undefined") document.body.classList.toggle("zen-focus-mode", zenFocusMode);
-  render();
-}
-
-function renderPwaUpdateBanner() {
-  if (!swWaitingWorker) return el("span", "");
-  const banner = section("pwa-update-banner");
-  banner.append(
-    el("span", "✨ 发现言道修炼殿新版本，点击即可无损更新（不删除任何学习记录与录音）", "tiny"),
-    btn("立即无损更新", () => {
-      try { swWaitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
-      setTimeout(() => window.location.reload(), 350);
-    }, "btn primary small-btn")
-  );
-  return banner;
-}
-
-let aiDictReplyText = "";
-let aiDictLoading = false;
-let aiDictRequestSerial = 0;
-function invalidateAiDictRequest(){ aiDictRequestSerial++; aiDictLoading = false; }
-let aiDictAutoRunQuery = "";
-let lastGlobalSelectionText = "";
-let lastGlobalSelectionAt = 0;
-
-if (typeof document !== "undefined") {
-  document.addEventListener("selectionchange", () => {
-    try {
-      const picked = String(window.getSelection?.()?.toString() || "").trim();
-      if (picked && picked.length <= 200) {
-        lastGlobalSelectionText = picked;
-        lastGlobalSelectionAt = Date.now();
-      }
-    } catch {}
-  });
-}
-
-function captureCurrentSelectionText() {
-  try {
-    const live = String(window.getSelection?.()?.toString() || "").trim();
-    if (live && live.length <= 200) {
-      lastGlobalSelectionText = live;
-      lastGlobalSelectionAt = Date.now();
-      return live;
-    }
-  } catch {}
-  if (lastGlobalSelectionText && Date.now() - lastGlobalSelectionAt < 30000) return lastGlobalSelectionText;
-  return "";
-}
-
 function openAiLexiconDrawer(explicitText = "") {
   const picked = String(explicitText || captureCurrentSelectionText() || selectedText || "").trim();
   if (picked) {
-    if (picked !== lexiconQuery) { invalidateAiDictRequest(); aiDictReplyText = ""; }
+    if (picked !== lexiconQuery) aiDictReplyText = "";
     lexiconQuery = picked;
     aiDictAutoRunQuery = picked;
   }
@@ -1911,8 +2121,8 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.2)", "eyebrow"),
-    btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.3)", "eyebrow"),
+    btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
   input.setAttribute("aria-label", "AI 全英文词典输入框");
@@ -1940,7 +2150,6 @@ function renderOfflineLexiconDrawer() {
   const runAiLookup = async () => {
     const q = input.value.trim();
     lexiconQuery = q;
-    const requestId = ++aiDictRequestSerial;
     if (!q) { notify("请先输入要查的英文单词或问题。"); return; }
     if (!isAiTutorReady()) {
       aiDictReplyText = "尚未配置 Google AI API Key。请点击下方按钮前往「设置 → 随身 AI 导师」粘贴你的 Key。";
@@ -1952,36 +2161,30 @@ function renderOfflineLexiconDrawer() {
     renderAiOut();
     try {
       const mode = window.__yandaoAiDrawerMode || 'auto';
-      let answer;
       if (mode === 'grammar') {
-        answer = await askAiCheckGrammar({ prompt: 'Quick Grammar / Your Turn Check', userAnswer: q });
+        aiDictReplyText = await askAiCheckGrammar({ prompt: 'Quick Grammar / Your Turn Check', userAnswer: q });
       } else if (mode === 'writing') {
-        answer = await askAiCritiqueOutput({ prompt: 'Quick Micro-Writing / Sentence Imitation', userAnswer: q });
+        aiDictReplyText = await askAiCritiqueOutput({ prompt: 'Quick Micro-Writing / Sentence Imitation', userAnswer: q });
       } else if (mode === 'speaking') {
-        answer = await askAiSpeakingDemoCoach({ prompt: 'IELTS Speaking / Kids English Demo Practice', userTranscript: q });
+        aiDictReplyText = await askAiSpeakingDemoCoach({ prompt: 'IELTS Speaking / Kids English Demo Practice', userTranscript: q });
       } else {
         const isSentenceQ = q.split(/\s+/).length >= 5;
-        answer = isSentenceQ
+        aiDictReplyText = isSentenceQ
           ? await askAiFreeTutor({ question: q, pageContext: data.dailyPack?.title || "" })
           : await askAiDictionary({ query: q, context: selectedParagraphText || "" });
       }
-      if (!isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) return;
-      aiDictReplyText = answer;
     } catch (err) {
-      if (!isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) return;
       aiDictReplyText = `AI 查询失败：${String(err?.message || err)}`;
     } finally {
-      if (isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) {
-        aiDictLoading = false;
-        renderAiOut();
-      }
+      aiDictLoading = false;
+      renderAiOut();
     }
   };
 
   const modeBar = lines(
     ...[['auto','🔍 查词/问答'],['grammar','📐 语法批改'],['writing','✍️ 微写作精批'],['speaking','🎤 口语/试讲点评']].map(([m, label]) => {
       const active = (window.__yandaoAiDrawerMode || 'auto') === m;
-      return btn(label, () => { invalidateAiDictRequest(); window.__yandaoAiDrawerMode = m; render(); }, active ? "btn secondary small-btn" : "btn ghost small-btn");
+      return btn(label, () => { window.__yandaoAiDrawerMode = m; render(); }, active ? "btn secondary small-btn" : "btn ghost small-btn");
     })
   );
   const actionRow = lines(
@@ -2030,7 +2233,7 @@ function renderOfflineLexiconDrawer() {
       listBox.append(card);
     });
   };
-  input.addEventListener("input", () => { invalidateAiDictRequest(); aiDictReplyText = ""; renderAiOut(); updateList(input.value); });
+  input.addEventListener("input", () => updateList(input.value));
   panel.append(head, input, actionRow, aiOut, listBox);
   updateList(lexiconQuery);
   overlay.append(panel);
@@ -2282,7 +2485,7 @@ async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=fals
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){if(activeReadingBookmarkId&&Number.isFinite(geminiAudioEl.currentTime))saveAudioBookmark(activeReadingBookmarkId,geminiAudioEl.currentTime,geminiAudioEl.duration);try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
-function emptyData(){return {version:VERSION,stateRevision:0,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
+function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
     const raw=localStorage.getItem(STORE);
@@ -2711,101 +2914,15 @@ function startWeaknessTransfer(weakness){const contextIndex=0;data.activeTransfe
 function activeWeaknessTransfer(){const state=data.activeTransfer;if(!state)return null;const weakness=inferredWeaknesses().find(row=>row.id===state.weaknessId);const context=weakness?.contexts?.[Number(state.contextIndex)||0];return weakness&&context?{state,weakness,context}:null;}
 function transferHintText(context,weakness,level){const hints=context.hints||[];if(level<=0)return '';if(level<=hints.length)return hints[level-1];if(level===hints.length+1&&weakness.targetExpression)return `目标表达：${weakness.targetExpression}`;return '改变人物、时间或目的，用自己的英文重新组织。';}
 let recordingController=null;
-let activeLocalAudioObjectUrl = null;
-function releaseLocalAudioObjectUrl(audio){
-  if(activeLocalAudio!==audio)return;
-  const url=activeLocalAudioObjectUrl;
-  activeLocalAudioObjectUrl=null;
-  activeLocalAudio=null;
-  if(url) URL.revokeObjectURL(url);
-}
-function stopLocalAudio(){
-  const audio=activeLocalAudio;
-  if(!audio)return;
-  try { audio.pause(); } finally {
-    audio.onended=null;audio.onerror=null;
-    releaseLocalAudioObjectUrl(audio);
-  }
-}
-function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;audio.onended=()=>releaseLocalAudioObjectUrl(audio);audio.onerror=()=>{releaseLocalAudioObjectUrl(audio);notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
+function stopLocalAudio(){if(activeLocalAudio){activeLocalAudio.pause();activeLocalAudio.onended=null;activeLocalAudio=null;}}
+function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;audio.onended=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;};audio.onerror=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
 function recordingPanelKey(meta){return JSON.stringify([meta.weaknessId||'',meta.taskId||'',meta.attemptId||'',meta.role||'']);}
 function activeRecordingPanel(meta){const key=recordingPanelKey(meta);return Array.from(app.querySelectorAll('.recording-panel')).find(panel=>panel.dataset.recordingKey===key)||null;}
 function refreshRecordingPanel(meta){const panel=activeRecordingPanel(meta);if(panel)panel.replaceWith(renderRecordingControls(meta));}
 function renderRecordingControls(meta){const panel=section('recording-panel');panel.dataset.recordingKey=recordingPanelKey(meta);panel.append(h('h3',meta.followAlong?'跟读录音 · SHADOWING':'口语录音 · SPEAKING','question-label'),p(meta.followAlong?'先听参考，再录下自己的版本。录音只保存在本机，不提供发音分数。':'录音只在你点击开始后请求麦克风权限；不提供发音分数。文字答案始终可用。','subtle'));const capability=recordingCapability();if(!capability.supported){panel.append(p(`${capability.reason} iPhone 可在设置 → Safari → 麦克风中重新允许；你也可以继续使用文字输入。`,'hint'));return panel;}if(meta.followAlong)panel.append(lines(btn(meta.audioUrl?'听参考音频':'听设备参考朗读',()=>meta.audioUrl?playReferenceAudio(meta.audioUrl,meta.text):speakEnglish(meta.text),'btn secondary'),btn('停止播放',()=>{stopSpeech();stopActiveAudio();stopLocalAudio();},'btn ghost')));const row=lines();const active=recordingController?.meta?.weaknessId===meta.weaknessId&&recordingController?.meta?.attemptId===meta.attemptId&&recordingController?.meta?.role===meta.role;if(active){const status=el('span','录音中 · 00:00','tiny');const timer=setInterval(()=>{if(!status.isConnected||!recordingController||recordingController.meta.attemptId!==meta.attemptId){clearInterval(timer);return;}status.textContent=`录音中 · ${fmtTime(Date.now()-recordingController.startedAt)}`;},250);row.append(btn('停止录音',stopActiveRecording,'btn danger'),status);}else row.append(btn(meta.role==='retry'?'重录当前答案':meta.followAlong?'开始跟读录音':'开始录音',()=>startActiveRecording(meta),'btn secondary'),el('span',`${meta.role==='retry'?'重答录音':'初答录音'} · ${capability.mimeType}`,'tiny'));panel.append(row);const list=div('recording-list');panel.append(list);listRecordings({weaknessId:meta.weaknessId,taskId:meta.taskId}).then(rows=>{rows.filter(item=>item.role===meta.role).forEach(item=>{const line=div('recording-row');const short=item.durationMs>0&&item.durationMs<5000?' · 可能不完整':'';line.append(el('span',`${item.role==='retry'?'重答':'初答'} · ${fmtTime(item.durationMs||0)}${short}`,'tiny'),btn(meta.followAlong?(item.role==='retry'?'听我的重答':'听我的初答'):'播放',()=>playLocalRecording(item.id),'btn ghost'),btn('导出',()=>exportLocalRecording(item.id),'btn ghost'));list.append(line);});}).catch(()=>{list.append(p('录音记录暂时不可读取，文字训练不受影响。','tiny'));});return panel;}
-async function startActiveRecording(meta){
-  const capability=recordingCapability();
-  if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');
-  stopSpeech();stopActiveAudio();stopLocalAudio();
-  let stream=null;
-  try {
-    stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}
-    const recorder=new MediaRecorder(stream,{mimeType:capability.mimeType});
-    const chunks=[];
-    const controller={recorder,stream,chunks,meta:{...meta,mimeType:capability.mimeType},startedAt:Date.now(),renderAfterStop:true,interrupted:false};
-    recordingController=controller;
-    const interrupt=()=>{
-      if(recordingController!==controller||controller.interrupted)return;
-      controller.interrupted=true;
-      if(recorder.state==='recording'){
-        try{recorder.stop();}catch{}
-      }
-    };
-    const handleVisibility=()=>{if(document.hidden)interrupt();};
-    const audioTracks=typeof stream.getAudioTracks==='function'?stream.getAudioTracks():stream.getTracks();
-    audioTracks.forEach(track=>{track.onended=interrupt;});
-    document.addEventListener('visibilitychange',handleVisibility);
-    recorder.onerror=interrupt;
-    recorder.ondataavailable=event=>{if(event.data?.size>0)chunks.push(event.data);};
-    recorder.onstop=async()=>{
-      try {
-        const blob=new Blob(chunks,{type:recorder.mimeType||capability.mimeType});
-        if(!validRecordingBlob(blob,controller.interrupted)){
-          notify('录音中断或文件为空，本次没有保存，请重新录制。');
-          return;
-        }
-        const saved=await putRecording({...meta,mimeType:recorder.mimeType||capability.mimeType,durationMs:Date.now()-controller.startedAt},blob);
-        meta.onSaved?.(saved);
-        notify('录音已保存在本机。');
-      }catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留，请重录。`);}
-      finally {
-        document.removeEventListener('visibilitychange',handleVisibility);
-        audioTracks.forEach(track=>{if(track.onended===interrupt)track.onended=null;});
-        stream.getTracks().forEach(track=>track.stop());
-        if(recordingController===controller)recordingController=null;
-        if(controller.renderAfterStop)refreshRecordingPanel(meta);
-      }
-    };
-    recorder.start();
-    refreshRecordingPanel(meta);
-  }catch(error){
-    if(stream)stream.getTracks().forEach(track=>track.stop());
-    if(recordingController?.stream===stream)recordingController=null;
-    notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝，已切换为文字训练。':'录音不可用，已切换为文字训练。');
-  }
-}
-function stopActiveRecording({renderAfter=true}={}){
-  const controller=recordingController;
-  if(!controller?.recorder||controller.recorder.state!=='recording')return false;
-  controller.renderAfterStop=renderAfter;
-  if(!renderAfter)controller.interrupted=true;
-  controller.recorder.stop();
-  return true;
-}
-async function playLocalRecording(id){
-  try {
-    const row=await getRecording(id);
-    if(!row?.blob?.size)return notify('找不到有效的本地录音，请重新录制。');
-    stopSpeech();stopActiveAudio();stopLocalAudio();
-    const url=URL.createObjectURL(row.blob);
-    const audio=new Audio(url);
-    activeLocalAudio=audio;
-    activeLocalAudioObjectUrl=url;
-    audio.onended=()=>releaseLocalAudioObjectUrl(audio);
-    audio.onerror=()=>{releaseLocalAudioObjectUrl(audio);notify('录音播放失败，请重新录制。');};
-    await audio.play();
-  }catch(error){stopLocalAudio();notify(`无法播放录音：${error.message}`);}
-}
+async function startActiveRecording(meta){const capability=recordingCapability();if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');stopSpeech();stopActiveAudio();stopLocalAudio();try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}const recorder=new MediaRecorder(stream,{mimeType:capability.mimeType});const chunks=[];const controller={recorder,stream,chunks,meta:{...meta,mimeType:capability.mimeType},startedAt:Date.now(),renderAfterStop:true};recordingController=controller;recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};recorder.onstop=async()=>{try{const blob=new Blob(chunks,{type:recorder.mimeType||capability.mimeType});const saved=await putRecording({...meta,mimeType:recorder.mimeType||capability.mimeType,durationMs:Date.now()-controller.startedAt},blob);meta.onSaved?.(saved);notify('录音已保存在本机。');}catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留。`);}finally{stream.getTracks().forEach(track=>track.stop());if(recordingController===controller)recordingController=null;if(controller.renderAfterStop)refreshRecordingPanel(meta);}};recorder.start();refreshRecordingPanel(meta);}catch(error){notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝，已切换为文字训练。':'录音不可用，已切换为文字训练。');}}
+function stopActiveRecording({renderAfter=true}={}){const controller=recordingController;if(!controller?.recorder||controller.recorder.state!=='recording')return false;controller.renderAfterStop=renderAfter;controller.recorder.stop();return true;}
+async function playLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');stopSpeech();stopActiveAudio();stopLocalAudio();const url=URL.createObjectURL(row.blob);const audio=new Audio(url);activeLocalAudio=audio;audio.onended=()=>{URL.revokeObjectURL(url);if(activeLocalAudio===audio)activeLocalAudio=null;};await audio.play();}catch(error){notify(`无法播放录音：${error.message}`);}}
 async function exportLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');const url=URL.createObjectURL(row.blob);const link=el('a','');link.href=url;link.download=`english-cultivation-${row.role}-${row.createdAt.replaceAll(':','-')}.${row.mimeType.includes('mp4')?'m4a':'webm'}`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(error){notify(`无法导出录音：${error.message}`);}}
 function renderTransferPractice(){
   const active=activeWeaknessTransfer();if(!active){setPage('transferHub');return;}
@@ -2861,13 +2978,13 @@ async function copyCentralLearningHandoff(){
 function exportCentralLearningHandoff(){
   const value=latestCentralHandoff();
   if(!value){notify('还没有可导出的学习交接材料。');return;}
-  download('central-english-handoff-'+shanghaiDateStamp()+'.md',value,'text/markdown;charset=utf-8');
+  download('central-english-handoff-'+new Date().toISOString().slice(0,10)+'.md',value,'text/markdown;charset=utf-8');
   notify('已发起下载。请在 iPhone“文件”中确认文件实际保存。');
 }
 function latestCentralFeedback(){return buildCentralLearningFeedback({report:data.reports?.at(-1)||null,generatedAt:new Date().toISOString()});}
 function centralFeedbackJSON(){return JSON.stringify(latestCentralFeedback(),null,2);}
 async function copyCentralFeedback(){const value=centralFeedbackJSON();try{if(!navigator.clipboard?.writeText)throw Error('Clipboard unsupported');await navigator.clipboard.writeText(value);notify('已复制“生成下次学习依据”反馈 JSON；不会自动同步到外部服务。');}catch{showHandoffCopyFallback(value);}}
-function exportCentralFeedback(){const value=centralFeedbackJSON();const stamp=shanghaiDateStamp();download(`central-english-feedback-${stamp}.json`,value,'application/json');notify('已导出结构化反馈 JSON；请在 iPhone“文件”中确认保存。');}
+function exportCentralFeedback(){const value=centralFeedbackJSON();const stamp=new Date().toISOString().slice(0,10);download(`central-english-feedback-${stamp}.json`,value,'application/json');notify('已导出结构化反馈 JSON；请在 iPhone“文件”中确认保存。');}
 function downloadBytes(name,bytes,mime='application/octet-stream'){const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 function sourcePackForHandover(report){
   const stored=data.dailyPack?.sourcePack;
@@ -3476,7 +3593,7 @@ function exportBackup(){
   download('english-mastery-backup-'+time.slice(0,10)+'.json',snapshot,'application/json');
   notify('已发起JSON下载，请在“文件”中确认保存；本备份不含录音，录音须单独导出。');
 }
-function exportHistory(){if(!data.attempts.length){notify('还没有可导出的练习历史。');return;}download(`english-mastery-history-${shanghaiDateStamp()}.csv`,makeCSV(data.attempts,['at','kind','itemId','status','answer','sessionId']),'text/csv;charset=utf-8');}
+function exportHistory(){if(!data.attempts.length){notify('还没有可导出的练习历史。');return;}download(`english-mastery-history-${new Date().toISOString().slice(0,10)}.csv`,makeCSV(data.attempts,['at','kind','itemId','status','answer','sessionId']),'text/csv;charset=utf-8');}
 function importBackup(raw){let restored;try{restored=migrateBackupPayload(JSON.parse(raw));}catch(e){notify(`备份未导入：${e.message}`);return;}if(!confirm(`这份备份包含 ${restored.items.length} 张卡片、${restored.attempts.length} 次作答、${restored.readings.length} 篇文章和 ${restored.reports.length} 份战报。要合并吗？已有卡片、进度和资料会保留。`))return;const merged=mergeItems(data.items,restored.items);data=mergeBackupState(data,restored);if(!save())return;notify(`备份已合并：新增 ${merged.added} 张卡片，重复 ${merged.skipped} 张；文章和历史记录已验证保留。`);render();}
 function readingParagraphs(text){return String(text||'').split(/\n\s*\n|\n/).map(x=>x.trim()).filter(Boolean);}
 function selectionOffsetInParagraph(paragraph,selection){try{if(!selection?.rangeCount)return 0;const range=selection.getRangeAt(0);const before=range.cloneRange();before.selectNodeContents(paragraph);before.setEnd(range.startContainer,range.startOffset);return Math.max(0,before.toString().length);}catch{return 0;}}
@@ -3917,7 +4034,7 @@ function renderReadingVocabulary(){
   exportText.setAttribute('aria-label','可手动复制的阅读生词回传文本');
   const copyVisible=btn('复制筛选结果给中央仙窍',()=>copyWords(currentRows()),'btn primary');
   const copyAll=btn('复制全部生词',()=>copyWords(allWords),'btn secondary');
-  const exportVisible=btn('下载筛选结果 TXT',()=>{const rows=currentRows();if(rows.length)download('reading-vocabulary-'+shanghaiDateStamp()+'.txt',readingVocabularyHandoff(rows,{exportedAt:new Date().toISOString()}),'text/plain;charset=utf-8');},'btn');
+  const exportVisible=btn('下载筛选结果 TXT',()=>{const rows=currentRows();if(rows.length)download('reading-vocabulary-'+new Date().toISOString().slice(0,10)+'.txt',readingVocabularyHandoff(rows,{exportedAt:new Date().toISOString()}),'text/plain;charset=utf-8');},'btn');
   function currentRows(){
     const needle=normalized(readingVocabSearchTerm);
     return allWords.filter(row=>(readingVocabStatusFilter==='all'||row.status===readingVocabStatusFilter)&&(!needle||normalized([row.target,row.sourceTitle,row.originalSentence].join(' ')).includes(needle)));
@@ -4240,12 +4357,7 @@ function voiceSettingsPanel(){
   );
   return box;
 }
-function renderSettings(){
-  const standalone=window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
-  const entry=p(`当前运行入口：${runtimeEntryMode({standalone})}。主屏幕独立 PWA 与 Safari 标签页的本机学习记录、录音和缓存彼此隔离；请在同一入口继续学习，切换前先导出备份。`,'hint');
-  entry.id='runtime-entry-notice';
-  app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),entry,p('语音、主题、学习参数与本机备份。','lead'),aiTutorSettingsPanel(),voiceSettingsPanel(),buildSettingsPanel(),dataSafetyPanel());
-}
+function renderSettings(){app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),p('语音、主题、学习参数与本机备份。','lead'),aiTutorSettingsPanel(),voiceSettingsPanel(),buildSettingsPanel(),dataSafetyPanel());}
 function renderMasteryAnalytics(){const analytics=buildMasteryAnalytics({items:data.items,attempts:data.attempts,sessions:data.sessions,transferAttempts:data.transferAttempts,now:new Date()});const box=section('mastery-evidence-panel');box.append(h('h2','真实掌握证据'),p('这些指标只来自本机真实作答、提示、重答和延迟复测；阅读、看答案和自评不会自动变成掌握。','subtle'));const grid=div('grid-3');const labels=[['UNTESTED','尚未测试'],['exposed','已接触并留下记录'],['independentCorrect','首次无提示答对'],['promptedCorrect','使用提示后答对'],['correctedAfterError','错误后完成修正'],['delayedReviewSuccess','延迟复测成功']];for(const [key,label] of labels)grid.append(statistic(label,analytics.evidence[key]||0));box.append(grid);const windows=section('panel soft');windows.append(h('h3','实际学习窗口'),p(`近 7 天：${analytics.windows.days7.activeSeconds} 秒 · ${analytics.windows.days7.tasks} 项任务 · ${analytics.windows.days7.rated} 项评级作答`,'tiny'),p(`近 30 天：${analytics.windows.days30.activeSeconds} 秒 · ${analytics.windows.days30.tasks} 项任务 · ${analytics.windows.days30.rated} 项评级作答`,'tiny'));if(analytics.errors.length)windows.append(h('h3','最常见的已记录问题'),p(analytics.errors.slice(0,5).map(row=>`${row.type} · ${row.count} 次`).join(' ｜ '),'tiny'));if(analytics.unmeasured.length)windows.append(p(`尚未获得可解释评级的卡片：${analytics.unmeasured.length} 张。`,'hint'));
   const shadow=replayFsrsShadowHistory(data.attempts||[],new Date());
   const shadowBox=section('panel soft fsrs-shadow-panel');
@@ -4343,7 +4455,6 @@ if(migrationNotice){notify(migrationNotice);migrationNotice='';}
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", e => {
-    if (e.isComposing || e.keyCode === 229) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (page === "vocabulary" && journeyStage() === "vocabulary") {
