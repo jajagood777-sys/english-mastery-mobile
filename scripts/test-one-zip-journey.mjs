@@ -57,7 +57,7 @@ try {
   assert.equal(resumed.dailyJourney.id,journeyId,'Reload must preserve the same in-progress Journey');
   assert.equal(resumed.items.find(item=>item.id==='w:legacy-ci')?.status,'K','Reload must preserve original mastery status');
   await page.locator('nav button[data-page="home"]').click();
-  await page.getByRole('button',{name:'开始／继续今日完整学习',exact:true}).click();
+  await page.getByRole('button',{name:/^(开始／继续今日完整学习|继续今日综合学习)$/}).click();
   const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
   assert.equal(after.dailyJourney.id,journeyId,'Continue must resume rather than creating a duplicate Journey');
   assert.deepEqual(errors,[],'App should not emit unhandled browser errors');

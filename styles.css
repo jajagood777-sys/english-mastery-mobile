@@ -1636,7 +1636,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v19.4.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v19.5.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -1782,7 +1782,7 @@ details[open] > summary::after {
   }
 }
 
-/* v19.4.0 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
+/* v19.5.1 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
 .v19-continuity-card, .v19-more-tools, .v19-weekly-card { margin-top: 14px; }
 .v19-disclosure { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
 .v19-disclosure summary { cursor: pointer; padding: 6px 0; user-select: none; }
@@ -1791,7 +1791,7 @@ details[open] > summary::after {
 .v19-one-hand .btn, .v19-one-hand .radio-play-btn, .v19-one-hand .radio-seek-btn { min-height: 52px; min-width: 52px; }
 
 /* ==========================================================================
-   v19.4.0 Contemporary Oriental Study (当代东方书房) Design System
+   v19.5.1 Contemporary Oriental Study (当代东方书房) Design System
    Warm natural-light paper · Near-ink typography · Deep Jade primary action
    Hairline hierarchy · Zero glass clutter · Restrained seal brand detail
    ========================================================================== */
@@ -2030,13 +2030,13 @@ html[data-theme="night"] .site-header {
   .radio-seek-btn { width: 48px; min-width: 48px; font-size: 11.5px !important; }
 }
 
-/* v19.4.0 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
+/* v19.5.1 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
 html.v19-keyboard-open .mobile-nav { display: none !important; }
 html.v19-keyboard-open .reading-toolbar { position: static; margin-top: 12px; }
 html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 
 /* ==========================================================================
-   v19.4.0 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
+   v19.5.1 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
    ========================================================================== */
 .radio-subtitle-panel {
   margin-top: 12px;
@@ -2138,7 +2138,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
-/* v19.4.0 Commute One-Hand 44x44 CSS px touch target guarantee */
+/* v19.5.1 Commute One-Hand 44x44 CSS px touch target guarantee */
 .radio-transport-row .radio-icon-btn,
 .radio-transport-row .radio-seek-btn,
 .radio-transport-row .radio-play-btn {
@@ -2147,7 +2147,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.4.0 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
+   v19.5.1 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
    ========================================================================== */
 .lexicon-drawer-panel,
 .switch-dialog {
@@ -2279,7 +2279,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.4.0 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
+   v19.5.1 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
    ========================================================================== */
 .radio-view-tabs {
   display: grid;
@@ -2441,7 +2441,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.4.0 Cross-Episode Question Bank & Random Mock Examiner Bar
+   v19.5.1 Cross-Episode Question Bank & Random Mock Examiner Bar
    ========================================================================== */
 .radio-q-toolbar {
   display: flex;
@@ -2469,4 +2469,113 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   flex-direction: column;
   gap: 4px;
   margin: 6px 0;
+}
+
+/* ==========================================================================
+   v19.5.1 Batch 1: Unclear Mark Undo Toast, Interruption Resume & Mirror Mode
+   ========================================================================== */
+.radio-unclear-banner,
+.radio-interrupt-banner,
+.radio-scrubber-undo-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-border, rgba(22, 101, 52, 0.28));
+  background: var(--accent-soft, rgba(22, 101, 52, 0.08));
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+.radio-interrupt-banner {
+  border-color: rgba(217, 119, 6, 0.35);
+  background: rgba(217, 119, 6, 0.1);
+}
+.radio-next-up-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--theme-muted);
+  padding: 2px 4px 0;
+  overflow-wrap: anywhere;
+}
+.pocket-radio-panel.is-left-hand .radio-transport-row {
+  direction: rtl;
+}
+.pocket-radio-panel.is-left-hand .radio-transport-row > * {
+  direction: ltr;
+}
+
+/* ==========================================================================
+   v19.5.1 Batch 2: Home Env/Deferred Card, Minimal Diff, Reading Flash & Compare
+   ========================================================================== */
+.home-env-bar,
+.home-deferred-card,
+.return-task-ribbon,
+.continuation-cue-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--theme-border);
+  background: var(--surface-elevated);
+  margin: 8px 0;
+  font-size: 13px;
+}
+.home-deferred-card,
+.continuation-cue-card {
+  border-color: var(--accent-border, rgba(22, 101, 52, 0.3));
+  background: var(--accent-soft, rgba(22, 101, 52, 0.08));
+}
+.diff-card {
+  border: 1px solid var(--theme-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface-elevated);
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+.diff-line {
+  font-size: 14.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.diff-tok-del {
+  background: rgba(220, 38, 38, 0.16);
+  color: #b91c1c;
+  padding: 1px 4px;
+  border-radius: 5px;
+  text-decoration: underline wavy rgba(220, 38, 38, 0.55);
+}
+.diff-tok-add {
+  background: rgba(22, 101, 52, 0.18);
+  color: #166534;
+  padding: 1px 4px;
+  border-radius: 5px;
+  font-weight: 650;
+}
+[data-theme="night"] .diff-tok-del { color: #fca5a5; }
+[data-theme="night"] .diff-tok-add { color: #6ee7b7; }
+.is-reading-return-flash {
+  animation: ydReturnFlash 1.8s ease;
+}
+@keyframes ydReturnFlash {
+  0% { background: rgba(22, 101, 52, 0.24); border-radius: 8px; }
+  100% { background: transparent; }
+}
+.reading-back-to-q-btn {
+  position: sticky;
+  bottom: 72px;
+  z-index: 25;
+  margin: 8px auto;
+  display: inline-flex;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }

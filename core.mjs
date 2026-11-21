@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.4.0';
+export const APP_VERSION = '19.5.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -615,6 +615,8 @@ export function mergeBackupState(current={}, restored={}) {
         customRadioPacks:uniqueBy([...(current.customRadioPacks||[]),...(restored.customRadioPacks||[])],'id'),
         myAudioTracks:uniqueBy([...(current.myAudioTracks||[]),...(restored.myAudioTracks||[])],'id'),
         radioMoments:uniqueBy([...(current.radioMoments||[]),...(restored.radioMoments||[])],'id'),
+        radioUnclearMarks:uniqueBy([...(current.radioUnclearMarks||[]),...(restored.radioUnclearMarks||[])],'id'),
+        deferredSpeaking:uniqueBy([...(current.deferredSpeaking||[]),...(restored.deferredSpeaking||[])],'id'),
         radioQueue:uniqueBy([...(current.radioQueue||[]),...(restored.radioQueue||[])],'id'),
         radioBookmarksV2:{...(restored.radioBookmarksV2||{}),...(current.radioBookmarksV2||{})},
         v19:{disputes:uniqueBy([...(current.v19?.disputes||[]),...(restored.v19?.disputes||[])],'dispute_id'),confidenceLogs:uniqueBy([...(current.v19?.confidenceLogs||[]),...(restored.v19?.confidenceLogs||[])],'attemptId'),lifeTasks:uniqueBy([...(current.v19?.lifeTasks||[]),...(restored.v19?.lifeTasks||[])],'taskId'),exactResume:current.v19?.exactResume||restored.v19?.exactResume||null,stopCheckpoint:current.v19?.stopCheckpoint||restored.v19?.stopCheckpoint||null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(restored.v19?.prefs||{}),...(current.v19?.prefs||{})},speechRecallMode:current.v19?.speechRecallMode||restored.v19?.speechRecallMode||'full_text'},
@@ -1187,6 +1189,8 @@ export function validateBackup(value){
         customRadioPacks:Array.isArray(value.customRadioPacks)?value.customRadioPacks:[],
         myAudioTracks:Array.isArray(value.myAudioTracks)?value.myAudioTracks:[],
         radioMoments:Array.isArray(value.radioMoments)?value.radioMoments:[],
+        radioUnclearMarks:Array.isArray(value.radioUnclearMarks)?value.radioUnclearMarks:[],
+        deferredSpeaking:Array.isArray(value.deferredSpeaking)?value.deferredSpeaking:[],
         radioQueue:Array.isArray(value.radioQueue)?value.radioQueue:[],
         radioBookmarksV2:value.radioBookmarksV2&&typeof value.radioBookmarksV2==='object'&&!Array.isArray(value.radioBookmarksV2)?value.radioBookmarksV2:{},
         stateRevision:Number.isFinite(Number(value.stateRevision))?Number(value.stateRevision):0,
