@@ -71,7 +71,22 @@ try{
  },{first:tasks[0]});
  await page.reload({waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'开始／继续今日完整学习'}).click();
- await page.getByText('你的首次拼写：scramble').waitFor();
+ try { await page.getByText('你的首次拼写：scramble').waitFor({timeout:5000}); }
+ catch(error){
+  const diagnosis=await page.evaluate(()=>{
+   const key='central-english-mastery.v2',raw=localStorage.getItem(key),saved=raw?JSON.parse(raw):{};
+   return {
+    headings:[...document.querySelectorAll('h1,h2')].map(e=>e.textContent).slice(0,12),
+    appText:document.querySelector('#app')?.innerText?.slice(0,1000),
+    revision:saved.stateRevision,
+    dailyJourney:saved.dailyJourney?{id:saved.dailyJourney.id,index:saved.dailyJourney.index,spellingIndex:saved.dailyJourney.spellingIndex,spellingAttempts:saved.dailyJourney.spellingAttempts?.map(x=>({id:x.id,firstAnswer:x.firstAnswer,firstSubmittedAt:x.firstSubmittedAt})),completed:saved.dailyJourney.completed,finishedAt:saved.dailyJourney.finishedAt}:null,
+    packTasks:saved.dailyPack?.spellingTasks?.map(x=>x.id),
+    errors:window.__yandaoRuntimeErrors||[]
+   };
+  });
+  console.error('V1922_LEGACY_RECOVERY_DIAG',JSON.stringify({diagnosis,errors}));
+  throw error;
+ }
  assert.equal(await page.locator('.answer-input').count(),0);
  await page.getByRole('button',{name:'进入下一题（首次作答已保存）'}).click();
  const recovered=await page.evaluate(()=>JSON.parse(localStorage.getItem('central-english-mastery.v2')));
