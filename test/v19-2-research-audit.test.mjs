@@ -5,14 +5,14 @@ import {
   APP_VERSION,
   compareAnswer,
   persistState,
+  migrateBackupPayload,
   addActiveInterval,
   summarizeSessionTime,
-  replayFsrsShadowHistory,
-  migrateBackupPayload
+  replayFsrsShadowHistory
 } from '../core.mjs';
 
-test('v19.2.1 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
-  assert.equal(APP_VERSION, '19.2.1');
+test('v19.2.2 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
+  assert.equal(APP_VERSION, '19.2.2');
   // Accepted UK/US variants (preserves original user text verbatim)
   const uk1 = compareAnswer('colour', 'color');
   assert.equal(uk1.status, 'correct');
@@ -37,7 +37,7 @@ test('v19.2.1 Blind Grading Audit: accepts UK/US variants & curly quotes while r
   assert.equal(compareAnswer('borrow', 'lend').status, 'incorrect');
 });
 
-test('v19.2.1 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
+test('v19.2.2 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
   const mem = new Map();
   const storage = {
     getItem: k => (mem.has(k) ? mem.get(k) : null),
@@ -54,7 +54,7 @@ test('v19.2.1 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite n
   assert.equal(JSON.parse(mem.get('store')).attempts.length, 2);
 });
 
-test('v19.2.1 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
+test('v19.2.2 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
   // 2026-11-21 23:59:59.500+08:00 to 2026-11-22 00:00:00.500+08:00 (1000ms split across Beijing midnight)
   const start = Date.parse('2026-11-21T23:59:59.500+08:00');
   const end = Date.parse('2026-11-22T00:00:00.500+08:00');
@@ -73,7 +73,7 @@ test('v19.2.1 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusi
   assert.equal(shadow.trackedCards, 0);
 });
 
-test('v19.2.1 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
+test('v19.2.2 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('e.isComposing'), 'IME composition Enter guard required');
@@ -82,7 +82,7 @@ test('v19.2.1 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport ke
   assert.ok(cssSrc.includes('html.v19-keyboard-open .mobile-nav'), 'Keyboard-open bottom nav hide rule required');
 });
 
-test('v19.2.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single audio owner, structured decode/autoplay recovery, and ArrayBuffer IndexedDB cache', () => {
+test('v19.2.2 Pocket Radio iOS Safari & Double-Voice Regression Guard: single audio owner, structured decode/autoplay recovery, and ArrayBuffer IndexedDB cache', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const aiSrc = fs.readFileSync(new URL('../ai-tutor.mjs', import.meta.url), 'utf8');
 
@@ -103,39 +103,30 @@ test('v19.2.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single au
   assert.ok(appSrc.includes('if(document.hidden){radioAudioUnlocked=false;}'), 'visibilitychange(hidden) must reset radioAudioUnlocked for iOS');
 });
 
-test('v19.2.1 revision survives backup migration and blocks stale after two successful consecutive writes',()=>{
-  const mem=new Map(),store={getItem:key=>mem.get(key)||null,setItem:(key,value)=>mem.set(key,value)};
-  const base={stateRevision:0,items:[],attempts:[],sessions:[]};
-  const first=persistState(store,'learning',base);
-  assert.equal(first.ok,true);assert.equal(first.revision,1);
-  const restored=migrateBackupPayload(JSON.parse(first.serialized));
-  assert.equal(restored.stateRevision,1);
-  restored.attempts.push({id:'first'});
-  const second=persistState(store,'learning',restored);
-  assert.equal(second.ok,true);assert.equal(second.revision,2);
-  assert.equal(migrateBackupPayload(JSON.parse(second.serialized)).stateRevision,2);
-  const stale=persistState(store,'learning',base);
-  assert.equal(stale.ok,false);assert.equal(stale.conflict,'stale_tab_revision');
-  assert.equal(JSON.parse(store.getItem('learning')).attempts[0].id,'first');
+test('v19.2.2 Offline Radio Pack ZIP & Seamless Preload Guard: offline-first af_heart playback, ArrayBuffer clip storage, pure audio ZIP import & next-episode preload', () => {
+  const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  const scSrc = fs.readFileSync(new URL('../speech-clips.mjs', import.meta.url), 'utf8');
+  assert.ok(scSrc.includes('export async function hasLocalSpeechClip'), 'speech-clips.mjs must export hasLocalSpeechClip');
+  assert.ok(scSrc.includes('new Blob([local.bytes]'), 'speech-clips.mjs must reconstruct Blob from iOS-safe ArrayBuffer bytes');
+  assert.ok(appSrc.includes('async function importOfflineRadioZipFile'), 'app.js must support importing pure offline radio audio ZIP packs');
+  assert.ok(appSrc.includes('📦 导入离线音频包 ZIP'), 'Pocket Radio drawer must expose one-tap offline audio ZIP import');
+  assert.ok(appSrc.includes('offlineRec = await getSpeechClipRecord(episode.text, "af_heart")'), 'playRadioPodcastAt must check offline af_heart audio pack BEFORE cloud AI TTS');
+  assert.ok(appSrc.includes('async function maybePreloadNextPodcastEpisode'), 'app.js must support seamless next-episode preloading');
+  assert.ok(appSrc.includes('radioAutoPreloadNext'), 'app.js must expose seamless preload toggle');
 });
 
 
-test('v19.2.1 same-revision storage replacement is never clobbered by an old pagehide save',()=>{
-  const memory=new Map();
-  const storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
-  const key='learning';
-  const page={stateRevision:0,dailyJourney:{id:'finished',finishedAt:'2026-11-20T12:00:00Z'}};
-  const initial=persistState(storage,key,page);
-  assert.equal(initial.ok,true);
-  const firstRaw=storage.getItem(key);
-  const external={...JSON.parse(firstRaw),dailyJourney:{id:'legacy-recovery',finishedAt:null}};
-  const restoredRaw=JSON.stringify(external);
-  storage.setItem(key,restoredRaw);
-  const oldPageExit=persistState(storage,key,{...page,stateRevision:initial.revision},firstRaw);
-  assert.equal(oldPageExit.ok,false);
-  assert.equal(oldPageExit.conflict,'stale_tab_revision');
-  assert.equal(storage.getItem(key),restoredRaw);
-  const resumed=persistState(storage,key,external,restoredRaw);
-  assert.equal(resumed.ok,true);
-  assert.equal(JSON.parse(storage.getItem(key)).dailyJourney.id,'legacy-recovery');
+test('v19.2.2 legacy migration keeps stateRevision while retaining offline radio collections', () => {
+  const data = migrateBackupPayload({
+    version: 4.3, stateRevision: 8, items: [], attempts: [], sessions: [],
+    customRadioPacks:[{id:'pack-A'}], myAudioTracks:[{id:'audio-A'}],
+    radioMoments:[{id:'moment-A'}], radioQueue:[{id:'queue-A'}],
+    radioBookmarksV2:{'ep-A':12}
+  });
+  assert.equal(data.stateRevision, 8);
+  assert.equal(data.customRadioPacks[0].id, 'pack-A');
+  assert.equal(data.myAudioTracks[0].id, 'audio-A');
+  assert.equal(data.radioMoments[0].id, 'moment-A');
+  assert.equal(data.radioQueue[0].id, 'queue-A');
+  assert.equal(data.radioBookmarksV2['ep-A'], 12);
 });

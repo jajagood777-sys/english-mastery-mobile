@@ -7,10 +7,12 @@ export function splitSpeechSegments(text,max=260){const clean=String(text??'').n
 function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
 export async function speechTextHash(text){const bytes=new TextEncoder().encode(normalizeSpeechText(text));const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
 function db(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE,{keyPath:'key'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
-async function putClip(row){const database=await db();return new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite');tx.objectStore(STORE).put(row);tx.oncomplete=()=>{database.close();resolve();};tx.onerror=()=>{database.close();reject(tx.error);};tx.onabort=()=>{database.close();reject(tx.error);};});}
+async function putClip(row){let nextRow=row;if(row?.blob&&!row?.bytes&&typeof row.blob.arrayBuffer==='function'){try{const buf=await row.blob.arrayBuffer();if(buf&&buf.byteLength>=64){nextRow={...row,bytes:buf,mimeType:row.mimeType||row.blob.type||'audio/mpeg',blob:null};}}catch{}}const database=await db();return new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite');tx.objectStore(STORE).put(nextRow);tx.oncomplete=()=>{database.close();resolve();};tx.onerror=()=>{database.close();reject(tx.error);};tx.onabort=()=>{database.close();reject(tx.error);};});}
+export async function hasLocalSpeechClip(text,voice='af_heart'){if(!text||typeof indexedDB==='undefined')return false;try{const key=voice+':'+await speechTextHash(text);const database=await db();const count=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).count(key);req.onsuccess=()=>resolve(req.result||0);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});return count>0;}catch{return false;}}
+export async function deleteSpeechClip(text,voice='af_heart'){if(!text||typeof indexedDB==='undefined')return false;try{const key=voice+':'+await speechTextHash(text);const database=await db();return await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>{database.close();resolve(true);};tx.onerror=()=>{database.close();resolve(false);};});}catch{return false;}}
 export async function speechCoverage(tasks,{voice='af_heart'}={}){const list=Array.isArray(tasks)?tasks.filter(x=>x?.text):[];let remote=new Set(),local=new Set();try{const manifest=await findRemoteManifest();remote=new Set((manifest?.clips||[]).filter(x=>x.voice===voice).map(x=>x.sha256));}catch{}try{const database=await db();local=new Set(await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAllKeys();req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();}));}catch{}const byCategory={};let available=0;for(const row of list){const hash=await speechTextHash(row.text),ok=remote.has(hash)||local.has(`${voice}:${hash}`);if(ok)available++;const category=row.category||'other';byCategory[category]??={total:0,available:0};byCategory[category].total++;if(ok)byCategory[category].available++;}return {total:list.length,available,missing:list.length-available,byCategory};}
 async function findRemoteManifest(){if(!remoteManifestPromise)remoteManifestPromise=fetch(PUBLIC_MANIFEST,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error(`公开音频清单请求失败（HTTP ${r.status}）`);return r.json();}).catch(()=>null);return remoteManifestPromise;}
-export async function getSpeechClip(text,voice){const key=voice+':'+await speechTextHash(text);const database=await db();const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});if(local?.blob?.size)return local.blob;
+export async function getSpeechClip(text,voice){const key=voice+':'+await speechTextHash(text);const database=await db();const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});if(local?.bytes&&local.bytes.byteLength>=64)return new Blob([local.bytes],{type:local.mimeType||'audio/mpeg'});if(local?.blob?.size>=64)return local.blob;
   const remote=await findRemoteClip(text,voice);if(!remote)return null;const response=await fetch(new URL(remote.file,new URL(PUBLIC_MANIFEST,location.href)),{cache:'no-cache'});if(!response.ok)throw Error(`公开音频请求失败（HTTP ${response.status}）`);const blob=await response.blob();if(!blob.size||blob.size>25*1024*1024)throw Error('公开音频大小无效');if(remote.bytes&&blob.size!==Number(remote.bytes))throw Error('公开音频大小校验失败');if(remote.fileSha256){const digest=await speechBlobHash(blob);if(digest!==remote.fileSha256)throw Error('公开音频校验失败');}await putClip({key,blob,text:normalizeSpeechText(text),voice,created:Date.now(),source:'public-pages',manifest:PUBLIC_MANIFEST});return blob;}
 async function speechBlobHash(blob){const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
 async function findRemoteClip(text,voice){const manifest=await findRemoteManifest();if(!manifest||manifest.version!==1||!Array.isArray(manifest.clips))return null;const hash=await speechTextHash(text);return manifest.clips.find(item=>item.voice===voice&&item.sha256===hash&&typeof item.file==='string'&&/^[A-Za-z0-9._-]+\.mp3$/i.test(item.file))||null;}
@@ -22,7 +24,7 @@ export async function unpackSpeechZip(file){
  return out;
 }
 async function expandFiles(input){const list=Array.from(input||[]);if(list.length===1&&/\.zip$/i.test(list[0].name))return unpackSpeechZip(list[0]);return list;}
-export async function importSpeechClips(files,{onProgress=()=>{}}={}){const list=await expandFiles(files),manifest=list.find(f=>f.name==='speech-manifest.json'||f.name==='manifest.json');if(!manifest)throw Error('请选择包含 speech-manifest.json 的音频文件集合。');const parsed=JSON.parse(await manifest.text());if(parsed.version!==1||!Array.isArray(parsed.clips))throw Error('音频清单格式不受支持。');const byName=new Map(list.map(f=>[f.name,f])),total=parsed.clips.length,manifestNames=new Set(),byCategory={};let imported=0,missing=0;for(const item of parsed.clips){const category=String(item.category||'other');const coverage=byCategory[category]??={total:0,imported:0,missing:0};coverage.total++;const voice=item.voice;if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');const filename=String(item.file||'');if(!/^[A-Za-z0-9._-]+\.(mp3|wav|m4a|aac)$/i.test(filename))throw Error(`音频清单包含不安全文件名：${filename}`);if(manifestNames.has(filename))throw Error(`音频清单包含重复文件名：${filename}`);manifestNames.add(filename);const file=byName.get(filename);if(!file){missing++;coverage.missing++;continue;}if(file.size>25*1024*1024)throw Error(`音频文件过大：${filename}`);const hash=await speechTextHash(item.text);if(item.sha256!==hash)throw Error(`音频文字校验失败：${filename}`);if(item.bytes&&Number(item.bytes)!==file.size)throw Error(`音频大小校验失败：${filename}`);if(item.fileSha256&&await speechBlobHash(file)!==item.fileSha256)throw Error(`音频内容校验失败：${filename}`);const key=voice+':'+hash;await putClip({key,blob:file,text:normalizeSpeechText(item.text),voice,created:Date.now(),source:'import',manifest:manifest.name});imported++;coverage.imported++;onProgress({imported,total});}return {imported,missing,total,byCategory};}
+export async function importSpeechClips(files,{onProgress=()=>{}}={}){const list=await expandFiles(files),manifest=list.find(f=>f.name==='speech-manifest.json'||f.name==='manifest.json');if(!manifest)throw Error('请选择包含 speech-manifest.json 的音频文件集合。');const parsed=JSON.parse(await manifest.text());if(parsed.version!==1||!Array.isArray(parsed.clips))throw Error('音频清单格式不受支持。');const byName=new Map(list.map(f=>[f.name,f])),total=parsed.clips.length,manifestNames=new Set(),byCategory={};let imported=0,skipped=0,missing=0,totalDurationSec=0,totalBytes=0;for(const item of parsed.clips){const category=String(item.category||'other');const coverage=byCategory[category]??={total:0,imported:0,missing:0};coverage.total++;const voice=item.voice;if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');const filename=String(item.file||'');if(!/^[A-Za-z0-9._-]+\.(mp3|wav|m4a|aac)$/i.test(filename))throw Error(`音频清单包含不安全文件名：${filename}`);if(manifestNames.has(filename))throw Error(`音频清单包含重复文件名：${filename}`);manifestNames.add(filename);const file=byName.get(filename);if(!file){missing++;coverage.missing++;continue;}if(file.size>25*1024*1024)throw Error(`音频文件过大：${filename}`);const hash=await speechTextHash(item.text);if(item.sha256!==hash)throw Error(`音频文字校验失败：${filename}`);if(item.bytes&&Number(item.bytes)!==file.size)throw Error(`音频大小校验失败：${filename}`);if(item.fileSha256&&await speechBlobHash(file)!==item.fileSha256)throw Error(`音频内容校验失败：${filename}`);const key=voice+':'+hash;const actualFileSha=item.fileSha256||await speechBlobHash(file);let alreadySame=false;try{const prev=await getSpeechClipRecord(item.text,voice);if(prev&&prev.fileSha256&&prev.fileSha256===actualFileSha)alreadySame=true;}catch{}if(alreadySame){skipped++;coverage.skipped=(coverage.skipped||0)+1;totalDurationSec+=Number(item.durationSeconds||0);totalBytes+=file.size;onProgress({imported,skipped,total});continue;}await putClip({key,blob:file,text:normalizeSpeechText(item.text),voice,created:Date.now(),source:item.source||'import',manifest:manifest.name,durationSeconds:Number(item.durationSeconds||0),segments:Array.isArray(item.segments)?item.segments:[],episodeId:item.episodeId||null,segmentIds:Array.isArray(item.segmentIds)?item.segmentIds:[],engine:item.engine||parsed.engine||'',title:item.title||'',fileSha256:actualFileSha});imported++;coverage.imported++;totalDurationSec+=Number(item.durationSeconds||0);totalBytes+=file.size;onProgress({imported,skipped,total});}return {imported,skipped,missing,total,totalDurationSec,totalBytes,byCategory};}
 export function createClipPlayer({onStatus=()=>{}}={}){
  let audio=null,url=null,token=0,paused=false,waitingResolve=null;
  function clearAudio(){if(audio){audio.pause();audio.removeAttribute('src');audio.load();}if(url){URL.revokeObjectURL(url);url=null;}const tray=document.getElementById('imported-speech-tray');if(tray)tray.hidden=true;}
@@ -30,4 +32,65 @@ export function createClipPlayer({onStatus=()=>{}}={}){
  function mount(blob){clearAudio();if(!audio){audio=document.createElement('audio');audio.controls=true;audio.className='neural-audio-player';audio.setAttribute('aria-label','自然美式女声音频');let tray=document.getElementById('imported-speech-tray');if(!tray){tray=document.createElement('section');tray.id='imported-speech-tray';tray.className='neural-audio-tray';document.body.append(tray);}tray.replaceChildren(audio);}url=URL.createObjectURL(blob);audio.src=url;audio.load();const tray=document.getElementById('imported-speech-tray');if(tray)tray.hidden=false;return audio;}
  async function playBlob(blob,wait=false){const player=mount(blob);if(paused)return 'paused';if(!wait){try{await player.play();}catch{onStatus('音频已就绪，请点击播放器▶播放');return 'ready';}return 'playing';}const ended=new Promise(resolve=>{let done=false;const finish=status=>{if(done)return;done=true;waitingResolve=null;player.removeEventListener('error',onError);resolve(status);};const onError=()=>finish('error');waitingResolve=finish;player.addEventListener('ended',()=>finish('playing'),{once:true});player.addEventListener('error',onError,{once:true});});try{await player.play();}catch{waitingResolve=null;onStatus('音频已就绪，请点击播放器▶播放');return 'ready';}return ended;}
  return {stop,pause(){paused=true;audio?.pause();},resume(){paused=false;if(audio)void audio.play().catch(()=>onStatus('请手动点击音频播放器继续'));},async speak(text,voice){const id=++token;const blob=await getSpeechClip(text,voice);if(id!==token)return 'cancelled';if(!blob)return 'missing';return playBlob(blob);},async speakSegments(segments,voice){const list=Array.from(segments||[]).filter(Boolean),id=++token;if(!list.length)return false;for(let index=0;index<list.length;index++){if(id!==token)return 'cancelled';const blob=await getSpeechClip(list[index],voice);if(id!==token)return 'cancelled';if(!blob)return 'missing';onStatus(`正在播放自然女声第 ${index+1} / ${list.length} 段`);const result=await playBlob(blob,true);if(result==='cancelled'||id!==token)return 'cancelled';if(result==='paused')return 'paused';if(result!=='playing')return result;}return 'playing';}};
+}
+
+
+export async function getSpeechClipRecord(text,voice='af_heart'){
+  if(!text||typeof indexedDB==='undefined')return null;
+  try{
+    const key=voice+':'+await speechTextHash(text);
+    const database=await db();
+    const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
+    if(!local)return null;
+    const blob=(local.bytes&&local.bytes.byteLength>=64)?new Blob([local.bytes],{type:local.mimeType||'audio/mpeg'}):(local.blob?.size>=64?local.blob:null);
+    if(!blob)return null;
+    return {
+      blob,
+      bytesLen:local.bytes?.byteLength||local.blob?.size||0,
+      durationSeconds:Number(local.durationSeconds||0),
+      segments:Array.isArray(local.segments)?local.segments:[],
+      episodeId:local.episodeId||null,
+      segmentIds:Array.isArray(local.segmentIds)?local.segmentIds:[],
+      engine:local.engine||'onnxruntime-q8-cmudict-ipa',
+      voice:local.voice||voice,
+      source:local.source||'import',
+      title:local.title||'',
+      fileSha256:local.fileSha256||''
+    };
+  }catch{return null;}
+}
+export async function putRawAudioBlob(audioSha256,bytesOrBlob,mimeType='audio/mpeg'){
+  if(!audioSha256||typeof indexedDB==='undefined')return false;
+  let buf=null;
+  if(bytesOrBlob instanceof ArrayBuffer)buf=bytesOrBlob;
+  else if(ArrayBuffer.isView(bytesOrBlob))buf=bytesOrBlob.buffer.slice(bytesOrBlob.byteOffset,bytesOrBlob.byteOffset+bytesOrBlob.byteLength);
+  else if(bytesOrBlob&&typeof bytesOrBlob.arrayBuffer==='function')buf=await bytesOrBlob.arrayBuffer();
+  if(!buf||buf.byteLength<64)throw Error('音频文件过小或已损坏。');
+  await putClip({key:'raw:'+audioSha256,bytes:buf,mimeType:mimeType||'audio/mpeg',blob:null,voice:'original',source:'my_audio',created:Date.now()});
+  return true;
+}
+export async function getRawAudioBlob(audioSha256){
+  if(!audioSha256||typeof indexedDB==='undefined')return null;
+  try{
+    const database=await db();
+    const local=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get('raw:'+audioSha256);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
+    if(local?.bytes&&local.bytes.byteLength>=64)return new Blob([local.bytes],{type:local.mimeType||'audio/mpeg'});
+    if(local?.blob?.size>=64)return local.blob;
+    return null;
+  }catch{return null;}
+}
+export async function deleteRawAudioBlob(audioSha256){
+  if(!audioSha256||typeof indexedDB==='undefined')return false;
+  try{
+    const database=await db();
+    return await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('raw:'+audioSha256);tx.oncomplete=()=>{database.close();resolve(true);};tx.onerror=()=>{database.close();resolve(false);};});
+  }catch{return false;}
+}
+export async function hasRawAudioBlob(audioSha256){
+  if(!audioSha256||typeof indexedDB==='undefined')return false;
+  try{
+    const database=await db();
+    const count=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).count('raw:'+audioSha256);req.onsuccess=()=>resolve(req.result||0);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
+    return count>0;
+  }catch{return false;}
 }
