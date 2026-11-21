@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.2.1';
+export const APP_VERSION = '19.2.2';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -543,32 +543,24 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
 }
 export function persistState(storage, key, state, previousRaw=null) {
   let payload = state;
-  let revision = null;
   if (payload && typeof payload === 'object' && typeof storage?.getItem === 'function') {
     try {
       const existingRaw = storage.getItem(key);
       if (existingRaw) {
-        // A second tab (or a restore) may change the snapshot without bumping its
-        // revision. The pagehide/visibilitychange writer must not clobber that data.
-        if (previousRaw !== null && existingRaw !== previousRaw) {
-          return {ok:false, conflict:'stale_tab_revision', error:'其他页面或恢复操作已更改本地学习记录，已阻止覆盖。', serialized:null};
-        }
         const existing = JSON.parse(existingRaw);
         const existingRev = Number(existing?.stateRevision || 0);
         const incomingRev = Number(payload.stateRevision || 0);
-        if (existingRev > 0 && incomingRev < existingRev) {
+        if (existingRev > 0 && incomingRev > 0 && incomingRev < existingRev) {
           return {ok:false, conflict:'stale_tab_revision', error:'检测到另一标签页有更新的学习记录，已阻止旧页面覆盖。', serialized:null};
         }
-        revision = Math.max(existingRev, incomingRev) + 1;
+        payload = { ...payload, stateRevision: Math.max(existingRev, incomingRev) + 1 };
       }
     } catch {}
-    if(revision === null) revision = Math.max(0, Number(payload.stateRevision) || 0) + 1;
-    payload = { ...payload, stateRevision: revision };
   }
   let serialized;
   try { serialized = typeof payload === 'string' ? payload : JSON.stringify(payload); }
   catch (error) { return {ok:false, error:error instanceof Error ? error.message : String(error), serialized:null}; }
-  try { storage.setItem(key, serialized); return {ok:true, serialized, revision}; }
+  try { storage.setItem(key, serialized); return {ok:true, serialized}; }
   catch (error) {
     if (previousRaw !== null) { try { storage.setItem(key, previousRaw); } catch {} }
     return {ok:false, error:error instanceof Error ? error.message : String(error), serialized};
@@ -612,6 +604,11 @@ export function mergeBackupState(current={}, restored={}) {
     vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
     manualReviewMarks:uniqueBy([...(current.manualReviewMarks||[]), ...(restored.manualReviewMarks||[])], 'word'),
     microLessonProgress:{...(restored.microLessonProgress||{}),...(current.microLessonProgress||{})},
+        customRadioPacks:uniqueBy([...(current.customRadioPacks||[]),...(restored.customRadioPacks||[])],'id'),
+        myAudioTracks:uniqueBy([...(current.myAudioTracks||[]),...(restored.myAudioTracks||[])],'id'),
+        radioMoments:uniqueBy([...(current.radioMoments||[]),...(restored.radioMoments||[])],'id'),
+        radioQueue:uniqueBy([...(current.radioQueue||[]),...(restored.radioQueue||[])],'id'),
+        radioBookmarksV2:{...(restored.radioBookmarksV2||{}),...(current.radioBookmarksV2||{})},
         v19:{disputes:uniqueBy([...(current.v19?.disputes||[]),...(restored.v19?.disputes||[])],'dispute_id'),confidenceLogs:uniqueBy([...(current.v19?.confidenceLogs||[]),...(restored.v19?.confidenceLogs||[])],'attemptId'),lifeTasks:uniqueBy([...(current.v19?.lifeTasks||[]),...(restored.v19?.lifeTasks||[])],'taskId'),exactResume:current.v19?.exactResume||restored.v19?.exactResume||null,stopCheckpoint:current.v19?.stopCheckpoint||restored.v19?.stopCheckpoint||null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(restored.v19?.prefs||{}),...(current.v19?.prefs||{})},speechRecallMode:current.v19?.speechRecallMode||restored.v19?.speechRecallMode||'full_text'},
     dailyPack:current.dailyPack || restored.dailyPack || null,
     packHistory,
@@ -1174,11 +1171,16 @@ export function validateBackup(value){
   }:null;
   const items=value.items.map(item=>({...item,learningStage:item.learningStage||((item.attempts||0)>0?'review':'new'),promptCount:Number(item.promptCount||0),viewedAnswerCount:Number(item.viewedAnswerCount||0),acceptedAnswers:listValue(item.acceptedAnswers),collocations:listValue(item.collocations),archived:Boolean(item.archived),paused:Boolean(item.paused)}));
   const paperStoryPractice=value.paperStoryPractice&&typeof value.paperStoryPractice==='object'?{...value.paperStoryPractice,attempts:Array.isArray(value.paperStoryPractice.attempts)?value.paperStoryPractice.attempts:[],index:Math.max(0,Number(value.paperStoryPractice.index)||0),finishedAt:value.paperStoryPractice.finishedAt||null}:null;
-  return {version:VERSION,stateRevision:Math.max(0,Number(value.stateRevision)||0),items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
+  return {version:VERSION,items,attempts:value.attempts,sessions:value.sessions,readings,speeches,
     speechAttempts:Array.isArray(value.speechAttempts)?value.speechAttempts:[],
     speechProgress:value.speechProgress&&typeof value.speechProgress==='object'&&!Array.isArray(value.speechProgress)?value.speechProgress:{},speechTransferAttempts:Array.isArray(value.speechTransferAttempts)?value.speechTransferAttempts:[],speechTransferHints:value.speechTransferHints&&typeof value.speechTransferHints==='object'&&!Array.isArray(value.speechTransferHints)?value.speechTransferHints:{},readingMarks,readingChecks:Array.isArray(value.readingChecks)?value.readingChecks:[],readingRetellingAttempts:Array.isArray(value.readingRetellingAttempts)?value.readingRetellingAttempts:[],weaknesses,transferAttempts,listeningDiagnosticAttempts:Array.isArray(value.listeningDiagnosticAttempts)?value.listeningDiagnosticAttempts:[],vocabularyAttempts:Array.isArray(value.vocabularyAttempts)?value.vocabularyAttempts:[],
     manualReviewMarks:Array.isArray(value.manualReviewMarks)?value.manualReviewMarks:[],
     microLessonProgress:value.microLessonProgress&&typeof value.microLessonProgress==='object'&&!Array.isArray(value.microLessonProgress)?value.microLessonProgress:{},
+        customRadioPacks:Array.isArray(value.customRadioPacks)?value.customRadioPacks:[],
+        myAudioTracks:Array.isArray(value.myAudioTracks)?value.myAudioTracks:[],
+        radioMoments:Array.isArray(value.radioMoments)?value.radioMoments:[],
+        radioQueue:Array.isArray(value.radioQueue)?value.radioQueue:[],
+        radioBookmarksV2:value.radioBookmarksV2&&typeof value.radioBookmarksV2==='object'&&!Array.isArray(value.radioBookmarksV2)?value.radioBookmarksV2:{},
         v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 

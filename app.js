@@ -29,7 +29,8 @@ import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmiss
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
-import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,speechTextHash} from './speech-clips.mjs';
+import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
+import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings} from './handover.mjs';
 import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS} from './vocab.mjs';
@@ -41,7 +42,6 @@ import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWa
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
-import {shanghaiDateStamp, validRecordingBlob, isCurrentAiLookup, runtimeEntryMode} from './release-safety.mjs';
 
 const STORE='central-english-mastery.v2';
 const LEGACY_STORE='english-mastery-v1';
@@ -309,6 +309,25 @@ let lastHandoverExportStatus = null;
 let radioAudioEl = null;
 let radioAudioUnlocked = false;
 let radioActiveEngine = "";
+let radioAutoPreloadNext = false;
+let radioOfflineOnly = false;
+let radioSingleLoop = false;
+let radioPreloadInFlight = false;
+let radioSubView = "player"; // "player" | "downloaded" | "queue"
+let radioActiveSegments = [];
+let radioActiveEpisodeHash = "";
+let radioActiveSourceLabel = "";
+let radioLastRewindTapAt = 0;
+let radioCoverageTracker = null;
+let radioLastStepTimeSec = 0;
+let radioLastStepWallMs = 0;
+let radioAbA = null;
+let radioAbB = null;
+let radioAbLoop = false;
+let radioBlindScript = false;
+let radioSearchQuery = "";
+let radioFilterDownloadedOnly = false;
+const radioPreloadedKeys = new Set();
 const SILENT_WAV_DATA_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 let _silentWavBlobUrl = null;
 function getSilentWavBlobUrl() {
@@ -498,6 +517,8 @@ function buildAudioScrubberBar(kind, audioEl, statusText = '') {
     }
   });
   const fwdBtn = btn(`+${skipStep}s`, () => kind === 'radio' ? seekPocketRadio(5) : seekAudioElement(audioEl, 15), 'btn ghost audio-skip-btn');
+  backBtn.setAttribute("aria-label", kind === "radio" ? "后退 5 秒" : "后退 15 秒");
+  fwdBtn.setAttribute("aria-label", kind === "radio" ? "前进 5 秒" : "前进 15 秒");
   controlsRow.append(backBtn, range, fwdBtn);
   bar.append(topRow, controlsRow);
   return bar;
@@ -516,7 +537,90 @@ function stopPocketRadio(keepOpen = true) {
   render();
 }
 
+function saveVersionedRadioBookmark(episodeId, contentHash, positionSec, durationSec) {
+  if (!episodeId || !Number.isFinite(Number(positionSec))) return;
+  data.radioBookmarksV2 = data.radioBookmarksV2 && typeof data.radioBookmarksV2 === "object" ? data.radioBookmarksV2 : {};
+  const key = episodeBookmarkKey(episodeId, contentHash);
+  data.radioBookmarksV2[key] = {
+    episodeId,
+    contentHash: contentHash || "",
+    positionSec: Math.max(0, Number(positionSec)),
+    durationSec: Number.isFinite(Number(durationSec)) ? Number(durationSec) : 0,
+    updatedAt: new Date().toISOString()
+  };
+  saveAudioBookmark(key, positionSec, durationSec);
+}
+
+function loadVersionedRadioBookmark(episodeId, contentHash) {
+  const fromState = resolveVersionedBookmark(data.radioBookmarksV2 || {}, episodeId, contentHash);
+  if (fromState) return fromState.positionSec;
+  const key = episodeBookmarkKey(episodeId, contentHash);
+  return loadAudioBookmark(key);
+}
+
+function clearVersionedRadioBookmark(episodeId, contentHash) {
+  const key = episodeBookmarkKey(episodeId, contentHash);
+  if (data.radioBookmarksV2 && key in data.radioBookmarksV2) {
+    delete data.radioBookmarksV2[key];
+  }
+  clearAudioBookmark(key);
+}
+
 function refreshRadioTracks(forceShuffle = false) {
+  if (radioChannel === "my_audio") {
+    const myTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
+    radioEpisodes = myTracks.map((t, i) => ({
+      id: t.id,
+      audioSha256: t.audioSha256,
+      title: t.title || t.filename || `我的音频 ${i + 1}`,
+      badge: `🎵 我的音频 · 节目原声`,
+      text: "",
+      isOriginalAudio: true,
+      estimatedMinutes: Math.max(1, Math.round((Number(t.durationSec) || 60) / 60)),
+      durationSec: Number(t.durationSec) || 0,
+      bytes: Number(t.bytes) || 0,
+      trackCount: 1,
+      tracksIncluded: [{ title: t.title || t.filename, text: "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
+    }));
+    radioTracks = radioEpisodes.map(ep => ({
+      id: ep.id,
+      badge: ep.badge,
+      title: ep.title,
+      text: "",
+      subtext: "节目原声 · 仅存本机",
+      segments: []
+    }));
+    if (radioIndex >= radioTracks.length) radioIndex = 0;
+    if (radioEpisodeIndex >= radioEpisodes.length) radioEpisodeIndex = 0;
+    return;
+  }
+  if (radioChannel === "custom_offline" && Array.isArray(data.customRadioPacks) && data.customRadioPacks.length) {
+    const customEps = data.customRadioPacks.flatMap(pack =>
+      (Array.isArray(pack.episodes) ? pack.episodes : []).map((ep, i) => ({
+        id: ep.id || `${pack.id || "custom"}:ep-${i + 1}`,
+        title: ep.title || `${pack.title || "离线电台"} · 第 ${i + 1} 集`,
+        badge: ep.badge || `📦 ${pack.title || "自定义离线包"}`,
+        text: String(ep.text || "").trim(),
+        estimatedMinutes: Math.max(1, Math.round(Number(ep.estimatedMinutes) || (String(ep.text || "").split(/\s+/).filter(Boolean).length / 135))),
+        trackCount: Number(ep.trackCount) || 1,
+        tracksIncluded: Array.isArray(ep.tracksIncluded) && ep.tracksIncluded.length
+          ? ep.tracksIncluded
+          : [{ title: ep.title || `第 ${i + 1} 集`, text: String(ep.text || "").trim(), subtext: pack.title || "" }]
+      }))
+    ).filter(ep => ep.text);
+    radioEpisodes = customEps;
+    radioTracks = customEps.flatMap(ep => ep.tracksIncluded.map((t, idx) => ({
+      id: `${ep.id}:t${idx + 1}`,
+      badge: ep.badge,
+      title: t.title || ep.title,
+      text: t.text || ep.text,
+      subtext: t.subtext || "",
+      segments: splitSpeechSegments(t.text || ep.text, 260)
+    })));
+    if (radioIndex >= radioTracks.length) radioIndex = 0;
+    if (radioEpisodeIndex >= radioEpisodes.length) radioEpisodeIndex = 0;
+    return;
+  }
   radioTracks = buildRadioPlaylist({
     channel: radioChannel,
     scope: radioScope,
@@ -530,6 +634,224 @@ function refreshRadioTracks(forceShuffle = false) {
   radioEpisodes = buildRadioPodcastEpisodes(radioTracks, { channel: radioChannel, maxChars: 3600 });
   if (radioIndex >= radioTracks.length) radioIndex = 0;
   if (radioEpisodeIndex >= radioEpisodes.length) radioEpisodeIndex = 0;
+}
+
+async function probeAudioDurationSec(blob) {
+  if (typeof Audio === "undefined" || typeof URL === "undefined") return 0;
+  return new Promise(resolve => {
+    const tmpUrl = URL.createObjectURL(blob);
+    const a = new Audio();
+    let done = false;
+    const finish = (sec) => {
+      if (done) return;
+      done = true;
+      try { URL.revokeObjectURL(tmpUrl); } catch {}
+      resolve(Number.isFinite(sec) && sec > 0 ? sec : 0);
+    };
+    const timer = setTimeout(() => finish(0), 2500);
+    a.onloadedmetadata = () => { clearTimeout(timer); finish(a.duration); };
+    a.onerror = () => { clearTimeout(timer); finish(0); };
+    a.src = tmpUrl;
+  });
+}
+
+async function importRawAudioFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f => f && /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
+  if (!files.length) return;
+  let importedCount = 0, skippedCount = 0, totalDurationSec = 0, totalBytes = 0;
+  data.myAudioTracks = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
+  for (const file of files) {
+    if (file.size > 50 * 1024 * 1024) {
+      notify(`文件过大（超过 50 MB）已跳过：${file.name}`);
+      continue;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      if (buf.byteLength < 64) {
+        notify(`音频文件为空或损坏，已跳过：${file.name}`);
+        continue;
+      }
+      const audioSha256 = await sha256Hex(new Uint8Array(buf));
+      const durationSec = await probeAudioDurationSec(new Blob([buf], { type: file.type || "audio/mpeg" }));
+      const plan = planRawAudioImport(data.myAudioTracks, {
+        filename: file.name,
+        title: file.name,
+        audioSha256,
+        bytes: buf.byteLength,
+        durationSec,
+        mimeType: file.type || "audio/mpeg"
+      });
+      if (plan.action === "skip_duplicate") {
+        skippedCount++;
+        continue;
+      }
+      await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg");
+      data.myAudioTracks.push(plan.track);
+      importedCount++;
+      totalDurationSec += durationSec;
+      totalBytes += buf.byteLength;
+    } catch (err) {
+      notify(`导入失败（${file.name}）：${err?.message || err}`);
+    }
+  }
+  if (importedCount > 0) {
+    radioChannel = "my_audio";
+    radioPlayMode = "podcast";
+    radioEpisodeIndex = Math.max(0, data.myAudioTracks.length - importedCount);
+    save();
+    refreshRadioTracks();
+  }
+  const summary = formatRadioImportSummary({ importedCount, skippedCount, totalDurationSec, totalBytes, unit: "首" });
+  notify(`${summary}。已保存在本机，建议保留「文件」里的原 MP3 以便换机或清理后恢复。`);
+  render();
+}
+
+async function importOfflineRadioZipFile(file) {
+  if (!file) return;
+  if (file.size > 100 * 1024 * 1024) {
+    notify("离线音频包过大，请控制在 100 MB 以内。");
+    return;
+  }
+  try {
+    notify("⏳ 正在预检并导入离线电台音频包 ZIP…");
+    const files = await unpackSpeechZip(file);
+    const manifestFile = files.find(item => item.name === "speech-manifest.json" || item.name === "manifest.json");
+    if (!manifestFile) throw Error("ZIP 中缺少 speech-manifest.json 音频清单。");
+    const audioSummary = await importSpeechClips(files);
+    const radioPackFile = files.find(item => item.name === "radio-pack.json");
+    let customPackTitle = "";
+    if (radioPackFile) {
+      const parsedPack = JSON.parse(await radioPackFile.text());
+      if (parsedPack && Array.isArray(parsedPack.episodes) && parsedPack.episodes.length) {
+        const packId = String(parsedPack.id || parsedPack.pack_id || `custom:${Date.now()}`).trim();
+        customPackTitle = String(parsedPack.title || "自定义离线电台").trim();
+        const normalizedPack = {
+          id: packId,
+          title: customPackTitle,
+          importedAt: new Date().toISOString(),
+          episodes: parsedPack.episodes
+        };
+        data.customRadioPacks = [
+          ...(Array.isArray(data.customRadioPacks) ? data.customRadioPacks.filter(p => p.id !== packId) : []),
+          normalizedPack
+        ];
+        radioChannel = "custom_offline";
+        radioEpisodeIndex = 0;
+        save();
+      }
+    }
+    refreshRadioTracks();
+    const human = formatRadioImportSummary({
+      importedCount: audioSummary.imported,
+      skippedCount: audioSummary.skipped || 0,
+      totalDurationSec: audioSummary.totalDurationSec || 0,
+      totalBytes: audioSummary.totalBytes || 0,
+      unit: "集"
+    });
+    notify(
+      customPackTitle
+        ? `✓ 已导入「${customPackTitle}」：${human}（已保存在本机，0 AI 额度秒播）。`
+        : `✓ 离线音频包就绪：${human}（已保存在本机，0 AI 额度秒播）。`
+    );
+    render();
+  } catch (err) {
+    notify(`离线音频包导入失败（原有音频未受影响）：${err?.message || err}`);
+  }
+}
+
+function triggerOfflineRadioZipPicker() {
+  const input = el("input", "");
+  input.type = "file";
+  input.multiple = true;
+  input.accept = ".zip,.mp3,.m4a,.aac,.wav,audio/*,application/zip";
+  input.addEventListener("change", async () => {
+    const picked = Array.from(input.files || []);
+    if (!picked.length) return;
+    const zips = picked.filter(f => /\.zip$/i.test(f.name || ""));
+    const rawAudios = picked.filter(f => /\.(mp3|m4a|aac|wav)$/i.test(f.name || ""));
+    for (const z of zips) await importOfflineRadioZipFile(z);
+    if (rawAudios.length) await importRawAudioFiles(rawAudios);
+  });
+  input.click();
+}
+
+async function maybePreloadNextPodcastEpisode(curEpIdx, cfg, audioEl) {
+  const nextIdx = curEpIdx + 1;
+  const hasNext = !(radioStopAfterRound && nextIdx >= radioEpisodes.length) && radioEpisodes.length > 1;
+  const wrapped = hasNext ? ((nextIdx % radioEpisodes.length) + radioEpisodes.length) % radioEpisodes.length : -1;
+  const nextEp = wrapped >= 0 ? radioEpisodes[wrapped] : null;
+  const nextKey = nextEp?.text ? makeTtsCacheKey(nextEp.text, activeTtsVoiceForKey(cfg)) : "";
+  const okToRun = shouldTriggerCloudPreload({
+    cloudPreloadEnabled: radioAutoPreloadNext,
+    offlineOnly: radioOfflineOnly,
+    channel: radioChannel,
+    isPlaying: Boolean(radioPlaying),
+    isPaused: Boolean(radioPaused),
+    singleLoop: Boolean(radioSingleLoop),
+    sleepDeadlineMs: radioSleepDeadline,
+    nowMs: Date.now(),
+    durationSec: audioEl?.duration || 0,
+    currentTimeSec: audioEl?.currentTime || 0,
+    hasNextEpisode: Boolean(nextEp?.text),
+    nextAlreadyLocal: Boolean(nextKey && geminiAudioCache.has(nextKey)),
+    inFlight: radioPreloadInFlight,
+    alreadyAttempted: Boolean(nextKey && radioPreloadedKeys.has(nextKey))
+  });
+  if (!okToRun || !isCloudTtsReady(cfg) || radioVoiceMode !== "gemini") return;
+  radioPreloadedKeys.add(nextKey);
+  radioPreloadInFlight = true;
+  try {
+    const hasOffline = await hasLocalSpeechClip(nextEp.text, "af_heart");
+    if (hasOffline) return;
+    const hasCloudCache = await hasPersistentTtsAudio(nextKey);
+    if (hasCloudCache) return;
+    await fetchGeminiAudioEntry(nextEp.text, cfg);
+  } catch {
+    radioPreloadedKeys.delete(nextKey);
+  } finally {
+    radioPreloadInFlight = false;
+  }
+}
+
+function rewindSentenceOrFiveSeconds() {
+  if (!radioAudioEl || !Number.isFinite(radioAudioEl.duration) || radioAudioEl.duration <= 0) {
+    notify("请先开始播放音频，再使用回退功能。");
+    return;
+  }
+  const now = Date.now();
+  const res = findSentenceStartForTime(radioActiveSegments, radioAudioEl.currentTime || 0, {
+    lastTapAtMs: radioLastRewindTapAt,
+    nowMs: now
+  });
+  radioLastRewindTapAt = now;
+  try { radioAudioEl.currentTime = res.targetSec; } catch {}
+  syncAudioScrubbers();
+  if (res.mode === "sentence") {
+    notify(`↺ 回到本句开头（${fmtAudioClock(res.targetSec)}）`);
+  } else {
+    notify(`↺ 已后退 5 秒（${fmtAudioClock(res.targetSec)}）`);
+  }
+}
+
+function saveCurrentRadioMoment() {
+  const ep = radioEpisodes[radioEpisodeIndex];
+  if (!ep) return;
+  const curSec = radioAudioEl && Number.isFinite(radioAudioEl.currentTime) ? radioAudioEl.currentTime : 0;
+  const activeSeg = findSentenceStartForTime(radioActiveSegments, curSec, { lastTapAtMs: 0, nowMs: Date.now() });
+  const moment = createRadioMoment({
+    channel: radioChannel,
+    episodeId: ep.id,
+    contentHash: radioActiveEpisodeHash,
+    title: ep.title,
+    timeSec: curSec,
+    sentenceText: activeSeg.mode === "sentence" ? activeSeg.text : "",
+    sourceLabel: radioActiveSourceLabel
+  });
+  data.radioMoments = [moment, ...(Array.isArray(data.radioMoments) ? data.radioMoments : [])].slice(0, 200);
+  if (save()) {
+    notify(`⭐ 已收藏原声瞬间（${fmtAudioClock(curSec)}，下次将从 ${fmtAudioClock(moment.resumeAtSec)} 续听上下文）`);
+    render();
+  }
 }
 
 function prefetchNextRadioTrack(nextIdx) {
@@ -550,12 +872,14 @@ function prefetchNextRadioTrack(nextIdx) {
   }
 }
 
-async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
+async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null } = {}) {
   stopAllRadioPlayback();
   unlockRadioAudio();
   if (!radioEpisodes.length) refreshRadioTracks();
   if (!radioEpisodes.length) {
-    notify("当前频道暂无可播放条目，请切换到「YouTube 励志演讲」或「Notebook 口语与对话」。");
+    notify(radioChannel === "my_audio"
+      ? "「我的音频」还是空的，请点「➕ 导入音频」直接选 iPhone 文件里的 MP3。"
+      : "当前频道暂无可播放条目，请切换到「YouTube 励志演讲」或「Notebook 口语与对话」。");
     stopPocketRadio(true);
     return;
   }
@@ -576,45 +900,156 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
   const myPlayToken = Date.now() + Math.random();
   radioPlaying = myPlayToken;
   radioPaused = false;
+  radioActiveSegments = [];
+  radioAbA = null;
+  radioAbB = null;
+  radioAbLoop = false;
+  radioCoverageTracker = createEpisodeCoverageTracker();
+  radioLastStepTimeSec = 0;
+  radioLastStepWallMs = 0;
   if (radioPlayStartAt) {
     radioSessionLog.activeMs += Math.max(0, Date.now() - radioPlayStartAt);
     radioPlayStartAt = 0;
   }
 
   const cfg = loadAiConfig();
-  if (radioVoiceMode !== "gemini" || !isCloudTtsReady(cfg)) {
-    notify("当前未启用 Gemini 语音，已自动切回逐条离线朗读。");
+  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio");
+  const contentHash = isOriginalAudio
+    ? String(episode.audioSha256 || episode.id)
+    : await speechTextHash(episode.text || "");
+  if (radioPlaying !== myPlayToken) return;
+  radioActiveEpisodeHash = contentHash;
+
+  let offlineRec = null;
+  let originalBlob = null;
+  if (isOriginalAudio) {
+    originalBlob = await getRawAudioBlob(episode.audioSha256);
+    if (radioPlaying !== myPlayToken) return;
+    if (!originalBlob) {
+      radioAudioStatus = "⚠️ 原 MP3 文件未找到 · 请从「文件」重新导入";
+      notify(`未在本机找到「${episode.title}」的音频数据，请点「➕ 导入音频」重新导入原 MP3。`);
+      radioPlaying = false;
+      render();
+      return;
+    }
+  } else if (!retryFresh && typeof getSpeechClipRecord === "function" && typeof indexedDB !== "undefined") {
+    try {
+      offlineRec = await getSpeechClipRecord(episode.text, "af_heart");
+    } catch { offlineRec = null; }
+  }
+  if (radioPlaying !== myPlayToken) return;
+
+  const cacheKey = isOriginalAudio ? `raw:${contentHash}` : makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfg));
+  const hasCloudLocalCache = !isOriginalAudio && !retryFresh && (geminiAudioCache.has(cacheKey) || await hasPersistentTtsAudio(cacheKey));
+  if (radioPlaying !== myPlayToken) return;
+
+  // Strict Offline-Only Guard: ZERO cloud TTS requests when radioOfflineOnly is enabled!
+  if (!isOriginalAudio && !offlineRec && !hasCloudLocalCache && radioOfflineOnly) {
+    radioPlaying = false;
+    radioAudioStatus = `✈️ 仅离线模式：缺少第 ${radioEpisodeIndex + 1} 集，请跳过或重新导入音频包`;
+    notify(`✈️ 仅离线模式已拦截云端请求：第 ${radioEpisodeIndex + 1} 集「${episode.title}」未在本机找到，可点「⟩」跳过或导入离线 ZIP。`);
+    render();
+    return;
+  }
+
+  if (!isOriginalAudio && !offlineRec && !hasCloudLocalCache && (radioVoiceMode !== "gemini" || !isCloudTtsReady(cfg))) {
+    notify("当前集尚未导入离线音频包且未启用云端语音，已自动切回逐条离线朗读。");
     radioPlayMode = "single";
     playRadioTrackAt(0);
     return;
   }
 
-  const cacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfg));
-  const alreadyCached = !retryFresh && (geminiAudioCache.has(cacheKey) || await hasPersistentTtsAudio(cacheKey));
-  if (radioPlaying !== myPlayToken) return;
-  radioAudioStatus = alreadyCached ? "💾 本地已缓存 · 0消耗" : "⏳ 首次合成整集约需 6–15 秒，完成后永久缓存…";
-  if (!alreadyCached && !retryFresh) notify("⏳ 正在一次性合成整集播客（约 6–15 秒），合成后将永久缓存在本机，以后 0 消耗秒开。");
+  const alreadyCached = Boolean(originalBlob || offlineRec || hasCloudLocalCache);
+  if (!alreadyCached && radioAudioEl) {
+    try { radioAudioEl.removeAttribute("src"); radioAudioEl.load(); } catch {}
+  }
+  radioAudioStatus = originalBlob
+    ? "🎵 节目原声 · 仅存本机（0 AI 消耗）"
+    : offlineRec
+      ? "📦 Kokoro 合成朗读 · 离线音频包（0 AI 消耗）"
+      : (hasCloudLocalCache ? "💾 云端合成 · 本机缓存（0 消耗）" : "⏳ 首次合成整集约需 6–15 秒，完成后保存在本机…");
+  if (!alreadyCached && !retryFresh) notify("⏳ 正在一次性合成整集播客（约 6–15 秒），完成后保存在本机。");
   render();
 
   try {
-    const entry = await fetchGeminiAudioEntry(episode.text, cfg, { bypassCache: retryFresh });
-    if (radioPlaying !== myPlayToken) return;
+    let entry;
+    let revokeAfterPlay = false;
+    if (originalBlob) {
+      entry = { url: URL.createObjectURL(originalBlob), fromCache: true, fromOfflinePack: true, isOriginalAudio: true, modelUsed: "original-audio", cacheKey };
+      revokeAfterPlay = true;
+      radioActiveSourceLabel = RADIO_SOURCE_LABELS.original_audio;
+      radioActiveSegments = [];
+    } else if (offlineRec) {
+      entry = { url: URL.createObjectURL(offlineRec.blob), fromCache: true, fromOfflinePack: true, modelUsed: offlineRec.engine || "onnxruntime-q8-cmudict-ipa", cacheKey };
+      revokeAfterPlay = true;
+      radioActiveSourceLabel = resolveRadioSourceLabel({ fromOfflinePack: true, engine: offlineRec.engine });
+      radioActiveSegments = Array.isArray(offlineRec.segments) ? offlineRec.segments : [];
+    } else {
+      entry = await fetchGeminiAudioEntry(episode.text, cfg, { bypassCache: retryFresh });
+      radioActiveSourceLabel = RADIO_SOURCE_LABELS.cloud_tts;
+      radioActiveSegments = [];
+    }
+    if (radioPlaying !== myPlayToken) {
+      if (revokeAfterPlay) try { URL.revokeObjectURL(entry.url); } catch {}
+      return;
+    }
     const usage = getDailyTtsUsage();
-    radioAudioStatus = entry.fromCache
-      ? "💾 本地永久缓存 · 本次 0 消耗"
-      : `✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;
+    radioAudioStatus = entry.isOriginalAudio
+      ? `🎵 ${radioActiveSourceLabel} · 已保存在本机`
+      : entry.fromOfflinePack
+        ? `📦 ${radioActiveSourceLabel} · 离线秒播`
+        : (entry.fromCache ? `💾 ${radioActiveSourceLabel} · 本机缓存` : `✨ ${radioActiveSourceLabel} · 今日已请求 ${usage.count} 次`);
+
     const audio = ensureRadioAudioElement();
     let lastBmSave = 0;
-    const savedPos = loadAudioBookmark(episode.id);
+    let nextPreloadTriggered = false;
+    const savedPos = startAtSec !== null && Number.isFinite(Number(startAtSec))
+      ? Math.max(0, Number(startAtSec))
+      : loadVersionedRadioBookmark(episode.id, contentHash);
     audio.ontimeupdate = () => {
       syncAudioScrubbers();
-      if (Date.now() - lastBmSave > 3000) {
-        lastBmSave = Date.now();
-        saveAudioBookmark(episode.id, audio.currentTime, audio.duration);
+      const nowWall = Date.now();
+      const curT = Number(audio.currentTime) || 0;
+      if (!audio.paused && radioCoverageTracker) {
+        if (radioLastStepWallMs > 0) {
+          radioCoverageTracker.recordPlaybackStep(radioLastStepTimeSec, curT, nowWall - radioLastStepWallMs);
+        }
+        radioLastStepTimeSec = curT;
+        radioLastStepWallMs = nowWall;
+      }
+      if (radioAbLoop && isValidAudioLoop(radioAbA, radioAbB, audio.duration) && curT >= radioAbB - 0.05) {
+        try { audio.currentTime = radioAbA; } catch {}
+        return;
+      }
+      if (nowWall - lastBmSave > 3000) {
+        lastBmSave = nowWall;
+        saveVersionedRadioBookmark(episode.id, contentHash, curT, audio.duration);
+      }
+      if (!nextPreloadTriggered && !isOriginalAudio) {
+        const shouldRun = shouldTriggerCloudPreload({
+          cloudPreloadEnabled: radioAutoPreloadNext,
+          offlineOnly: radioOfflineOnly,
+          channel: radioChannel,
+          isPlaying: Boolean(radioPlaying === myPlayToken),
+          isPaused: Boolean(radioPaused),
+          singleLoop: Boolean(radioSingleLoop),
+          sleepDeadlineMs: radioSleepDeadline,
+          nowMs: nowWall,
+          durationSec: audio.duration || 0,
+          currentTimeSec: curT,
+          hasNextEpisode: !(radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length) && radioEpisodes.length > 1,
+          nextAlreadyLocal: false,
+          inFlight: radioPreloadInFlight,
+          alreadyAttempted: false
+        });
+        if (shouldRun) {
+          nextPreloadTriggered = true;
+          void maybePreloadNextPodcastEpisode(radioEpisodeIndex, cfg, audio);
+        }
       }
     };
     audio.onloadedmetadata = () => {
-      if (savedPos > 3 && Number.isFinite(audio.duration) && savedPos < audio.duration - 5) {
+      if (savedPos > 1 && Number.isFinite(audio.duration) && savedPos < audio.duration - 3) {
         try { audio.currentTime = savedPos; } catch {}
         notify(`🎧 已自动续播至 ${fmtAudioClock(savedPos)}`);
       }
@@ -622,7 +1057,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
     };
     registerMediaSession({
       title: episode.title,
-      artist: "言道修炼殿 19.2 整集播客",
+      artist: `言道修炼殿 · ${radioActiveSourceLabel}`,
       album: data.dailyPack?.title || "English Cultivation",
       onPlay: () => resumePocketRadio(),
       onPause: () => pausePocketRadio(),
@@ -631,14 +1066,18 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
     });
     try {
       if (typeof navigator !== "undefined" && navigator.mediaSession?.setActionHandler) {
-        navigator.mediaSession.setActionHandler("seekbackward", () => seekAudioElement(audio, -15));
+        navigator.mediaSession.setActionHandler("seekbackward", () => rewindSentenceOrFiveSeconds());
         navigator.mediaSession.setActionHandler("seekforward", () => seekAudioElement(audio, 15));
       }
     } catch {}
     render();
-    const watchdogMs = computeSegmentWatchdogMs(episode.text, radioRate);
+    const watchdogMs = isOriginalAudio
+      ? Math.max(600000, Math.round(((episode.durationSec || 600) + 120) * 1000))
+      : computeSegmentWatchdogMs(episode.text, radioRate);
     let episodeCounted = false;
     const markEpisodeStarted = () => {
+      radioLastStepWallMs = Date.now();
+      radioLastStepTimeSec = Number(audio.currentTime) || 0;
       if (!radioPlayStartAt) radioPlayStartAt = Date.now();
       if (!episodeCounted) {
         episodeCounted = true;
@@ -652,17 +1091,44 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
         radioPlayStartAt = 0;
       }
       if (radioPlaying !== myPlayToken) return;
-      clearAudioBookmark(episode.id);
+      clearVersionedRadioBookmark(episode.id, contentHash);
+      if (radioSleepDeadline && Date.now() >= radioSleepDeadline) {
+        notify("🌙 睡眠定时时间已到，已自动停止播放。");
+        radioSleepDeadline = 0;
+        radioSleepMinutes = 0;
+        stopPocketRadio(true);
+        return;
+      }
+      if (radioSingleLoop) {
+        radioTimer = setTimeout(() => {
+          if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex, { startAtSec: 0 });
+        }, 600);
+        return;
+      }
+      // If user has items in commute queue, play next queued item first
+      if (Array.isArray(data.radioQueue) && data.radioQueue.length) {
+        const nextQ = data.radioQueue.shift();
+        save();
+        if (nextQ?.channel) radioChannel = nextQ.channel;
+        refreshRadioTracks();
+        const qIdx = radioEpisodes.findIndex(e => e.id === nextQ.episodeId);
+        if (qIdx >= 0) {
+          radioTimer = setTimeout(() => {
+            if (radioPlaying === myPlayToken) playRadioPodcastAt(qIdx, { startAtSec: nextQ.startSec || 0 });
+          }, 500);
+          return;
+        }
+      }
       if (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length) {
-        notify("✓ 本集播客已播完。");
+        notify("✓ 本轮音频已全部播完。");
         stopPocketRadio(true);
       } else {
         radioTimer = setTimeout(() => {
           if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex + 1);
-        }, 1200);
+        }, 500);
       }
     };
-    const playRes = await playUrlOnRadioAudio(entry.url, radioRate, watchdogMs, myPlayToken, false, markEpisodeStarted);
+    const playRes = await playUrlOnRadioAudio(entry.url, radioRate, watchdogMs, myPlayToken, revokeAfterPlay, markEpisodeStarted);
     if (radioPlayStartAt) {
       radioSessionLog.activeMs += Math.max(0, Date.now() - radioPlayStartAt);
       radioPlayStartAt = 0;
@@ -672,18 +1138,27 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
       advanceAfterEpisode();
     } else if (playRes.reason === "aborted") {
       return;
-    } else if (playRes.reason === "decode_error" && entry.fromCache && !retryFresh) {
+    } else if (playRes.reason === "decode_error" && entry.isOriginalAudio) {
+      radioPlaying = false;
+      radioAudioStatus = "⚠️ 原 MP3 解码失败 · 请检查原文件";
+      notify("该 MP3 文件无法解码，请检查「文件」里的原音频格式。");
+      render();
+    } else if (playRes.reason === "decode_error" && entry.fromOfflinePack && !radioOfflineOnly) {
+      await deleteSpeechClip(episode.text, "af_heart");
+      notify("离线音频片段解码失败，已清理损坏副本。");
+      radioPlaying = false;
+      render();
+    } else if (playRes.reason === "decode_error" && entry.fromCache && !retryFresh && !radioOfflineOnly) {
       await evictGeminiAudioCache(entry.cacheKey || cacheKey);
       radioAudioStatus = "🔄 检测到旧缓存损坏，正在自动重新合成…";
-      notify("检测到旧音频缓存损坏，已自动清理并重新合成（本次约需 6–15 秒）。");
+      notify("检测到旧音频缓存损坏，已自动清理并重新合成。");
       render();
       return playRadioPodcastAt(radioEpisodeIndex, { retryFresh: true });
     } else if (playRes.reason === "decode_error") {
-      await evictGeminiAudioCache(entry.cacheKey || cacheKey);
-      radioAudioStatus = "";
-      notify("当前整集音频无法解码，已自动切回逐条朗读。");
-      radioPlayMode = "single";
-      playRadioTrackAt(0);
+      radioAudioStatus = "⚠️ 当前音频无法解码，请跳过或重新导入";
+      notify("当前音频无法解码，可点「⟩」跳过或重新导入离线包。");
+      radioPlaying = false;
+      render();
     } else {
       radioPaused = true;
       radioAudioStatus = "🎧 音频已缓存就绪 · 点「▶ 继续」立即播放";
@@ -695,7 +1170,13 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false } = {}) {
   } catch (err) {
     if (radioPlaying !== myPlayToken) return;
     radioAudioStatus = "";
-    notify(`Gemini 整集合成暂不可用，已切换本地逐条朗读：${String(err?.message || err).slice(0, 55)}`);
+    if (radioOfflineOnly || isOriginalAudio) {
+      radioPlaying = false;
+      notify(`离线播放失败（未触发云端请求）：${String(err?.message || err).slice(0, 60)}`);
+      render();
+      return;
+    }
+    notify(`云端整集合成暂不可用，已切换本地逐条朗读：${String(err?.message || err).slice(0, 55)}`);
     radioPlayMode = "single";
     playRadioTrackAt(0);
   }
@@ -908,8 +1389,178 @@ function renderPocketRadioDrawer() {
   head.lastChild.setAttribute("aria-label", "关闭随身电台");
   panel.append(head);
 
+  // Commute Top Bar: 3 high-frequency destinations + unified ZIP/MP3 import
+  const commuteBar = div("radio-quick-bar");
+  commuteBar.append(
+    btn("▶ 继续收听", () => { radioSubView = "player"; render(); }, radioSubView === "player" ? "btn primary small-btn" : "btn secondary small-btn"),
+    btn(`📦 已下载${(data.myAudioTracks?.length || 0) ? `(${data.myAudioTracks.length})` : ""}`, () => { radioSubView = "downloaded"; render(); }, radioSubView === "downloaded" ? "btn primary small-btn" : "btn secondary small-btn"),
+    btn(`📋 待听队列${(data.radioQueue?.length || 0) ? `(${data.radioQueue.length})` : ""}`, () => { radioSubView = "queue"; render(); }, radioSubView === "queue" ? "btn primary small-btn" : "btn secondary small-btn"),
+    btn("➕ 导入音频", () => triggerOfflineRadioZipPicker(), "btn secondary small-btn")
+  );
+  panel.append(commuteBar);
+
+  // Sub-view: Downloaded & My Audio Management
+  if (radioSubView === "downloaded") {
+    const dlBox = section("radio-now-playing");
+    dlBox.append(
+      h("h3", "📦 本机离线音频与「我的音频」"),
+      p("支持直接导入普通 MP3（无需 manifest/ZIP/API Key）或离线节目包 ZIP。个人音频仅保存在当前设备，不上传服务器。", "tiny")
+    );
+    const myList = Array.isArray(data.myAudioTracks) ? data.myAudioTracks : [];
+    const totalMyBytes = myList.reduce((s, t) => s + (Number(t.bytes) || 0), 0);
+    const totalMySec = myList.reduce((s, t) => s + (Number(t.durationSec) || 0), 0);
+    dlBox.append(p(
+      myList.length
+        ? `我的音频：${myList.length} 首（共 ${formatDurationZh(totalMySec)}，占用 ${formatBytesHuman(totalMyBytes)}）· 已保存在本机，请保留「文件」里的原 MP3 以便恢复。`
+        : "还没有导入个人 MP3。点上方「➕ 导入音频」选一个或多个 MP3 即可立即收听原声。",
+      "subtle"
+    ));
+    myList.forEach((t, idx) => {
+      const row = div("radio-script-item");
+      row.append(
+        el("strong", `${idx + 1}. ${t.title}`, "tiny"),
+        p(`节目原声 · ${formatDurationZh(t.durationSec || 0)} · ${formatBytesHuman(t.bytes || 0)}`, "tiny subtle"),
+        lines(
+          btn("▶ 播放", () => {
+            radioChannel = "my_audio";
+            radioPlayMode = "podcast";
+            radioSubView = "player";
+            refreshRadioTracks();
+            playRadioPodcastAt(idx);
+          }, "btn primary small-btn"),
+          btn("插播队列", () => {
+            data.radioQueue = mergeRadioQueue(data.radioQueue || [], { channel: "my_audio", episodeId: t.id, title: t.title, startSec: 0 }, { playNext: true });
+            save();
+            notify(`已插播到待听队列最前：${t.title}`);
+            render();
+          }, "btn secondary small-btn"),
+          btn("改名", () => {
+            const next = typeof prompt === "function" ? prompt("输入新的音频标题：", t.title) : null;
+            if (next && next.trim()) {
+              data.myAudioTracks = renameMyAudioTrack(data.myAudioTracks, t.id, next.trim());
+              save();
+              render();
+            }
+          }, "btn ghost small-btn"),
+          btn("↑", () => {
+            data.myAudioTracks = reorderMyAudioTrack(data.myAudioTracks, t.id, "up");
+            save();
+            render();
+          }, "btn ghost small-btn", idx === 0),
+          btn("↓", () => {
+            data.myAudioTracks = reorderMyAudioTrack(data.myAudioTracks, t.id, "down");
+            save();
+            render();
+          }, "btn ghost small-btn", idx === myList.length - 1),
+          btn("删除", async () => {
+            if (!confirm(`确定从本机移除「${t.title}」？（不会删除「文件」里的原 MP3）`)) return;
+            await deleteRawAudioBlob(t.audioSha256);
+            data.myAudioTracks = data.myAudioTracks.filter(x => x.id !== t.id);
+            save();
+            render();
+          }, "btn ghost small-btn")
+        )
+      );
+      dlBox.append(row);
+    });
+    dlBox.append(lines(
+      btn("📦 导入离线音频包 ZIP / 普通 MP3", () => triggerOfflineRadioZipPicker(), "btn primary small-btn"),
+      btn("返回播放器", () => { radioSubView = "player"; render(); }, "btn ghost small-btn")
+    ));
+    panel.append(dlBox);
+    overlay.append(panel);
+    overlay.addEventListener("click", e => { if (e.target === overlay) stopPocketRadio(false); });
+    return overlay;
+  }
+
+  // Sub-view: Commute Queue & Saved Moments
+  if (radioSubView === "queue") {
+    const qBox = section("radio-now-playing");
+    const qList = Array.isArray(data.radioQueue) ? data.radioQueue : [];
+    const moments = Array.isArray(data.radioMoments) ? data.radioMoments : [];
+    qBox.append(h("h3", `📋 待听队列（${qList.length}）`));
+    if (!qList.length) {
+      qBox.append(p("待听队列为空，可把收藏的原声瞬间一键串成今日通勤队列。", "tiny subtle"));
+    } else {
+      qList.forEach((item, idx) => {
+        const row = div("radio-script-item");
+        row.append(
+          el("strong", `${idx + 1}. ${item.title}${item.startSec ? ` (${fmtAudioClock(item.startSec)})` : ""}`, "tiny"),
+          lines(
+            btn("▶ 立即听", () => {
+              data.radioQueue.splice(idx, 1);
+              save();
+              radioChannel = item.channel || radioChannel;
+              radioSubView = "player";
+              refreshRadioTracks();
+              const eIdx = radioEpisodes.findIndex(e => e.id === item.episodeId);
+              playRadioPodcastAt(eIdx >= 0 ? eIdx : 0, { startAtSec: item.startSec || 0 });
+            }, "btn primary small-btn"),
+            btn("移除", () => {
+              data.radioQueue.splice(idx, 1);
+              save();
+              render();
+            }, "btn ghost small-btn")
+          )
+        );
+        qBox.append(row);
+      });
+    }
+    qBox.append(h("h3", `⭐ 收藏的原声瞬间（${moments.length}）`));
+    if (moments.length) {
+      qBox.append(btn("🚆 把全部收藏串成今日通勤队列", () => {
+        for (const m of moments.slice(0, 20)) {
+          data.radioQueue = mergeRadioQueue(data.radioQueue || [], {
+            channel: m.channel,
+            episodeId: m.episodeId,
+            contentHash: m.contentHash,
+            title: `⭐ ${m.title}`,
+            startSec: m.resumeAtSec
+          });
+        }
+        save();
+        notify(`已将 ${Math.min(20, moments.length)} 条收藏加入今日通勤队列。`);
+        render();
+      }, "btn secondary small-btn"));
+      moments.slice(0, 20).forEach(m => {
+        const row = div("radio-script-item");
+        row.append(
+          el("strong", `${m.title} · ${fmtAudioClock(m.timeSec)}`, "tiny"),
+          m.sentenceText ? p(m.sentenceText, "tiny") : el("span", ""),
+          lines(
+            btn(`▶ 从 ${fmtAudioClock(m.resumeAtSec)} 听上下文`, () => {
+              radioChannel = m.channel || radioChannel;
+              radioSubView = "player";
+              refreshRadioTracks();
+              const eIdx = radioEpisodes.findIndex(e => e.id === m.episodeId);
+              playRadioPodcastAt(eIdx >= 0 ? eIdx : 0, { startAtSec: m.resumeAtSec });
+            }, "btn primary small-btn"),
+            btn("删除", () => {
+              data.radioMoments = data.radioMoments.filter(x => x.id !== m.id);
+              save();
+              render();
+            }, "btn ghost small-btn")
+          )
+        );
+        qBox.append(row);
+      });
+    } else {
+      qBox.append(p("收听时点「⭐ 收藏瞬间」，会自动记住时间点与原句，下次从前 3 秒开始听上下文。", "tiny subtle"));
+    }
+    panel.append(qBox);
+    overlay.append(panel);
+    overlay.addEventListener("click", e => { if (e.target === overlay) stopPocketRadio(false); });
+    return overlay;
+  }
+
+  // Channel selector row (always includes 我的音频 + optional custom_offline)
   const chRow = div("radio-channel-grid");
-  RADIO_CHANNELS.forEach(ch => {
+  const allChannels = [
+    ...RADIO_CHANNELS,
+    { id: "my_audio", label: "🎵 我的音频" },
+    ...(Array.isArray(data.customRadioPacks) && data.customRadioPacks.length ? [{ id: "custom_offline", label: "📦 我的离线电台" }] : [])
+  ];
+  allChannels.forEach(ch => {
     const b = btn(ch.label, () => {
       const wasPlaying = Boolean(radioPlaying);
       stopAllRadioPlayback();
@@ -935,46 +1586,82 @@ function renderPocketRadioDrawer() {
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
       el("span", `${episode.badge} · ${radioEpisodeIndex + 1} / ${radioEpisodes.length}`, "chip tiny"),
-      el("span", `本集 ${episode.estimatedMinutes} 分钟 · 全频道 ${Math.round(radioEpisodes.reduce((s, ep) => s + (Number(ep.estimatedMinutes) || 0), 0))} 分钟`, "tiny")
+      el("span", radioActiveSourceLabel || (episode.isOriginalAudio ? RADIO_SOURCE_LABELS.original_audio : `本集 ~${episode.estimatedMinutes} 分钟`), "tiny")
     );
-    const previewText = episode.tracksIncluded.slice(0, 2).map(t => t.title).join(" · ");
-    const cachePill = el("span", "⏳ 检测本机缓存…", "tts-status-pill");
+    const previewText = (episode.tracksIncluded || []).slice(0, 2).map(t => t.title).join(" · ");
+    const cachePill = el("span", "⏳ 检测本机离线状态…", "tts-status-pill");
     const cfgNow = loadAiConfig();
-    const epCacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfgNow));
-    const savedEpPos = loadAudioBookmark(episode.id);
-    if (geminiAudioCache.has(epCacheKey)) {
-      cachePill.textContent = savedEpPos > 3 ? `💾 本地已缓存 · 可从 ${fmtAudioClock(savedEpPos)} 续播` : "💾 本地已缓存 · 离线 0 消耗秒播";
-    } else {
-      hasPersistentTtsAudio(epCacheKey).then(hit => {
+    if (episode.isOriginalAudio) {
+      hasRawAudioBlob(episode.audioSha256).then(ok => {
         if (!cachePill.isConnected) return;
-        cachePill.textContent = hit
-          ? (savedEpPos > 3 ? `💾 本地已缓存 · 可从 ${fmtAudioClock(savedEpPos)} 续播` : "💾 本地已缓存 · 离线 0 消耗秒播")
-          : "☁️ 首次播放需 1 次额度，之后永久缓存";
+        cachePill.textContent = ok
+          ? `🎵 节目原声 · 已保存在本机（${formatBytesHuman(episode.bytes || 0)} · 0 AI 消耗）`
+          : "⚠️ 本机音频缺失 · 请点「➕ 导入音频」从「文件」恢复";
+      }).catch(() => {});
+    } else {
+      const epCacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfgNow));
+      Promise.all([
+        getSpeechClipRecord(episode.text, "af_heart"),
+        geminiAudioCache.has(epCacheKey) ? Promise.resolve(true) : hasPersistentTtsAudio(epCacheKey),
+        Promise.all(radioEpisodes.map(ep => hasLocalSpeechClip(ep.text, "af_heart")))
+      ]).then(([offlineRec, cloudHit, allOfflineHits]) => {
+        if (!cachePill.isConnected) return;
+        const readyCount = allOfflineHits.filter(Boolean).length;
+        const readiness = `本频道已备好 ${readyCount}/${radioEpisodes.length} 集离线`;
+        if (offlineRec) {
+          cachePill.textContent = `📦 Kokoro 合成朗读 · 已保存在本机（${formatDurationZh(offlineRec.durationSeconds || 0)} · ${formatBytesHuman(offlineRec.bytesLen || 0)} · ${readiness}）`;
+        } else if (cloudHit) {
+          cachePill.textContent = `💾 云端合成 · 本机已缓存（0 消耗 · ${readiness}）`;
+        } else {
+          cachePill.textContent = radioOfflineOnly
+            ? `✈️ 仅离线模式：本集缺失（${readiness}），请导入离线包 ZIP`
+            : `☁️ 首次需 1 次额度，或导入离线 ZIP 免额度（${readiness}）`;
+        }
       }).catch(() => {});
     }
+    const covSnap = radioCoverageTracker ? radioCoverageTracker.snapshot(radioAudioEl?.duration || 0) : null;
     nowCard.append(
       badgeRow,
       h("h3", episode.title),
       cachePill,
-      p(`本集连播：${previewText}${episode.trackCount > 2 ? ` 等 ${episode.trackCount} 段内容` : ""}`, "subtle")
+      p(`本集内容：${previewText}${episode.trackCount > 2 ? ` 等 ${episode.trackCount} 段` : ""}`, "subtle"),
+      covSnap && covSnap.actualListeningSec > 0
+        ? p(`实际收听 ${formatDurationZh(covSnap.actualListeningSec)} · 本集已听范围 ${covSnap.coveragePct}%（${formatDurationZh(covSnap.coveredSec)}）`, "tiny")
+        : el("span", "")
     );
     if (radioPlaying || radioPaused || radioAudioStatus) {
       nowCard.append(buildAudioScrubberBar("radio", radioAudioEl, radioAudioStatus));
     }
-    const scriptDetails = el("details", "", "radio-episode-script");
-    scriptDetails.append(el("summary", `📖 展开查看本集全部英文原文（共 ${episode.trackCount} 条）`));
-    const scriptBody = div("radio-script-list");
-    episode.tracksIncluded.forEach((item, idx) => {
-      const row = div("radio-script-item");
-      row.append(
-        el("strong", `${idx + 1}. ${item.title}`, "tiny"),
-        p(item.text, "tiny"),
-        item.subtext ? p(item.subtext, "tiny subtle") : el("span", "")
-      );
-      scriptBody.append(row);
-    });
-    scriptDetails.append(scriptBody);
-    nowCard.append(scriptDetails);
+    if (!episode.isOriginalAudio) {
+      const scriptDetails = el("details", "", "radio-episode-script");
+      scriptDetails.append(el("summary", `📖 展开原文与句内搜索（共 ${episode.trackCount} 条）`));
+      const searchInp = textInput(radioSearchQuery, "搜索当前节目里的一句话并跳转…");
+      searchInp.addEventListener("input", () => { radioSearchQuery = searchInp.value; render(); });
+      scriptDetails.append(searchInp);
+      if (radioSearchQuery.trim() && radioActiveSegments.length) {
+        const hits = searchEpisodeSegments(radioActiveSegments, radioSearchQuery);
+        hits.slice(0, 8).forEach(hit => {
+          scriptDetails.append(btn(`▶ ${fmtAudioClock(hit.startSec || 0)} · ${hit.text.slice(0, 56)}…`, () => {
+            if (radioAudioEl && hit.startSec !== null) {
+              try { radioAudioEl.currentTime = hit.startSec; } catch {}
+              syncAudioScrubbers();
+            }
+          }, "btn ghost small-btn"));
+        });
+      }
+      const scriptBody = div(`radio-script-list${radioBlindScript ? " is-blind-blur" : ""}`);
+      (episode.tracksIncluded || []).forEach((item, idx) => {
+        const row = div("radio-script-item");
+        row.append(
+          el("strong", `${idx + 1}. ${item.title}`, "tiny"),
+          p(item.text, "tiny"),
+          item.subtext ? p(item.subtext, "tiny subtle") : el("span", "")
+        );
+        scriptBody.append(row);
+      });
+      scriptDetails.append(scriptBody);
+      nowCard.append(scriptDetails);
+    }
   } else if (track) {
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
@@ -987,18 +1674,17 @@ function renderPocketRadioDrawer() {
       p(track.text, "vocab-prompt-text"),
       track.subtext ? p(track.subtext, "tiny") : el("span", "")
     );
-    if (track.sourceUrl) {
-      const srcLink = el("a", "↗ 原视频出处", "tiny");
-      srcLink.href = track.sourceUrl;
-      srcLink.target = "_blank";
-      srcLink.rel = "noopener noreferrer";
-      nowCard.append(srcLink);
-    }
   } else {
-    nowCard.append(p("当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。", "subtle"));
+    nowCard.append(p(
+      radioChannel === "my_audio"
+        ? "「我的音频」暂无文件。点上方「➕ 导入音频」，从 iPhone「文件」选 MP3 即可立即离线收听原声。"
+        : "当前频道暂无可播放条目，可切换「YouTube 励志演讲」或「Notebook 口语与对话」。",
+      "subtle"
+    ));
   }
   panel.append(nowCard);
 
+  // One-hand large transport controls
   const controls = div("radio-transport-row");
   const prevBtn = btn("⟨", () => {
     if (isPodcast) playRadioPodcastAt(radioEpisodeIndex - 1);
@@ -1011,27 +1697,26 @@ function renderPocketRadioDrawer() {
     if (isActivelyPlaying) pausePocketRadio();
     else resumePocketRadio();
   }, "btn primary radio-play-btn");
-  const rewind5Btn = btn("↺ 5s", () => seekPocketRadio(-5), "btn secondary radio-seek-btn");
-  rewind5Btn.setAttribute("aria-label", "后退 5 秒");
-  const forward5Btn = btn("5s ↻", () => seekPocketRadio(5), "btn secondary radio-seek-btn");
-  forward5Btn.setAttribute("aria-label", "前进 5 秒");
+  const hasRealSegments = Array.isArray(radioActiveSegments) && radioActiveSegments.length > 0;
+  const rewindBtn = btn(hasRealSegments ? "↺ 再听这句" : "↺ 退 5 秒", () => rewindSentenceOrFiveSeconds(), "btn secondary radio-seek-btn");
+  rewindBtn.setAttribute("aria-label", hasRealSegments ? "再听这句（连点回上一句）" : "后退 5 秒");
+  const momentBtn = btn("⭐ 收藏", () => saveCurrentRadioMoment(), "btn secondary radio-seek-btn");
+  momentBtn.setAttribute("aria-label", "收藏原声瞬间");
   const nextBtn = btn("⟩", () => {
     if (isPodcast) playRadioPodcastAt(radioEpisodeIndex + 1);
     else playRadioTrackAt(radioIndex + 1);
   }, "btn secondary radio-icon-btn");
   nextBtn.setAttribute("aria-label", isPodcast ? "下一集" : "下一条");
-  controls.append(prevBtn, rewind5Btn, playBtn, forward5Btn, nextBtn);
+  controls.append(prevBtn, rewindBtn, playBtn, momentBtn, nextBtn);
   panel.append(controls);
 
   const quickBar = div("radio-quick-bar");
   quickBar.append(
-    btn(isPodcast ? "🎙️ 整集省额" : "🎵 逐条跟读", () => {
-      stopPocketRadio(true);
-      radioPlayMode = isPodcast ? "single" : "podcast";
-      radioAudioStatus = "";
-      notify(radioPlayMode === "podcast" ? "已切换为「整集播客·省额模式」（1 次请求连播整频道）。" : "已切换为「逐条跟读模式」。");
+    btn(radioOfflineOnly ? "✈️ 仅离线:开" : "✈️ 仅离线:关", () => {
+      radioOfflineOnly = !radioOfflineOnly;
+      notify(radioOfflineOnly ? "已开启「仅离线」模式：严禁调用任何云端语音接口。" : "已关闭仅离线模式，缺失节目可按需使用云端语音。");
       render();
-    }, isPodcast ? "btn primary small-btn" : "btn secondary small-btn"),
+    }, radioOfflineOnly ? "btn primary small-btn" : "btn secondary small-btn"),
     btn(`⚡ ${speedPreset.rate}×`, () => {
       const idx = RADIO_SPEED_PRESETS.findIndex(p => Math.abs(p.rate - radioRate) < 0.01);
       const next = RADIO_SPEED_PRESETS[(idx + 1) % RADIO_SPEED_PRESETS.length];
@@ -1051,11 +1736,65 @@ function renderPocketRadioDrawer() {
   );
   panel.append(quickBar);
 
+  // Intensive listening panel (A-B loop, single-episode loop, blind listen)
+  const intensiveDetails = el("details", "", "radio-more-details");
+  intensiveDetails.append(el("summary", "🎯 精听面板（A–B 循环 / 单集循环 / 盲听）"));
+  const abRow = div("radio-quick-bar");
+  abRow.append(
+    btn(radioAbA !== null ? `A ${fmtAudioClock(radioAbA)}` : "设为 A", () => {
+      if (!radioAudioEl || !Number.isFinite(radioAudioEl.duration)) return notify("请先开始播放音频。");
+      radioAbA = radioAudioEl.currentTime || 0;
+      radioAbLoop = false;
+      render();
+    }, "btn secondary small-btn"),
+    btn(radioAbB !== null ? `B ${fmtAudioClock(radioAbB)}` : "设为 B", () => {
+      if (!radioAudioEl || !Number.isFinite(radioAudioEl.duration)) return notify("请先开始播放音频。");
+      const cur = radioAudioEl.currentTime || 0;
+      if (radioAbA === null || !isValidAudioLoop(radioAbA, cur, radioAudioEl.duration)) return notify("请先设 A，再设晚于 A 的 B。");
+      radioAbB = cur;
+      render();
+    }, "btn secondary small-btn"),
+    btn(radioAbLoop ? "⏹ 停止 A-B" : "🔁 A-B 循环", () => {
+      if (!radioAudioEl || !isValidAudioLoop(radioAbA, radioAbB, radioAudioEl.duration)) return notify("请先设置有效的 A 和 B 点。");
+      radioAbLoop = !radioAbLoop;
+      if (radioAbLoop) try { radioAudioEl.currentTime = radioAbA; } catch {}
+      render();
+    }, radioAbLoop ? "btn primary small-btn" : "btn secondary small-btn"),
+    btn(radioSingleLoop ? "🔂 单集循环:开" : "🔂 单集循环:关", () => {
+      radioSingleLoop = !radioSingleLoop;
+      notify(radioSingleLoop ? "已开启单集循环。" : "已关闭单集循环。");
+      render();
+    }, radioSingleLoop ? "btn primary small-btn" : "btn ghost small-btn"),
+    btn(radioBlindScript ? "👁️ 显示原文" : "🙈 盲听遮罩", () => {
+      radioBlindScript = !radioBlindScript;
+      render();
+    }, "btn ghost small-btn")
+  );
+  intensiveDetails.append(abRow);
+  panel.append(intensiveDetails);
+
+  // Advanced options collapsed by default
   const moreDetails = el("details", "", "radio-more-details");
   const usageNow = getDailyTtsUsage();
-  moreDetails.append(el("summary", `更多播放选项 · 今日语音请求 ${usageNow.count} 次`));
+  moreDetails.append(el("summary", `更多播放选项 · 今日云端请求 ${usageNow.count} 次`));
   const moreOpts = div("radio-quick-bar");
   moreOpts.append(
+    btn(isPodcast ? "🎙️ 整集模式" : "🎵 逐条模式", () => {
+      stopPocketRadio(true);
+      radioPlayMode = isPodcast ? "single" : "podcast";
+      radioAudioStatus = "";
+      render();
+    }, "btn secondary small-btn"),
+    btn(radioAutoPreloadNext ? "⚡ 40秒云预载:开（耗额度）" : "⚡ 40秒云预载:关（省额度）", () => {
+      radioAutoPreloadNext = !radioAutoPreloadNext;
+      notify(radioAutoPreloadNext ? "已开启 40 秒云预载（开启后可能使用语音额度）。" : "已关闭 40 秒云预载（默认省额度）。");
+      render();
+    }, radioAutoPreloadNext ? "btn primary small-btn" : "btn secondary small-btn"),
+    btn("📦 导入离线音频包 ZIP / MP3", () => triggerOfflineRadioZipPicker(), "btn secondary small-btn"),
+    btn(radioStopAfterRound ? "⏹ 播完停播" : "🔁 整季循环", () => {
+      radioStopAfterRound = !radioStopAfterRound;
+      render();
+    }, "btn ghost small-btn"),
     btn(radioShuffle ? "🔀 随机:开" : "🔀 顺序", () => {
       radioShuffle = !radioShuffle;
       radioIndex = 0;
@@ -1063,39 +1802,21 @@ function renderPocketRadioDrawer() {
       refreshRadioTracks(radioShuffle);
       render();
     }, radioShuffle ? "btn primary small-btn" : "btn secondary small-btn"),
-    btn(radioStopAfterRound ? "⏹ 播完停播" : "🔁 单轮循环", () => {
-      radioStopAfterRound = !radioStopAfterRound;
-      render();
-    }, "btn ghost small-btn"),
-    btn(radioVoiceMode === "gemini" ? "切换离线语音" : "切回 Gemini 语音", () => {
-      radioVoiceMode = radioVoiceMode === "gemini" ? "local" : "gemini";
-      notify(radioVoiceMode === "gemini" ? "已恢复 Gemini 语音连播。" : "已切换为仅本地离线语音。");
-      if (radioPlaying) {
-        if (radioPlayMode === "podcast" && radioVoiceMode === "gemini") playRadioPodcastAt(radioEpisodeIndex);
-        else playRadioTrackAt(radioIndex);
-      } else render();
-    }, "btn ghost small-btn"),
-    btn("🗑 清空语音缓存", async () => {
+    btn("🗑 清空云端缓存", async () => {
       await clearPersistentTtsAudio();
       geminiAudioCache.clear();
       radioAudioStatus = "";
-      notify("已清空本机语音缓存（不影响任何学习记录与录音）。");
+      notify("已清空云端语音缓存（个人录音与「我的音频」均完整保留）。");
       render();
     }, "btn ghost small-btn")
   );
   if (radioChannel === "weak_sniper" || radioChannel === "sentences_listening") {
-    moreOpts.append(
-      btn(radioScope === "today" ? "📦 今日" : "📚 全部", () => {
-        radioScope = radioScope === "today" ? "all" : "today";
-        radioIndex = 0;
-        radioEpisodeIndex = 0;
-        refreshRadioTracks();
-        if (radioPlaying) {
-          if (radioPlayMode === "podcast") playRadioPodcastAt(0);
-          else playRadioTrackAt(0);
-        } else render();
-      }, "btn secondary small-btn")
-    );
+    moreOpts.append(btn(radioScope === "today" ? "范围：今日包" : "范围：全词库", () => {
+      radioScope = radioScope === "today" ? "all" : "today";
+      radioIndex = 0;
+      refreshRadioTracks();
+      render();
+    }, "btn ghost small-btn"));
   }
   moreDetails.append(moreOpts);
   panel.append(moreDetails);
@@ -1105,69 +1826,10 @@ function renderPocketRadioDrawer() {
   return overlay;
 }
 
-let zenFocusMode = false;
-let readingBlurMode = false;
-let retellingRefVisible = {};
-let lexiconDrawerOpen = false;
-let lexiconQuery = "";
-let swWaitingWorker = null;
-
-function toggleZenFocusMode() {
-  zenFocusMode = !zenFocusMode;
-  if (typeof document !== "undefined") document.body.classList.toggle("zen-focus-mode", zenFocusMode);
-  render();
-}
-
-function renderPwaUpdateBanner() {
-  if (!swWaitingWorker) return el("span", "");
-  const banner = section("pwa-update-banner");
-  banner.append(
-    el("span", "✨ 发现言道修炼殿新版本，点击即可无损更新（不删除任何学习记录与录音）", "tiny"),
-    btn("立即无损更新", () => {
-      try { swWaitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
-      setTimeout(() => window.location.reload(), 350);
-    }, "btn primary small-btn")
-  );
-  return banner;
-}
-
-let aiDictReplyText = "";
-let aiDictLoading = false;
-let aiDictRequestSerial = 0;
-function invalidateAiDictRequest(){ aiDictRequestSerial++; aiDictLoading = false; }
-let aiDictAutoRunQuery = "";
-let lastGlobalSelectionText = "";
-let lastGlobalSelectionAt = 0;
-
-if (typeof document !== "undefined") {
-  document.addEventListener("selectionchange", () => {
-    try {
-      const picked = String(window.getSelection?.()?.toString() || "").trim();
-      if (picked && picked.length <= 200) {
-        lastGlobalSelectionText = picked;
-        lastGlobalSelectionAt = Date.now();
-      }
-    } catch {}
-  });
-}
-
-function captureCurrentSelectionText() {
-  try {
-    const live = String(window.getSelection?.()?.toString() || "").trim();
-    if (live && live.length <= 200) {
-      lastGlobalSelectionText = live;
-      lastGlobalSelectionAt = Date.now();
-      return live;
-    }
-  } catch {}
-  if (lastGlobalSelectionText && Date.now() - lastGlobalSelectionAt < 30000) return lastGlobalSelectionText;
-  return "";
-}
-
 function openAiLexiconDrawer(explicitText = "") {
   const picked = String(explicitText || captureCurrentSelectionText() || selectedText || "").trim();
   if (picked) {
-    if (picked !== lexiconQuery) { invalidateAiDictRequest(); aiDictReplyText = ""; }
+    if (picked !== lexiconQuery) aiDictReplyText = "";
     lexiconQuery = picked;
     aiDictAutoRunQuery = picked;
   }
@@ -1189,8 +1851,8 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.1)", "eyebrow"),
-    btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.2)", "eyebrow"),
+    btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
   input.setAttribute("aria-label", "AI 全英文词典输入框");
@@ -1218,7 +1880,6 @@ function renderOfflineLexiconDrawer() {
   const runAiLookup = async () => {
     const q = input.value.trim();
     lexiconQuery = q;
-    const requestId = ++aiDictRequestSerial;
     if (!q) { notify("请先输入要查的英文单词或问题。"); return; }
     if (!isAiTutorReady()) {
       aiDictReplyText = "尚未配置 Google AI API Key。请点击下方按钮前往「设置 → 随身 AI 导师」粘贴你的 Key。";
@@ -1230,36 +1891,30 @@ function renderOfflineLexiconDrawer() {
     renderAiOut();
     try {
       const mode = window.__yandaoAiDrawerMode || 'auto';
-      let answer;
       if (mode === 'grammar') {
-        answer = await askAiCheckGrammar({ prompt: 'Quick Grammar / Your Turn Check', userAnswer: q });
+        aiDictReplyText = await askAiCheckGrammar({ prompt: 'Quick Grammar / Your Turn Check', userAnswer: q });
       } else if (mode === 'writing') {
-        answer = await askAiCritiqueOutput({ prompt: 'Quick Micro-Writing / Sentence Imitation', userAnswer: q });
+        aiDictReplyText = await askAiCritiqueOutput({ prompt: 'Quick Micro-Writing / Sentence Imitation', userAnswer: q });
       } else if (mode === 'speaking') {
-        answer = await askAiSpeakingDemoCoach({ prompt: 'IELTS Speaking / Kids English Demo Practice', userTranscript: q });
+        aiDictReplyText = await askAiSpeakingDemoCoach({ prompt: 'IELTS Speaking / Kids English Demo Practice', userTranscript: q });
       } else {
         const isSentenceQ = q.split(/\s+/).length >= 5;
-        answer = isSentenceQ
+        aiDictReplyText = isSentenceQ
           ? await askAiFreeTutor({ question: q, pageContext: data.dailyPack?.title || "" })
           : await askAiDictionary({ query: q, context: selectedParagraphText || "" });
       }
-      if (!isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) return;
-      aiDictReplyText = answer;
     } catch (err) {
-      if (!isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) return;
       aiDictReplyText = `AI 查询失败：${String(err?.message || err)}`;
     } finally {
-      if (isCurrentAiLookup(requestId, aiDictRequestSerial, q, input.value.trim(), lexiconDrawerOpen)) {
-        aiDictLoading = false;
-        renderAiOut();
-      }
+      aiDictLoading = false;
+      renderAiOut();
     }
   };
 
   const modeBar = lines(
     ...[['auto','🔍 查词/问答'],['grammar','📐 语法批改'],['writing','✍️ 微写作精批'],['speaking','🎤 口语/试讲点评']].map(([m, label]) => {
       const active = (window.__yandaoAiDrawerMode || 'auto') === m;
-      return btn(label, () => { invalidateAiDictRequest(); window.__yandaoAiDrawerMode = m; render(); }, active ? "btn secondary small-btn" : "btn ghost small-btn");
+      return btn(label, () => { window.__yandaoAiDrawerMode = m; render(); }, active ? "btn secondary small-btn" : "btn ghost small-btn");
     })
   );
   const actionRow = lines(
@@ -1308,7 +1963,7 @@ function renderOfflineLexiconDrawer() {
       listBox.append(card);
     });
   };
-  input.addEventListener("input", () => { invalidateAiDictRequest(); aiDictReplyText = ""; renderAiOut(); updateList(input.value); });
+  input.addEventListener("input", () => updateList(input.value));
   panel.append(head, input, actionRow, aiOut, listBox);
   updateList(lexiconQuery);
   overlay.append(panel);
@@ -1560,14 +2215,14 @@ async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=fals
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){if(activeReadingBookmarkId&&Number.isFinite(geminiAudioEl.currentTime))saveAudioBookmark(activeReadingBookmarkId,geminiAudioEl.currentTime,geminiAudioEl.duration);try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
-function emptyData(){return {version:VERSION,stateRevision:0,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
+function emptyData(){return {version:VERSION,items:[],attempts:[],sessions:[],reports:[],readings:[],speeches:[],speechAttempts:[],speechProgress:{},speechTransferAttempts:[],speechTransferHints:{},readingMarks:[],readingChecks:[],readingRetellingAttempts:[],weaknesses:[],transferAttempts:[],listeningDiagnosticAttempts:[],vocabularyAttempts:[],dailyPack:null,dailyJourney:null,paperStoryPractice:null,packHistory:[],activeSession:null,settings:{duration:40,speechRate:0.9,theme:'system',chineseHints:false,onboardingSeen:false,retryAfterError:true,newLimit:10,reviewLimit:20}};}
 function load(){
   try{
     const raw=localStorage.getItem(STORE);
     if(raw){
       const obj=JSON.parse(raw);const safe=migrateBackupPayload(obj);
       if(obj.activeSession && typeof obj.activeSession==='object' && Array.isArray(obj.activeSession.queue)) safe.activeSession={...obj.activeSession,running:false,lastTick:null};
-      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=raw;
+      safe.settings={retryAfterError:true,newLimit:10,reviewLimit:20,...safe.settings};safe.readings=safe.readings||[];safe.speeches=safe.speeches||[];safe.speechAttempts=safe.speechAttempts||[];safe.speechProgress=safe.speechProgress||{};safe.speechTransferAttempts=safe.speechTransferAttempts||[];safe.speechTransferHints=safe.speechTransferHints||{};safe.readingMarks=mergeReadingMarks(safe.readingMarks||[]);safe.readingChecks=safe.readingChecks||[];safe.weaknesses=mergeWeaknesses(safe.weaknesses||[],[]);safe.transferAttempts=mergeTransferAttempts(safe.transferAttempts||[],[]);safe.packHistory=safe.packHistory||[];safe.dailyJourney=safe.dailyJourney||null;safe.paperStoryPractice=safe.paperStoryPractice||null;lastPersistedRaw=JSON.stringify(safe);
       return safe;
     }
   }catch(err){console.warn('Saved V2 data unavailable:',err);}
@@ -1586,7 +2241,7 @@ function load(){
 let draftSaveTimer=null;
 function flushDraftSave(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;save();}}
 function scheduleDraftSave(delayMs=450){clearTimeout(draftSaveTimer);draftSaveTimer=setTimeout(()=>{draftSaveTimer=null;save();},delayMs);}
-function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;if(Number.isFinite(result.revision))data.stateRevision=result.revision;return true;}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
+function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;return true;}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
 function notify(message){const n=document.getElementById('notice');n.textContent=message;n.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.hidden=true,3800);}
 function applyTheme(){const choice=data?.settings?.theme||'system';const night=choice==='night'||(choice==='system'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=night?'night':'day';const metaTheme=document.querySelector('meta[name="theme-color"]');if(metaTheme)metaTheme.setAttribute('content',night?'#07080b':'#f5f5f7');}
 function setTheme(theme){const previous=data.settings.theme;data.settings.theme=theme;if(!save()){data.settings.theme=previous;return;}applyTheme();render();}
@@ -1989,101 +2644,15 @@ function startWeaknessTransfer(weakness){const contextIndex=0;data.activeTransfe
 function activeWeaknessTransfer(){const state=data.activeTransfer;if(!state)return null;const weakness=inferredWeaknesses().find(row=>row.id===state.weaknessId);const context=weakness?.contexts?.[Number(state.contextIndex)||0];return weakness&&context?{state,weakness,context}:null;}
 function transferHintText(context,weakness,level){const hints=context.hints||[];if(level<=0)return '';if(level<=hints.length)return hints[level-1];if(level===hints.length+1&&weakness.targetExpression)return `目标表达：${weakness.targetExpression}`;return '改变人物、时间或目的，用自己的英文重新组织。';}
 let recordingController=null;
-let activeLocalAudioObjectUrl = null;
-function releaseLocalAudioObjectUrl(audio){
-  if(activeLocalAudio!==audio)return;
-  const url=activeLocalAudioObjectUrl;
-  activeLocalAudioObjectUrl=null;
-  activeLocalAudio=null;
-  if(url) URL.revokeObjectURL(url);
-}
-function stopLocalAudio(){
-  const audio=activeLocalAudio;
-  if(!audio)return;
-  try { audio.pause(); } finally {
-    audio.onended=null;audio.onerror=null;
-    releaseLocalAudioObjectUrl(audio);
-  }
-}
-function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;audio.onended=()=>releaseLocalAudioObjectUrl(audio);audio.onerror=()=>{releaseLocalAudioObjectUrl(audio);notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
+function stopLocalAudio(){if(activeLocalAudio){activeLocalAudio.pause();activeLocalAudio.onended=null;activeLocalAudio=null;}}
+function playReferenceAudio(url,text=''){const safe=safeAudioUrl(url);if(!safe){speakEnglish(text);return;}stopSpeech();stopActiveAudio();stopLocalAudio();const audio=new Audio(safe);activeLocalAudio=audio;audio.onended=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;};audio.onerror=()=>{if(activeLocalAudio===audio)activeLocalAudio=null;notify('参考音频加载失败；可以使用设备朗读继续练习。');};audio.play().catch(()=>notify('参考音频需要点击播放后才能开始。'));}
 function recordingPanelKey(meta){return JSON.stringify([meta.weaknessId||'',meta.taskId||'',meta.attemptId||'',meta.role||'']);}
 function activeRecordingPanel(meta){const key=recordingPanelKey(meta);return Array.from(app.querySelectorAll('.recording-panel')).find(panel=>panel.dataset.recordingKey===key)||null;}
 function refreshRecordingPanel(meta){const panel=activeRecordingPanel(meta);if(panel)panel.replaceWith(renderRecordingControls(meta));}
 function renderRecordingControls(meta){const panel=section('recording-panel');panel.dataset.recordingKey=recordingPanelKey(meta);panel.append(h('h3',meta.followAlong?'跟读录音 · SHADOWING':'口语录音 · SPEAKING','question-label'),p(meta.followAlong?'先听参考，再录下自己的版本。录音只保存在本机，不提供发音分数。':'录音只在你点击开始后请求麦克风权限；不提供发音分数。文字答案始终可用。','subtle'));const capability=recordingCapability();if(!capability.supported){panel.append(p(`${capability.reason} iPhone 可在设置 → Safari → 麦克风中重新允许；你也可以继续使用文字输入。`,'hint'));return panel;}if(meta.followAlong)panel.append(lines(btn(meta.audioUrl?'听参考音频':'听设备参考朗读',()=>meta.audioUrl?playReferenceAudio(meta.audioUrl,meta.text):speakEnglish(meta.text),'btn secondary'),btn('停止播放',()=>{stopSpeech();stopActiveAudio();stopLocalAudio();},'btn ghost')));const row=lines();const active=recordingController?.meta?.weaknessId===meta.weaknessId&&recordingController?.meta?.attemptId===meta.attemptId&&recordingController?.meta?.role===meta.role;if(active){const status=el('span','录音中 · 00:00','tiny');const timer=setInterval(()=>{if(!status.isConnected||!recordingController||recordingController.meta.attemptId!==meta.attemptId){clearInterval(timer);return;}status.textContent=`录音中 · ${fmtTime(Date.now()-recordingController.startedAt)}`;},250);row.append(btn('停止录音',stopActiveRecording,'btn danger'),status);}else row.append(btn(meta.role==='retry'?'重录当前答案':meta.followAlong?'开始跟读录音':'开始录音',()=>startActiveRecording(meta),'btn secondary'),el('span',`${meta.role==='retry'?'重答录音':'初答录音'} · ${capability.mimeType}`,'tiny'));panel.append(row);const list=div('recording-list');panel.append(list);listRecordings({weaknessId:meta.weaknessId,taskId:meta.taskId}).then(rows=>{rows.filter(item=>item.role===meta.role).forEach(item=>{const line=div('recording-row');const short=item.durationMs>0&&item.durationMs<5000?' · 可能不完整':'';line.append(el('span',`${item.role==='retry'?'重答':'初答'} · ${fmtTime(item.durationMs||0)}${short}`,'tiny'),btn(meta.followAlong?(item.role==='retry'?'听我的重答':'听我的初答'):'播放',()=>playLocalRecording(item.id),'btn ghost'),btn('导出',()=>exportLocalRecording(item.id),'btn ghost'));list.append(line);});}).catch(()=>{list.append(p('录音记录暂时不可读取，文字训练不受影响。','tiny'));});return panel;}
-async function startActiveRecording(meta){
-  const capability=recordingCapability();
-  if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');
-  stopSpeech();stopActiveAudio();stopLocalAudio();
-  let stream=null;
-  try {
-    stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}
-    const recorder=new MediaRecorder(stream,{mimeType:capability.mimeType});
-    const chunks=[];
-    const controller={recorder,stream,chunks,meta:{...meta,mimeType:capability.mimeType},startedAt:Date.now(),renderAfterStop:true,interrupted:false};
-    recordingController=controller;
-    const interrupt=()=>{
-      if(recordingController!==controller||controller.interrupted)return;
-      controller.interrupted=true;
-      if(recorder.state==='recording'){
-        try{recorder.stop();}catch{}
-      }
-    };
-    const handleVisibility=()=>{if(document.hidden)interrupt();};
-    const audioTracks=typeof stream.getAudioTracks==='function'?stream.getAudioTracks():stream.getTracks();
-    audioTracks.forEach(track=>{track.onended=interrupt;});
-    document.addEventListener('visibilitychange',handleVisibility);
-    recorder.onerror=interrupt;
-    recorder.ondataavailable=event=>{if(event.data?.size>0)chunks.push(event.data);};
-    recorder.onstop=async()=>{
-      try {
-        const blob=new Blob(chunks,{type:recorder.mimeType||capability.mimeType});
-        if(!validRecordingBlob(blob,controller.interrupted)){
-          notify('录音中断或文件为空，本次没有保存，请重新录制。');
-          return;
-        }
-        const saved=await putRecording({...meta,mimeType:recorder.mimeType||capability.mimeType,durationMs:Date.now()-controller.startedAt},blob);
-        meta.onSaved?.(saved);
-        notify('录音已保存在本机。');
-      }catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留，请重录。`);}
-      finally {
-        document.removeEventListener('visibilitychange',handleVisibility);
-        audioTracks.forEach(track=>{if(track.onended===interrupt)track.onended=null;});
-        stream.getTracks().forEach(track=>track.stop());
-        if(recordingController===controller)recordingController=null;
-        if(controller.renderAfterStop)refreshRecordingPanel(meta);
-      }
-    };
-    recorder.start();
-    refreshRecordingPanel(meta);
-  }catch(error){
-    if(stream)stream.getTracks().forEach(track=>track.stop());
-    if(recordingController?.stream===stream)recordingController=null;
-    notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝，已切换为文字训练。':'录音不可用，已切换为文字训练。');
-  }
-}
-function stopActiveRecording({renderAfter=true}={}){
-  const controller=recordingController;
-  if(!controller?.recorder||controller.recorder.state!=='recording')return false;
-  controller.renderAfterStop=renderAfter;
-  if(!renderAfter)controller.interrupted=true;
-  controller.recorder.stop();
-  return true;
-}
-async function playLocalRecording(id){
-  try {
-    const row=await getRecording(id);
-    if(!row?.blob?.size)return notify('找不到有效的本地录音，请重新录制。');
-    stopSpeech();stopActiveAudio();stopLocalAudio();
-    const url=URL.createObjectURL(row.blob);
-    const audio=new Audio(url);
-    activeLocalAudio=audio;
-    activeLocalAudioObjectUrl=url;
-    audio.onended=()=>releaseLocalAudioObjectUrl(audio);
-    audio.onerror=()=>{releaseLocalAudioObjectUrl(audio);notify('录音播放失败，请重新录制。');};
-    await audio.play();
-  }catch(error){stopLocalAudio();notify(`无法播放录音：${error.message}`);}
-}
+async function startActiveRecording(meta){const capability=recordingCapability();if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');stopSpeech();stopActiveAudio();stopLocalAudio();try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}const recorder=new MediaRecorder(stream,{mimeType:capability.mimeType});const chunks=[];const controller={recorder,stream,chunks,meta:{...meta,mimeType:capability.mimeType},startedAt:Date.now(),renderAfterStop:true};recordingController=controller;recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};recorder.onstop=async()=>{try{const blob=new Blob(chunks,{type:recorder.mimeType||capability.mimeType});const saved=await putRecording({...meta,mimeType:recorder.mimeType||capability.mimeType,durationMs:Date.now()-controller.startedAt},blob);meta.onSaved?.(saved);notify('录音已保存在本机。');}catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留。`);}finally{stream.getTracks().forEach(track=>track.stop());if(recordingController===controller)recordingController=null;if(controller.renderAfterStop)refreshRecordingPanel(meta);}};recorder.start();refreshRecordingPanel(meta);}catch(error){notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝，已切换为文字训练。':'录音不可用，已切换为文字训练。');}}
+function stopActiveRecording({renderAfter=true}={}){const controller=recordingController;if(!controller?.recorder||controller.recorder.state!=='recording')return false;controller.renderAfterStop=renderAfter;controller.recorder.stop();return true;}
+async function playLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');stopSpeech();stopActiveAudio();stopLocalAudio();const url=URL.createObjectURL(row.blob);const audio=new Audio(url);activeLocalAudio=audio;audio.onended=()=>{URL.revokeObjectURL(url);if(activeLocalAudio===audio)activeLocalAudio=null;};await audio.play();}catch(error){notify(`无法播放录音：${error.message}`);}}
 async function exportLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');const url=URL.createObjectURL(row.blob);const link=el('a','');link.href=url;link.download=`english-cultivation-${row.role}-${row.createdAt.replaceAll(':','-')}.${row.mimeType.includes('mp4')?'m4a':'webm'}`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(error){notify(`无法导出录音：${error.message}`);}}
 function renderTransferPractice(){
   const active=activeWeaknessTransfer();if(!active){setPage('transferHub');return;}
@@ -2139,13 +2708,13 @@ async function copyCentralLearningHandoff(){
 function exportCentralLearningHandoff(){
   const value=latestCentralHandoff();
   if(!value){notify('还没有可导出的学习交接材料。');return;}
-  download('central-english-handoff-'+shanghaiDateStamp()+'.md',value,'text/markdown;charset=utf-8');
+  download('central-english-handoff-'+new Date().toISOString().slice(0,10)+'.md',value,'text/markdown;charset=utf-8');
   notify('已发起下载。请在 iPhone“文件”中确认文件实际保存。');
 }
 function latestCentralFeedback(){return buildCentralLearningFeedback({report:data.reports?.at(-1)||null,generatedAt:new Date().toISOString()});}
 function centralFeedbackJSON(){return JSON.stringify(latestCentralFeedback(),null,2);}
 async function copyCentralFeedback(){const value=centralFeedbackJSON();try{if(!navigator.clipboard?.writeText)throw Error('Clipboard unsupported');await navigator.clipboard.writeText(value);notify('已复制“生成下次学习依据”反馈 JSON；不会自动同步到外部服务。');}catch{showHandoffCopyFallback(value);}}
-function exportCentralFeedback(){const value=centralFeedbackJSON();const stamp=shanghaiDateStamp();download(`central-english-feedback-${stamp}.json`,value,'application/json');notify('已导出结构化反馈 JSON；请在 iPhone“文件”中确认保存。');}
+function exportCentralFeedback(){const value=centralFeedbackJSON();const stamp=new Date().toISOString().slice(0,10);download(`central-english-feedback-${stamp}.json`,value,'application/json');notify('已导出结构化反馈 JSON；请在 iPhone“文件”中确认保存。');}
 function downloadBytes(name,bytes,mime='application/octet-stream'){const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 function sourcePackForHandover(report){
   const stored=data.dailyPack?.sourcePack;
@@ -2701,7 +3270,7 @@ function preserveSourcePack(raw,parsed,filename){
   if(bytes.length>5_000_000)return {unavailableReason:'原始学习包超过 5 MB，未写入本机 Journey 状态以避免存储压力。'};
   return {raw,packId:String(parsed.pack_id).trim(),schemaVersion:'2.0',provenance:{type:'imported_daily_pack',fileName:filename||'learning-pack.json',importedAt:new Date().toISOString()}};
 }
-function inputStudyZip(){const x=el('input','','input');x.type='file';x.accept='.zip,application/zip';x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>100*1024*1024){notify('配音学习包过大，请控制在 100 MB 以内。');return;}try{const files=await unpackSpeechZip(file),packFile=files.find(item=>item.name==='learning-pack.json')||files.find(item=>/\.json$/i.test(item.name)&&!/^speech-manifest|^manifest|^package-info$/i.test(item.name.replace(/\.json$/i,'')));if(!packFile)throw Error('ZIP中没有学习包 JSON。');const packRaw=await packFile.text();let pack;try{pack=JSON.parse(packRaw);}catch{throw Error('学习包 JSON 无法解析。');}const infoFile=files.find(item=>item.name==='package-info.json');const manifestFile=files.find(item=>item.name==='speech-manifest.json'||item.name==='manifest.json');if(infoFile){const info=JSON.parse(await infoFile.text());if(info.schema_version&&String(info.schema_version)!=='2.0')throw Error('ZIP学习包 schema_version 不受支持。');if(info.pack_id&&String(info.pack_id)!==String(pack.pack_id||''))throw Error('ZIP package-info 与学习包 pack_id 不一致。');if(info.manifest_sha256&&manifestFile){const manifestHash=await sha256Hex(new Uint8Array(await manifestFile.arrayBuffer()));if(manifestHash!==info.manifest_sha256)throw Error('ZIP speech-manifest SHA-256 校验失败。');}}let audioSummary=null;const hasManifest=Boolean(manifestFile);if(hasManifest)audioSummary=await importSpeechClips(files);await chooseImport(packRaw,packFile.name);if(draft&&draft.pack&&!draft.error){const confirmBtn=document.querySelector('#import-preview button.btn.primary');if(confirmBtn)confirmBtn.click();}if(audioSummary){const coverage=Object.entries(audioSummary.byCategory||{}).map(([key,row])=>`${key} ${row.imported}/${row.total}`).join(' · ');notify(`ZIP学习包已自动导入并开启今日完整学习；自然语音 ${audioSummary.imported}/${audioSummary.total} 段${coverage?`（${coverage}）`:''}${audioSummary.missing?`，缺失 ${audioSummary.missing} 段`:''}。`);}else notify('ZIP学习包已自动导入并开启今日完整学习；未包含自然语音清单，将使用设备朗读。');}catch(error){notify(`ZIP学习包读取失败：${error.message}`);}finally{x.value='';}});return x;}
+function inputStudyZip(){const x=el('input','','input');x.type='file';x.accept='.zip,application/zip';x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>100*1024*1024){notify('配音学习包过大，请控制在 100 MB 以内。');return;}try{const files=await unpackSpeechZip(file),packFile=files.find(item=>item.name==='learning-pack.json')||files.find(item=>/\.json$/i.test(item.name)&&!/^speech-manifest|^manifest|^package-info$/i.test(item.name.replace(/\.json$/i,'')));if(!packFile){const audioOnlyManifest=files.find(item=>item.name==='speech-manifest.json'||item.name==='manifest.json');if(audioOnlyManifest){await importOfflineRadioZipFile(file);return;}throw Error('ZIP中没有学习包 JSON。');}const packRaw=await packFile.text();let pack;try{pack=JSON.parse(packRaw);}catch{throw Error('学习包 JSON 无法解析。');}const infoFile=files.find(item=>item.name==='package-info.json');const manifestFile=files.find(item=>item.name==='speech-manifest.json'||item.name==='manifest.json');if(infoFile){const info=JSON.parse(await infoFile.text());if(info.schema_version&&String(info.schema_version)!=='2.0')throw Error('ZIP学习包 schema_version 不受支持。');if(info.pack_id&&String(info.pack_id)!==String(pack.pack_id||''))throw Error('ZIP package-info 与学习包 pack_id 不一致。');if(info.manifest_sha256&&manifestFile){const manifestHash=await sha256Hex(new Uint8Array(await manifestFile.arrayBuffer()));if(manifestHash!==info.manifest_sha256)throw Error('ZIP speech-manifest SHA-256 校验失败。');}}let audioSummary=null;const hasManifest=Boolean(manifestFile);if(hasManifest)audioSummary=await importSpeechClips(files);await chooseImport(packRaw,packFile.name);if(draft&&draft.pack&&!draft.error){const confirmBtn=document.querySelector('#import-preview button.btn.primary');if(confirmBtn)confirmBtn.click();}if(audioSummary){const coverage=Object.entries(audioSummary.byCategory||{}).map(([key,row])=>`${key} ${row.imported}/${row.total}`).join(' · ');notify(`ZIP学习包已自动导入并开启今日完整学习；自然语音 ${audioSummary.imported}/${audioSummary.total} 段${coverage?`（${coverage}）`:''}${audioSummary.missing?`，缺失 ${audioSummary.missing} 段`:''}。`);}else notify('ZIP学习包已自动导入并开启今日完整学习；未包含自然语音清单，将使用设备朗读。');}catch(error){notify(`ZIP学习包读取失败：${error.message}`);}finally{x.value='';}});return x;}
 function inputFile(accept,fn){const x=el('input','','input');x.type='file';x.accept=accept;x.addEventListener('change',async()=>{const file=x.files?.[0];if(!file)return;if(file.size>3_000_000){notify('文件过大，请选择小于 3 MB 的文件。');return;}try{await fn(await file.text(),file.name);}catch(e){notify(`读取文件失败：${e.message}`);}});return x;}
 function showCardDialog(item){document.getElementById('card-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='card-dialog';const card=section('switch-dialog card-dialog');const history=data.attempts.filter(attempt=>attempt.itemId===item.id).slice(-8).reverse();card.append(el('div','卡片详情 · CARD DETAIL','eyebrow'),h('h2',item.kind==='word'?item.target:item.text),p(`${item.status==='UNTESTED'?'未测试':item.status} · ${item.paused?'已暂停复习':'正在复习'} · ${item.attempts||0} 次记录`,'subtle'));if(item.example)card.append(p(item.example,'small-block'));if(item.context)card.append(p(`原文上下文：${item.context}`,'hint'));if(item.meaningZh)card.append(p(`中文释义：${item.meaningZh}`,'hint'));const list=el('ul','','list');if(history.length)history.forEach(row=>{const li=el('li');li.append(el('span',`${row.status||'?'} · ${row.answer||'跳过'} · ${row.initial_check?.status||'未检查'}`,'item-sub'),el('span',new Date(row.at).toLocaleDateString('zh-CN'),'chip'));list.append(li);});else list.append(el('li','还没有真实练习记录。','item-sub'));card.append(h('h3','最近练习'),list,lines(btn('编辑卡片',()=>{backdrop.remove();showEditDialog(item);},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
 function showEditDialog(item){document.getElementById('edit-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='edit-dialog';const card=section('switch-dialog card-dialog');const target=textInput(item.kind==='word'?item.target:item.text,'英文目标内容');const example=textarea(item.kind==='word'?item.example:item.context||item.text,'English example or original sentence');const meaning=textInput(item.meaningZh||'','可选中文释义');const tags=textInput((item.tags||[]).join('、'),'标签，用顿号分隔');card.append(el('div','编辑学习卡片','eyebrow'),p('修改资料不会清除历史 K/V/N、作答或复习日期。','subtle'),field(item.kind==='word'?'目标词或词块':'原句',target),field('英文例句或上下文',example),field('中文释义（可选）',meaning),field('标签（可选）',tags),lines(btn('保存修改',()=>{const nextTarget=target.value.trim(),nextExample=example.value.trim();if(!nextTarget||!nextExample){notify('英文目标和例句不能为空。');return;}if(item.kind==='word'){item.target=nextTarget;item.example=nextExample;}else{item.text=nextTarget;item.context=nextExample;}item.meaningZh=meaning.value.trim();item.tags=tags.value.split(/[、,;|]/).map(x=>x.trim()).filter(Boolean);if(!save())return;backdrop.remove();notify('卡片资料已更新，历史记录保留。');render();},'btn primary'),btn('取消',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
@@ -2754,7 +3323,7 @@ function exportBackup(){
   download('english-mastery-backup-'+time.slice(0,10)+'.json',snapshot,'application/json');
   notify('已发起JSON下载，请在“文件”中确认保存；本备份不含录音，录音须单独导出。');
 }
-function exportHistory(){if(!data.attempts.length){notify('还没有可导出的练习历史。');return;}download(`english-mastery-history-${shanghaiDateStamp()}.csv`,makeCSV(data.attempts,['at','kind','itemId','status','answer','sessionId']),'text/csv;charset=utf-8');}
+function exportHistory(){if(!data.attempts.length){notify('还没有可导出的练习历史。');return;}download(`english-mastery-history-${new Date().toISOString().slice(0,10)}.csv`,makeCSV(data.attempts,['at','kind','itemId','status','answer','sessionId']),'text/csv;charset=utf-8');}
 function importBackup(raw){let restored;try{restored=migrateBackupPayload(JSON.parse(raw));}catch(e){notify(`备份未导入：${e.message}`);return;}if(!confirm(`这份备份包含 ${restored.items.length} 张卡片、${restored.attempts.length} 次作答、${restored.readings.length} 篇文章和 ${restored.reports.length} 份战报。要合并吗？已有卡片、进度和资料会保留。`))return;const merged=mergeItems(data.items,restored.items);data=mergeBackupState(data,restored);if(!save())return;notify(`备份已合并：新增 ${merged.added} 张卡片，重复 ${merged.skipped} 张；文章和历史记录已验证保留。`);render();}
 function readingParagraphs(text){return String(text||'').split(/\n\s*\n|\n/).map(x=>x.trim()).filter(Boolean);}
 function selectionOffsetInParagraph(paragraph,selection){try{if(!selection?.rangeCount)return 0;const range=selection.getRangeAt(0);const before=range.cloneRange();before.selectNodeContents(paragraph);before.setEnd(range.startContainer,range.startOffset);return Math.max(0,before.toString().length);}catch{return 0;}}
@@ -3195,7 +3764,7 @@ function renderReadingVocabulary(){
   exportText.setAttribute('aria-label','可手动复制的阅读生词回传文本');
   const copyVisible=btn('复制筛选结果给中央仙窍',()=>copyWords(currentRows()),'btn primary');
   const copyAll=btn('复制全部生词',()=>copyWords(allWords),'btn secondary');
-  const exportVisible=btn('下载筛选结果 TXT',()=>{const rows=currentRows();if(rows.length)download('reading-vocabulary-'+shanghaiDateStamp()+'.txt',readingVocabularyHandoff(rows,{exportedAt:new Date().toISOString()}),'text/plain;charset=utf-8');},'btn');
+  const exportVisible=btn('下载筛选结果 TXT',()=>{const rows=currentRows();if(rows.length)download('reading-vocabulary-'+new Date().toISOString().slice(0,10)+'.txt',readingVocabularyHandoff(rows,{exportedAt:new Date().toISOString()}),'text/plain;charset=utf-8');},'btn');
   function currentRows(){
     const needle=normalized(readingVocabSearchTerm);
     return allWords.filter(row=>(readingVocabStatusFilter==='all'||row.status===readingVocabStatusFilter)&&(!needle||normalized([row.target,row.sourceTitle,row.originalSentence].join(' ')).includes(needle)));
@@ -3518,12 +4087,7 @@ function voiceSettingsPanel(){
   );
   return box;
 }
-function renderSettings(){
-  const standalone=window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
-  const entry=p(`当前运行入口：${runtimeEntryMode({standalone})}。主屏幕独立 PWA 与 Safari 标签页的本机学习记录、录音和缓存彼此隔离；请在同一入口继续学习，切换前先导出备份。`,'hint');
-  entry.id='runtime-entry-notice';
-  app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),entry,p('语音、主题、学习参数与本机备份。','lead'),aiTutorSettingsPanel(),voiceSettingsPanel(),buildSettingsPanel(),dataSafetyPanel());
-}
+function renderSettings(){app.append(el('div','设置 · SETTINGS','eyebrow'),h('h1','学习设置'),p('语音、主题、学习参数与本机备份。','lead'),aiTutorSettingsPanel(),voiceSettingsPanel(),buildSettingsPanel(),dataSafetyPanel());}
 function renderMasteryAnalytics(){const analytics=buildMasteryAnalytics({items:data.items,attempts:data.attempts,sessions:data.sessions,transferAttempts:data.transferAttempts,now:new Date()});const box=section('mastery-evidence-panel');box.append(h('h2','真实掌握证据'),p('这些指标只来自本机真实作答、提示、重答和延迟复测；阅读、看答案和自评不会自动变成掌握。','subtle'));const grid=div('grid-3');const labels=[['UNTESTED','尚未测试'],['exposed','已接触并留下记录'],['independentCorrect','首次无提示答对'],['promptedCorrect','使用提示后答对'],['correctedAfterError','错误后完成修正'],['delayedReviewSuccess','延迟复测成功']];for(const [key,label] of labels)grid.append(statistic(label,analytics.evidence[key]||0));box.append(grid);const windows=section('panel soft');windows.append(h('h3','实际学习窗口'),p(`近 7 天：${analytics.windows.days7.activeSeconds} 秒 · ${analytics.windows.days7.tasks} 项任务 · ${analytics.windows.days7.rated} 项评级作答`,'tiny'),p(`近 30 天：${analytics.windows.days30.activeSeconds} 秒 · ${analytics.windows.days30.tasks} 项任务 · ${analytics.windows.days30.rated} 项评级作答`,'tiny'));if(analytics.errors.length)windows.append(h('h3','最常见的已记录问题'),p(analytics.errors.slice(0,5).map(row=>`${row.type} · ${row.count} 次`).join(' ｜ '),'tiny'));if(analytics.unmeasured.length)windows.append(p(`尚未获得可解释评级的卡片：${analytics.unmeasured.length} 张。`,'hint'));
   const shadow=replayFsrsShadowHistory(data.attempts||[],new Date());
   const shadowBox=section('panel soft fsrs-shadow-panel');
@@ -3621,7 +4185,6 @@ if(migrationNotice){notify(migrationNotice);migrationNotice='';}
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", e => {
-    if (e.isComposing || e.keyCode === 229) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (page === "vocabulary" && journeyStage() === "vocabulary") {
