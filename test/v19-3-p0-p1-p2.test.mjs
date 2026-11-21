@@ -21,7 +21,7 @@ import {
 } from '../radio-offline.mjs';
 import { isPrunablePackClipRow } from '../speech-clips.mjs';
 
-test('v19.3.0 P0-1: Safe cache pruning deletes ONLY old daily_pack clips and preserves raw MP3, speaking_qa & unknown sources', () => {
+test('v19.4.0 P0-1: Safe cache pruning deletes ONLY old daily_pack clips and preserves raw MP3, speaking_qa & unknown sources', () => {
   const activePack = 'pack-today-001';
   assert.equal(isPrunablePackClipRow({ key: 'raw:abc123', source: 'my_audio', packId: 'old' }, activePack), false);
   assert.equal(isPrunablePackClipRow({ key: 'raw:def456', source: 'speaking_qa', packId: 'old' }, activePack), false);
@@ -37,7 +37,7 @@ test('v19.3.0 P0-1: Safe cache pruning deletes ONLY old daily_pack clips and pre
   assert.match(appSrc, /pruneOldPackSpeechClips\(activePackId\)/);
 });
 
-test('v19.3.0 P0-2: Unified offline-only policy blocks cloud TTS across all 5 playback paths and persists setting', () => {
+test('v19.4.0 P0-2: Unified offline-only policy blocks cloud TTS across all 5 playback paths and persists setting', () => {
   assert.deepEqual(
     evaluateRadioPlaybackPolicy({ offlineOnly: true, isOriginalAudio: false, hasOfflineClip: false, hasCloudLocalCache: false, cloudTtsReady: true }),
     { allowPlay: false, allowCloudRequest: false, reason: 'blocked_by_offline_only' }
@@ -57,7 +57,7 @@ test('v19.3.0 P0-2: Unified offline-only policy blocks cloud TTS across all 5 pl
   assert.match(appSrc, /markTrackActualPlay/);
 });
 
-test('v19.3.0 P0-3: Backup merge restores readingRetellingAttempts & deduplicates speechTransferAttempts idempotently', () => {
+test('v19.4.0 P0-3: Backup merge restores readingRetellingAttempts & deduplicates speechTransferAttempts idempotently', () => {
   const backup = {
     readingRetellingAttempts: [{ id: 'retell:1', readingId: 'r1', firstAnswer: 'Original retelling text' }],
     speechTransferAttempts: [{ id: 'sp-tr:1', taskId: 't1', firstAnswer: 'Original speech transfer' }]
@@ -86,14 +86,14 @@ test('v19.3.0 P0-3: Backup merge restores readingRetellingAttempts & deduplicate
   assert.equal(dry.recoverable.recordingMetaCount, 1);
 });
 
-test('v19.3.0 P0-4: Service Worker defers skipWaiting until client sends SKIP_WAITING', () => {
+test('v19.4.0 P0-4: Service Worker defers skipWaiting until client sends SKIP_WAITING', () => {
   const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.doesNotMatch(swSrc, /addAll\(ASSETS\)\)\.then\(\(\)\s*=>\s*self\.skipWaiting\(\)\)/);
   assert.match(swSrc, /SKIP_WAITING/);
   assert.match(swSrc, new RegExp(APP_VERSION.replace(/\./g, '\\.')));
 });
 
-test('v19.3.0 P0-5: FSRS shadow & weekly review strictly reject bare K, passive exposure, missing timestamps & duplicates', () => {
+test('v19.4.0 P0-5: FSRS shadow & weekly review strictly reject bare K, passive exposure, missing timestamps & duplicates', () => {
   const now = new Date('2026-11-21T10:00:00+08:00');
   const fsrs = replayFsrsShadowHistory([
     // Bare self-rating K with no answer/check -> excluded
@@ -119,7 +119,7 @@ test('v19.3.0 P0-5: FSRS shadow & weekly review strictly reject bare K, passive 
   assert.equal(weekly.highlights.find(h => h.role === 'next_day_independent')?.record?.answer, 'next day ok');
 });
 
-test('v19.3.0 P1-7: findSentenceStartForTime never jumps forward in inter-sentence gaps & resolveEpisodeByIdentity guards mismatches', () => {
+test('v19.4.0 P1-7: findSentenceStartForTime never jumps forward in inter-sentence gaps & resolveEpisodeByIdentity guards mismatches', () => {
   const segs = [
     { startSec: 0, endSec: 3, text: 'Sentence one.' },
     { startSec: 10, endSec: 14, text: 'Sentence two.' },
@@ -151,7 +151,7 @@ test('v19.3.0 P1-7: findSentenceStartForTime never jumps forward in inter-senten
   assert.equal(resolveEpisodeByIdentity(eps, { episodeId: 'ep2', contentHash: 'hash-2' }).index, 1);
 });
 
-test('v19.3.0 P1-8, P1-9, P2-10, P2-11 & #120 regression guards', () => {
+test('v19.4.0 P1-8, P1-9, P2-10, P2-11 & #120 regression guards', () => {
   const ready = auditPackOfflineReadiness({
     pack: { items: [{ id: 'i1' }], readings: [] },
     queueEpisodes: [
