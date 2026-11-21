@@ -65,7 +65,7 @@ test('15.1.4 bug fixes are verified in app.js and styles.css', () => {
 
   // Bug 4: Pocket Radio checks offline Kokoro clip first
   assert.match(app, /getSpeechClip\(segText,\s*"af_heart"\)/);
-  assert.match(app, /english-cultivation-audio-v1/);
+  assert.match(app, /pruneOldPackSpeechClips/);
   assert.match(app, /⚡ 5 分钟通勤微冲刺/);
 
   // Bug 5: no corrupted replacement character in app.js

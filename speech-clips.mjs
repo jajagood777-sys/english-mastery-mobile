@@ -24,7 +24,59 @@ export async function unpackSpeechZip(file){
  return out;
 }
 async function expandFiles(input){const list=Array.from(input||[]);if(list.length===1&&/\.zip$/i.test(list[0].name))return unpackSpeechZip(list[0]);return list;}
-export async function importSpeechClips(files,{onProgress=()=>{}}={}){const list=await expandFiles(files),manifest=list.find(f=>f.name==='speech-manifest.json'||f.name==='manifest.json');if(!manifest)throw Error('请选择包含 speech-manifest.json 的音频文件集合。');const parsed=JSON.parse(await manifest.text());if(parsed.version!==1||!Array.isArray(parsed.clips))throw Error('音频清单格式不受支持。');const byName=new Map(list.map(f=>[f.name,f])),total=parsed.clips.length,manifestNames=new Set(),byCategory={};let imported=0,skipped=0,missing=0,totalDurationSec=0,totalBytes=0;for(const item of parsed.clips){const category=String(item.category||'other');const coverage=byCategory[category]??={total:0,imported:0,missing:0};coverage.total++;const voice=item.voice;if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');const filename=String(item.file||'');if(!/^[A-Za-z0-9._-]+\.(mp3|wav|m4a|aac)$/i.test(filename))throw Error(`音频清单包含不安全文件名：${filename}`);if(manifestNames.has(filename))throw Error(`音频清单包含重复文件名：${filename}`);manifestNames.add(filename);const file=byName.get(filename);if(!file){missing++;coverage.missing++;continue;}if(file.size>25*1024*1024)throw Error(`音频文件过大：${filename}`);const hash=await speechTextHash(item.text);if(item.sha256!==hash)throw Error(`音频文字校验失败：${filename}`);if(item.bytes&&Number(item.bytes)!==file.size)throw Error(`音频大小校验失败：${filename}`);if(item.fileSha256&&await speechBlobHash(file)!==item.fileSha256)throw Error(`音频内容校验失败：${filename}`);const key=voice+':'+hash;const actualFileSha=item.fileSha256||await speechBlobHash(file);let alreadySame=false;try{const prev=await getSpeechClipRecord(item.text,voice);if(prev&&prev.fileSha256&&prev.fileSha256===actualFileSha)alreadySame=true;}catch{}if(alreadySame){skipped++;coverage.skipped=(coverage.skipped||0)+1;totalDurationSec+=Number(item.durationSeconds||0);totalBytes+=file.size;onProgress({imported,skipped,total});continue;}await putClip({key,blob:file,text:normalizeSpeechText(item.text),voice,created:Date.now(),source:item.source||'import',manifest:manifest.name,durationSeconds:Number(item.durationSeconds||0),segments:Array.isArray(item.segments)?item.segments:[],episodeId:item.episodeId||null,segmentIds:Array.isArray(item.segmentIds)?item.segmentIds:[],engine:item.engine||parsed.engine||'',title:item.title||'',fileSha256:actualFileSha});imported++;coverage.imported++;totalDurationSec+=Number(item.durationSeconds||0);totalBytes+=file.size;onProgress({imported,skipped,total});}return {imported,skipped,missing,total,totalDurationSec,totalBytes,byCategory};}
+export async function importSpeechClips(files,{onProgress=()=>{}}={}){
+  const list=await expandFiles(files),manifest=list.find(f=>f.name==='speech-manifest.json'||f.name==='manifest.json');
+  if(!manifest)throw Error('请选择包含 speech-manifest.json 的音频文件集合。');
+  const parsed=JSON.parse(await manifest.text());
+  if(parsed.version!==1||!Array.isArray(parsed.clips))throw Error('音频清单格式不受支持。');
+  const byName=new Map(list.map(f=>[f.name,f])),total=parsed.clips.length,manifestNames=new Set(),byCategory={};
+  let imported=0,skipped=0,missing=0,totalDurationSec=0,totalBytes=0;
+  const staged=[];
+  for(const item of parsed.clips){
+    const category=String(item.category||'other');
+    const coverage=byCategory[category]??={total:0,imported:0,missing:0};
+    coverage.total++;
+    const voice=item.voice;
+    if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');
+    const filename=String(item.file||'');
+    if(!/^[A-Za-z0-9._-]+\.(mp3|wav|m4a|aac)$/i.test(filename))throw Error(`音频清单包含不安全文件名：${filename}`);
+    if(manifestNames.has(filename))throw Error(`音频清单包含重复文件名：${filename}`);
+    manifestNames.add(filename);
+    const file=byName.get(filename);
+    if(!file){missing++;coverage.missing++;continue;}
+    if(file.size>25*1024*1024)throw Error(`音频文件过大：${filename}`);
+    if(file.size<64)throw Error(`音频文件过小或损坏：${filename}`);
+    const hash=await speechTextHash(item.text);
+    if(item.sha256!==hash)throw Error(`音频文字校验失败：${filename}`);
+    if(item.bytes&&Number(item.bytes)!==file.size)throw Error(`音频大小校验失败：${filename}`);
+    const actualFileSha=await speechBlobHash(file);
+    if(item.fileSha256&&actualFileSha!==item.fileSha256)throw Error(`音频内容校验失败：${filename}`);
+    const key=voice+':'+hash;
+    let alreadySame=false;
+    try{const prev=await getSpeechClipRecord(item.text,voice);if(prev&&prev.fileSha256&&prev.fileSha256===actualFileSha)alreadySame=true;}catch{}
+    if(alreadySame){
+      skipped++;coverage.skipped=(coverage.skipped||0)+1;totalDurationSec+=Number(item.durationSeconds||0);totalBytes+=file.size;
+      continue;
+    }
+    staged.push({
+      category,coverage,item,file,actualFileSha,
+      record:{
+        key,blob:file,text:normalizeSpeechText(item.text),voice,created:Date.now(),
+        source:item.source||'daily_pack',packId:item.packId||parsed.pack_id||'',manifest:manifest.name,
+        durationSeconds:Number(item.durationSeconds||0),
+        segments:Array.isArray(item.segments)?item.segments:[],
+        episodeId:item.episodeId||null,segmentIds:Array.isArray(item.segmentIds)?item.segmentIds:[],
+        engine:item.engine||parsed.engine||'',title:item.title||'',fileSha256:actualFileSha
+      }
+    });
+  }
+  for(const entry of staged){
+    await putClip(entry.record);
+    imported++;entry.coverage.imported++;totalDurationSec+=Number(entry.item.durationSeconds||0);totalBytes+=entry.file.size;
+    onProgress({imported,skipped,total});
+  }
+  return {imported,skipped,missing,total,totalDurationSec,totalBytes,byCategory};
+}
 export function createClipPlayer({onStatus=()=>{}}={}){
  let audio=null,url=null,token=0,paused=false,waitingResolve=null;
  function clearAudio(){if(audio){audio.pause();audio.removeAttribute('src');audio.load();}if(url){URL.revokeObjectURL(url);url=null;}const tray=document.getElementById('imported-speech-tray');if(tray)tray.hidden=true;}
@@ -114,4 +166,42 @@ export async function hasRawAudioBlob(audioSha256){
     const count=await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).count('raw:'+audioSha256);req.onsuccess=()=>resolve(req.result||0);req.onerror=()=>reject(req.error);tx.oncomplete=()=>database.close();tx.onerror=()=>database.close();});
     return count>0;
   }catch{return false;}
+}
+
+export function isPrunablePackClipRow(row, activePackId = '') {
+  if (!row || typeof row !== 'object') return false;
+  const key = String(row.key || row.id || '');
+  if (!key || key.startsWith('raw:')) return false;
+  const src = String(row.source || '');
+  if (src === 'my_audio' || src === 'speaking_qa' || src === 'custom_offline') return false;
+  const rowPack = String(row.packId || '').trim();
+  if (!rowPack) return false;
+  if (activePackId && rowPack === activePackId) return false;
+  return true;
+}
+
+export async function pruneOldPackSpeechClips(activePackId = '') {
+  if (typeof indexedDB === 'undefined') return { deleted: 0, preserved: 0 };
+  const database = await db();
+  try {
+    const rows = await new Promise((resolve, reject) => {
+      const tx = database.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+      req.onerror = () => reject(req.error);
+    });
+    const toDelete = rows.filter(r => isPrunablePackClipRow(r, activePackId)).map(r => r.key || r.sha256 || r.id).filter(Boolean);
+    if (toDelete.length) {
+      await new Promise((resolve, reject) => {
+        const tx = database.transaction(STORE, 'readwrite');
+        const store = tx.objectStore(STORE);
+        for (const k of toDelete) store.delete(k);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    return { deleted: toDelete.length, preserved: rows.length - toDelete.length };
+  } finally {
+    database.close();
+  }
 }

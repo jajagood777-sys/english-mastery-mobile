@@ -14,7 +14,7 @@ import {
   resolveRadioSourceLabel
 } from '../radio-offline.mjs';
 
-test('v19.2.3 RADIO_CHANNELS upgrades slot 1 to speaking_qa (🎤 口语问答·同步字幕)', () => {
+test('v19.3.0 RADIO_CHANNELS upgrades slot 1 to speaking_qa (🎤 口语问答·同步字幕)', () => {
   assert.equal(RADIO_CHANNELS.length, 4);
   assert.equal(RADIO_CHANNELS[0].id, 'speaking_qa');
   assert.match(RADIO_CHANNELS[0].label, /口语问答/);
@@ -30,7 +30,7 @@ test('v19.2.3 RADIO_CHANNELS upgrades slot 1 to speaking_qa (🎤 口语问答·
   }), false);
 });
 
-test('v19.2.3 SRT & WebVTT parser extracts monotonic cues and Q/A speaker roles cleanly', () => {
+test('v19.3.0 SRT & WebVTT parser extracts monotonic cues and Q/A speaker roles cleanly', () => {
   assert.equal(parseSubtitleTimestamp('00:01:12,500'), 72.5);
   assert.equal(parseSubtitleTimestamp('02:05.250'), 125.25);
 
@@ -68,7 +68,7 @@ NOTE Band 7 Speaking Practice
   assert.match(vttCues[1].text, /brisk walk/);
 });
 
-test('v19.2.3 Active cue lookup respects ±offset and Q-end auto-pause fires once per question', () => {
+test('v19.3.0 Active cue lookup respects ±offset and Q-end auto-pause fires once per question', () => {
   const segs = [
     { index: 0, startSec: 0, endSec: 4.0, role: 'Q', speaker: 'Examiner', text: 'Do you enjoy cooking?' },
     { index: 1, startSec: 4.5, endSec: 12.0, role: 'A', speaker: 'Candidate', text: 'Yes, I find it quite relaxing on weekends.' }
@@ -93,7 +93,7 @@ test('v19.2.3 Active cue lookup respects ±offset and Q-end auto-pause fires onc
   assert.equal(onSeek.shouldPause, false);
 });
 
-test('v19.2.3 pairAudioAndSubtitleFiles matches by stem and routes subtitled audio to speaking_qa', () => {
+test('v19.3.0 pairAudioAndSubtitleFiles matches by stem and routes subtitled audio to speaking_qa', () => {
   const files = [
     { name: 'IELTS_Band7_Ep1.mp3' },
     { name: 'ielts_band7_ep1.vtt' },
@@ -125,7 +125,7 @@ test('v19.2.3 pairAudioAndSubtitleFiles matches by stem and routes subtitled aud
   assert.equal(planned.track.segmentCount, 24);
 });
 
-test('v19.2.3 UI & CSS guards: synced scrolling subtitles, recenter button, Q&A pause, mask answers & SRT/VTT picker', () => {
+test('v19.3.0 UI & CSS guards: synced scrolling subtitles, recenter button, Q&A pause, mask answers & SRT/VTT picker', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(appSrc, /function syncRadioSubtitlesDom\(/);
