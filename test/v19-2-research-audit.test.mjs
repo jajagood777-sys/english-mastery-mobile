@@ -5,6 +5,7 @@ import {
   APP_VERSION,
   compareAnswer,
   persistState,
+  migrateBackupPayload,
   addActiveInterval,
   summarizeSessionTime,
   replayFsrsShadowHistory
