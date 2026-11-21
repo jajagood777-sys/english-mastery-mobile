@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.2.3';
+export const APP_VERSION = '19.3.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -603,7 +603,7 @@ export function mergeBackupState(current={}, restored={}) {
     readings,
     speeches,
     speechAttempts,
-    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferHints:{...(restored.speechTransferHints||{}),...(current.speechTransferHints||{})},speechTransferAttempts:[...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],
+    speechProgress:{...(restored.speechProgress||{}),...(current.speechProgress||{})},speechTransferHints:{...(restored.speechTransferHints||{}),...(current.speechTransferHints||{})},speechTransferAttempts:uniqueBy([...(current.speechTransferAttempts||[]),...(restored.speechTransferAttempts||[])],'id'),readingRetellingAttempts:uniqueBy([...(current.readingRetellingAttempts||[]),...(restored.readingRetellingAttempts||[])],'id'),
     readingMarks,
     readingChecks,
     weaknesses,
@@ -1189,6 +1189,7 @@ export function validateBackup(value){
         radioMoments:Array.isArray(value.radioMoments)?value.radioMoments:[],
         radioQueue:Array.isArray(value.radioQueue)?value.radioQueue:[],
         radioBookmarksV2:value.radioBookmarksV2&&typeof value.radioBookmarksV2==='object'&&!Array.isArray(value.radioBookmarksV2)?value.radioBookmarksV2:{},
+        stateRevision:Number.isFinite(Number(value.stateRevision))?Number(value.stateRevision):0,
         v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
@@ -1515,6 +1516,7 @@ export function fsrsShadowStep(cardState = null, ratingKey = 'K', reviewedAt = n
 export function replayFsrsShadowHistory(attempts = [], asOf = new Date()) {
   const asOfTime = (asOf instanceof Date ? asOf : new Date(asOf)).getTime();
   const cards = new Map();
+  const seenAttemptIds = new Set();
   let qualifiedEvents = 0;
   let excludedEvents = 0;
 
@@ -1524,7 +1526,24 @@ export function replayFsrsShadowHistory(attempts = [], asOf = new Date()) {
     if (!['K', 'V', 'N'].includes(rating)) { excludedEvents++; continue; }
     const promptUsed = Boolean(row.prompt_used || row.promptUsed || row.viewed_chinese || row.viewedChinese);
     const viewedAnswer = Boolean(row.viewed_answer || row.viewedAnswer || row.reference_viewed || row.referenceViewed);
-    if (promptUsed || viewedAnswer || row.evidence_type === 'recognition_only') {
+    const evType = String(row.evidence_type || '');
+    if (
+      promptUsed || viewedAnswer ||
+      evType === 'recognition_only' ||
+      evType === 'passive_exposure' ||
+      evType === 'voice_recording' ||
+      evType === 'radio_moment' ||
+      evType === 'user_self_reported_comprehension' ||
+      row.recordingOnly === true
+    ) {
+      excludedEvents++;
+      continue;
+    }
+    const rawAns = String(row.answer ?? row.firstAnswer ?? row.first_answer ?? row.user_answer ?? '').trim();
+    const hasExplicitBlankAnswer = (row.answer !== undefined && !rawAns) || (row.firstAnswer !== undefined && !String(row.firstAnswer).trim());
+    const hasExplicitIndependentFlags = (row.prompt_used === false || row.promptUsed === false) && (row.viewed_answer === false || row.viewedAnswer === false);
+    const hasIndependentCheck = Boolean(row.initial_check && row.initial_check.status && row.initial_check.status !== 'blank');
+    if (evType === 'self_rated_only' || (hasExplicitBlankAnswer && !hasIndependentCheck) || (!rawAns && !hasIndependentCheck && !hasExplicitIndependentFlags && evType !== 'independent_retrieval')) {
       excludedEvents++;
       continue;
     }
@@ -1534,6 +1553,12 @@ export function replayFsrsShadowHistory(attempts = [], asOf = new Date()) {
     if (!Number.isFinite(timeMs) || timeMs > asOfTime + 60000) { excludedEvents++; continue; }
     const itemId = String(row.item_id || row.itemId || '').trim();
     if (!itemId) { excludedEvents++; continue; }
+    const attemptKey = String(row.attempt_id || row.attemptId || row.id || `${itemId}::${timeMs}`);
+    if (seenAttemptIds.has(attemptKey)) {
+      excludedEvents++;
+      continue;
+    }
+    seenAttemptIds.add(attemptKey);
     qualifiedEvents++;
     const prior = cards.get(itemId) || null;
     cards.set(itemId, fsrsShadowStep(prior, rating, new Date(timeMs)));

@@ -66,7 +66,7 @@ export function buildTimeSlicedContinuation({ packId = '', remainingItems = [], 
 /**
  * #20 Offline readiness audit for current pack before commute/subway.
  */
-export function auditPackOfflineReadiness({ pack = null, cachedAudioKeys = [] } = {}) {
+export function auditPackOfflineReadiness({ pack = null, cachedAudioKeys = [], queueEpisodes = [] } = {}) {
   const cachedSet = new Set(Array.isArray(cachedAudioKeys) ? cachedAudioKeys : []);
   const textItems = Array.isArray(pack?.items) ? pack.items : [];
   const readings = Array.isArray(pack?.readings) ? pack.readings : [];
@@ -76,6 +76,9 @@ export function auditPackOfflineReadiness({ pack = null, cachedAudioKeys = [] } 
   ];
   const cachedAudio = audioRefs.filter(a => cachedSet.has(a.key));
   const missingAudio = audioRefs.filter(a => !cachedSet.has(a.key));
+  const qList = Array.isArray(queueEpisodes) ? queueEpisodes : [];
+  const qReady = qList.filter(q => q && q.isLocalReady).length;
+  const qMissing = qList.map((q, i) => ({ ...q, order: i + 1 })).filter(q => !q.isLocalReady);
   return {
     hasPackTextOffline: Boolean(pack && (textItems.length > 0 || readings.length > 0)),
     textItemCount: textItems.length,
@@ -84,7 +87,10 @@ export function auditPackOfflineReadiness({ pack = null, cachedAudioKeys = [] } 
     cachedAudioCount: cachedAudio.length,
     missingAudioCount: missingAudio.length,
     missingAudio,
-    readyForSubway: Boolean(pack) && missingAudio.length === 0
+    queueTotal: qList.length,
+    queueReadyCount: qReady,
+    queueMissing: qMissing,
+    readyForSubway: Boolean(pack) && missingAudio.length === 0 && qMissing.length === 0
   };
 }
 
@@ -104,7 +110,16 @@ export function dryRunBackupRestore(liveState = {}, backupPayload = null) {
   const backupAttempts = Array.isArray(backupPayload.attempts) ? backupPayload.attempts : [];
   const newAttempts = backupAttempts.filter(a => (a.attemptId || a.attempt_id) && !liveAttempts.has(a.attemptId || a.attempt_id));
 
-  const draftsCount = backupPayload.exactResume?.draftText ? 1 : 0;
+  const liveRetellings = new Set((liveState.readingRetellingAttempts || []).map(r => r.id).filter(Boolean));
+  const backupRetellings = Array.isArray(backupPayload.readingRetellingAttempts) ? backupPayload.readingRetellingAttempts : [];
+  const newRetellings = backupRetellings.filter(r => r.id && !liveRetellings.has(r.id));
+
+  const liveSpeechTransfers = new Set((liveState.speechTransferAttempts || []).map(r => r.id).filter(Boolean));
+  const backupSpeechTransfers = Array.isArray(backupPayload.speechTransferAttempts) ? backupPayload.speechTransferAttempts : [];
+  const newSpeechTransfers = backupSpeechTransfers.filter(r => r.id && !liveSpeechTransfers.has(r.id));
+
+  const myAudioCount = Array.isArray(backupPayload.myAudioTracks) ? backupPayload.myAudioTracks.length : 0;
+  const draftsCount = (backupPayload.exactResume?.draftText || backupPayload.v19?.exactResume?.draftText) ? 1 : 0;
   const recordingMetaCount = Array.isArray(backupPayload.recordingsMeta) ? backupPayload.recordingsMeta.length : 0;
 
   return {
@@ -115,6 +130,9 @@ export function dryRunBackupRestore(liveState = {}, backupPayload = null) {
       totalBackupReports: backupReports.length,
       newReportsToAdd: newReports.length,
       newAttemptsToAdd: newAttempts.length,
+      newRetellingsToAdd: newRetellings.length,
+      newSpeechTransfersToAdd: newSpeechTransfers.length,
+      myAudioTracksNeedingSourceFiles: myAudioCount,
       draftsFound: draftsCount,
       recordingMetaCount
     },
@@ -173,20 +191,68 @@ export function buildAiOutboundPreview({ provider = 'Google AI Studio', model = 
 /**
  * #25 Weekly evidence review answering: "Which expressions still failed after changing context?"
  */
-export function buildWeeklyEvidenceReview(attempts = [], transferPlans = []) {
-  const list = Array.isArray(attempts) ? attempts : [];
-  const firstError = list.find(a => a.rating === 'N' || a.initial_check?.status === 'incorrect') || null;
-  const promptedFix = list.find(a => (a.prompt_used || a.hintTierUsed) && (a.rating === 'K' || a.rating === 'V' || a.retryCorrect)) || null;
-  const nextDayIndependent = list.find(a => !a.prompt_used && !a.viewed_answer && a.rating === 'K' && a.isRetest) || null;
+function shanghaiDayKey(isoOrDate) {
+  if (!isoOrDate) return '';
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  } catch {
+    return new Date(d.getTime() + 8 * 3600000).toISOString().slice(0, 10);
+  }
+}
 
-  const failedAfterContextChange = (Array.isArray(transferPlans) ? transferPlans : [])
-    .filter(plan => (plan.stages || []).slice(1).some(st => st.submitted && st.correct === false))
+export function buildWeeklyEvidenceReview(attempts = [], transferPlans = [], { now = null } = {}) {
+  const list = Array.isArray(attempts) ? attempts : [];
+  const nowDay = now ? shanghaiDayKey(now) : '';
+  const weekStartDay = now ? shanghaiDayKey(new Date((now instanceof Date ? now : new Date(now)).getTime() - 6 * 86400000)) : '';
+  const inWeek = (row) => {
+    if (!nowDay || !weekStartDay) return true;
+    const dk = shanghaiDayKey(row?.at || row?.attempt_timestamp || row?.firstSubmittedAt);
+    return Boolean(dk && dk >= weekStartDay && dk <= nowDay);
+  };
+  const scopedList = list.filter(inWeek);
+
+  const firstError = scopedList.find(a => a.rating === 'N' || a.initial_check?.status === 'incorrect') || null;
+  const promptedFix = scopedList.find(a => (a.prompt_used || a.hintTierUsed) && (a.rating === 'K' || a.rating === 'V' || a.retryCorrect)) || null;
+  const nextDayIndependent = scopedList.find(a => {
+    if (!a || a.prompt_used || a.promptUsed || a.viewed_answer || a.viewedAnswer) return false;
+    if (a.rating !== 'K' && a.status !== 'K') return false;
+    if (!a.isRetest) return false;
+    const ans = String(a.answer ?? a.firstAnswer ?? a.first_answer ?? '').trim();
+    if (!ans) return false;
+    const curDay = shanghaiDayKey(a.at || a.attempt_timestamp);
+    if (!curDay) return false;
+    if (a.previousAt) {
+      const prevDay = shanghaiDayKey(a.previousAt);
+      if (!prevDay || curDay <= prevDay) return false;
+    }
+    return true;
+  }) || null;
+
+  const failedFromPlans = (Array.isArray(transferPlans) ? transferPlans : [])
+    .filter(plan => inWeek(plan) && (plan.stages || []).slice(1).some(st => st.submitted && st.correct === false))
     .map(plan => ({
       weaknessId: plan.weaknessId,
       target: plan.target,
+      source: plan.source || 'transfer_plan',
       originalAnswer: plan.stages?.[0]?.userAnswer || '',
-      newContextAnswer: plan.stages?.[1]?.userAnswer || plan.stages?.[2]?.userAnswer || ''
+      newContextAnswer: plan.stages?.[1]?.userAnswer || plan.stages?.[2]?.userAnswer || '',
+      prompted: Boolean(plan.stages?.some(st => st.hintUsed))
     }));
+
+  const failedFromAttempts = scopedList
+    .filter(a => (a.weaknessId || a.taskType) && (a.rating === 'N' || a.rating === 'V' || a.hintUsed))
+    .map(a => ({
+      weaknessId: a.weaknessId || a.taskId || a.id,
+      target: a.targetExpression || a.prompt || a.weaknessId || '迁移表达',
+      source: a.sourceName || a.taskType || 'transfer_attempt',
+      originalAnswer: a.firstAnswer || '',
+      newContextAnswer: a.retryAnswer || a.firstAnswer || '',
+      prompted: Boolean(a.hintUsed)
+    }));
+
+  const failedAfterContextChange = [...failedFromPlans, ...failedFromAttempts].slice(0, 3);
 
   return {
     highlights: [

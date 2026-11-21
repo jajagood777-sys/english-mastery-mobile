@@ -1,5 +1,5 @@
 /**
- * v19.2.3 Offline-First Pocket Radio Engine.
+ * v19.3.0 Offline-First Pocket Radio Engine.
  * Pure, testable logic for content-addressed episode matching, versioned bookmarks,
  * real sentence-level rewind, moment bookmarks, commute queue, raw MP3 ("我的音频")
  * deduplication/management, honest listening coverage tracking, and guarded 40s preload.
@@ -66,14 +66,26 @@ export function findSentenceStartForTime(segments = [], currentTimeSec = 0, { la
       label: '退 5 秒'
     };
   }
-  let idx = valid.findIndex(s => cur >= Number(s.startSec) && cur < Number(s.endSec));
+  const sorted = [...valid].sort((a, b) => Number(a.startSec) - Number(b.startSec));
+  let idx = sorted.findIndex(s => cur >= Number(s.startSec) && cur < Number(s.endSec));
+  let inGapAfter = false;
   if (idx < 0) {
-    idx = cur < Number(valid[0].startSec) ? 0 : valid.length - 1;
+    if (cur < Number(sorted[0].startSec)) {
+      idx = 0;
+    } else {
+      let lastStarted = 0;
+      for (let i = 0; i < sorted.length; i++) {
+        if (Number(sorted[i].startSec) <= cur) lastStarted = i;
+        else break;
+      }
+      idx = lastStarted;
+      inGapAfter = true;
+    }
   }
   const isDoubleTap = lastTapAtMs > 0 && (nowMs - lastTapAtMs) <= doubleTapWindowMs;
-  const nearStart = (cur - Number(valid[idx].startSec)) <= 0.85;
+  const nearStart = !inGapAfter && (cur - Number(sorted[idx].startSec)) <= 0.85;
   const targetIdx = (isDoubleTap || nearStart) && idx > 0 ? idx - 1 : idx;
-  const seg = valid[targetIdx];
+  const seg = sorted[targetIdx];
   return {
     mode: 'sentence',
     targetSec: Math.max(0, Number(Number(seg.startSec).toFixed(2))),
@@ -300,7 +312,7 @@ export function formatRadioImportSummary({ importedCount = 0, skippedCount = 0, 
 
 
 /**
- * v19.2.3 Synced Subtitles & Speaking Q&A Engine
+ * v19.3.0 Synced Subtitles & Speaking Q&A Engine
  * Supports standard SRT and WebVTT (.vtt) with speaker/Q&A role detection,
  * live active-cue tracking, ±offset fine-tuning, and Q-end auto-pause.
  */
@@ -441,4 +453,52 @@ export function pairAudioAndSubtitleFiles(fileList = []) {
   }
   const orphanSubtitles = subs.filter(s => !usedSubs.has(s));
   return { pairs, orphanSubtitles };
+}
+
+export function evaluateRadioPlaybackPolicy({
+  offlineOnly = false,
+  isOriginalAudio = false,
+  hasOfflineClip = false,
+  hasCloudLocalCache = false,
+  cloudTtsReady = false
+} = {}) {
+  if (isOriginalAudio) {
+    return { allowPlay: hasOfflineClip, allowCloudRequest: false, reason: hasOfflineClip ? 'original_local' : 'missing_original' };
+  }
+  if (hasOfflineClip) {
+    return { allowPlay: true, allowCloudRequest: false, reason: 'offline_pack' };
+  }
+  if (hasCloudLocalCache) {
+    return { allowPlay: true, allowCloudRequest: false, reason: 'cloud_cached_local' };
+  }
+  if (offlineOnly) {
+    return { allowPlay: false, allowCloudRequest: false, reason: 'blocked_by_offline_only' };
+  }
+  if (!cloudTtsReady) {
+    return { allowPlay: false, allowCloudRequest: false, reason: 'cloud_not_configured' };
+  }
+  return { allowPlay: true, allowCloudRequest: true, reason: 'cloud_synthesis_needed' };
+}
+
+export function resolveEpisodeByIdentity(episodes = [], { episodeId = '', contentHash = '' } = {}) {
+  const list = Array.isArray(episodes) ? episodes : [];
+  if (!episodeId && !contentHash) return { status: 'not_found', index: -1, episode: null };
+  if (episodeId) {
+    const byIdIdx = list.findIndex(ep => ep && ep.id === episodeId);
+    if (byIdIdx >= 0) {
+      const ep = list[byIdIdx];
+      const epHash = String(ep.contentHash || ep.audioSha256 || '').trim();
+      if (contentHash && epHash && epHash !== contentHash) {
+        return { status: 'content_changed', index: byIdIdx, episode: ep };
+      }
+      return { status: 'matched', index: byIdIdx, episode: ep };
+    }
+  }
+  if (contentHash) {
+    const byHashIdx = list.findIndex(ep => ep && (ep.contentHash === contentHash || ep.audioSha256 === contentHash));
+    if (byHashIdx >= 0) {
+      return { status: 'matched_by_hash', index: byHashIdx, episode: list[byHashIdx] };
+    }
+  }
+  return { status: 'not_found', index: -1, episode: null };
 }

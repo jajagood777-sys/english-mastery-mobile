@@ -29,8 +29,8 @@ import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmiss
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
-import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash} from './speech-clips.mjs';
-import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles} from './radio-offline.mjs';
+import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash,pruneOldPackSpeechClips} from './speech-clips.mjs';
+import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings} from './handover.mjs';
 import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS} from './vocab.mjs';
@@ -759,6 +759,17 @@ async function importRawAudioFiles(fileList) {
         subtitleName: subtitleFile?.name || ""
       });
       if (plan.action === "skip_duplicate") {
+        const bytesPresent = await hasRawAudioBlob(audioSha256);
+        if (!bytesPresent) {
+          await putRawAudioBlob(audioSha256, buf, file.type || "audio/mpeg", {
+            segments,
+            channel: hasSubtitles ? "speaking_qa" : (plan.existing?.channel || "my_audio"),
+            subtitleName: subtitleFile?.name || plan.existing?.subtitleName || ""
+          });
+          importedCount++;
+          totalDurationSec += durationSec;
+          totalBytes += buf.byteLength;
+        }
         if (hasSubtitles && plan.existing) {
           await updateRawAudioSegments(audioSha256, segments, subtitleFile?.name || "");
           plan.existing.hasSubtitles = true;
@@ -767,7 +778,7 @@ async function importRawAudioFiles(fileList) {
           plan.existing.subtitleName = subtitleFile?.name || "";
           plan.existing.channel = "speaking_qa";
           subtitledCount++;
-        } else {
+        } else if (bytesPresent) {
           skippedCount++;
         }
         continue;
@@ -961,6 +972,62 @@ function rewindSentenceOrFiveSeconds() {
   } else {
     notify(`↺ 已后退 5 秒（${fmtAudioClock(res.targetSec)}）`);
   }
+}
+
+
+function practiceMomentForTwoMinutes(moment) {
+  if (!moment) return;
+  const wId = `weakness:moment:${moment.id}`;
+  const existing = (data.weaknesses || []).find(w => w.id === wId);
+  if (existing) {
+    radioOpen = false;
+    startWeaknessTransfer(existing);
+    return;
+  }
+  const targetExpr = String(moment.sentenceText || moment.title || "口语原声句").trim();
+  const weakness = makeWeakness({
+    id: wId,
+    sourceType: "radio_moment",
+    sourceId: moment.episodeId || moment.id,
+    sourceName: moment.title || "随身电台收藏",
+    targetExpression: targetExpr,
+    skillType: "Speaking & Transfer",
+    evidenceType: "radio_moment",
+    retrievalStatus: "UNTESTED",
+    taskType: "speaking",
+    contexts: [{
+      id: `${wId}:ctx1`,
+      prompt: moment.sentenceText
+        ? `先遮住原句回忆刚听到的英文表达，再换一个你自己的生活/工作场景造句：原句位置 ${fmtAudioClock(moment.timeSec || 0)}`
+        : `用自己的英文复述「${moment.title}」在 ${fmtAudioClock(moment.timeSec || 0)} 附近听到的核心表达，并造一个新句。`,
+      referenceAnswer: moment.sentenceText || "（原 MP3 无字幕，请对照原音频时间点核对）",
+      hints: ["先尝试不看原句说一遍，再对照原句检查搭配和连接词。"],
+      source: { title: moment.title, timeSec: moment.timeSec }
+    }]
+  });
+  data.weaknesses = mergeWeaknesses(data.weaknesses || [], [weakness]);
+  save();
+  radioOpen = false;
+  startWeaknessTransfer(weakness);
+}
+
+function playEpisodeByIdentity(channel, episodeId, contentHash = "", startSec = 0) {
+  if (channel) radioChannel = channel;
+  radioSubView = "player";
+  refreshRadioTracks();
+  const res = resolveEpisodeByIdentity(radioEpisodes, { episodeId, contentHash });
+  if (res.status === "content_changed") {
+    notify("⚠️ 该集内容已更新，原书签可能不再对应同一段话，请从列表重新定位。");
+    render();
+    return false;
+  }
+  if (res.status === "not_found" || res.index < 0) {
+    notify("⚠️ 未在当前频道找到原音频（可能已被移除或未导入），已拦截错播。");
+    render();
+    return false;
+  }
+  playRadioPodcastAt(res.index, { startAtSec: startSec });
+  return true;
 }
 
 function saveCurrentRadioMoment() {
@@ -1408,29 +1475,35 @@ function playUrlOnRadioAudio(url, rate, watchdogMs, myPlayToken, revokeAfter = f
   });
 }
 
-async function playRadioSegment(segText, rate, myPlayToken) {
-  if (radioPlaying !== myPlayToken || !segText) return;
+async function playRadioSegment(segText, rate, myPlayToken, onActualPlay = null) {
+  if (radioPlaying !== myPlayToken || !segText) return { ok: false, reason: "aborted" };
   const watchdogMs = computeSegmentWatchdogMs(segText, rate);
+  const cfg = loadAiConfig();
+  const segCacheKey = makeTtsCacheKey(segText, activeTtsVoiceForKey(cfg));
+  const hasSegCloudCache = geminiAudioCache.has(segCacheKey) || await hasPersistentTtsAudio(segCacheKey);
+  const policy = evaluateRadioPlaybackPolicy({
+    offlineOnly: radioOfflineOnly,
+    isOriginalAudio: false,
+    hasOfflineClip: false,
+    hasCloudLocalCache: hasSegCloudCache,
+    cloudTtsReady: radioVoiceMode === "gemini" && isCloudTtsReady(cfg)
+  });
 
-  // 1. Gemini TTS priority (with single unlocked <audio> channel + cache)
-  if (radioVoiceMode === "gemini") {
-    const cfg = loadAiConfig();
-    if (isCloudTtsReady(cfg)) {
-      try {
-        radioActiveEngine = cfg.ttsEngine === "siliconflow" && isSiliconFlowTtsReady(cfg)
-          ? `硅基流动 CosyVoice2 (${cfg.siliconflowVoice || SILICONFLOW_TTS_DEFAULT_VOICE})`
-          : `Gemini 语音 (${cfg.ttsVoice || "Kore"})`;
-        const entry = await fetchGeminiAudioEntry(segText, cfg);
-        if (radioPlaying !== myPlayToken) return;
-        const playRes = await playUrlOnRadioAudio(entry.url, rate, watchdogMs, myPlayToken, false);
-        if (playRes?.ok || playRes?.reason === "aborted") return;
-        if (playRes?.reason === "decode_error" && entry.fromCache) {
-          await evictGeminiAudioCache(entry.cacheKey);
-        }
-      } catch (err) { console.warn("Radio Gemini TTS fallback:", err); }
-    }
+  if (radioVoiceMode === "gemini" && (policy.allowCloudRequest || hasSegCloudCache)) {
+    try {
+      radioActiveEngine = cfg.ttsEngine === "siliconflow" && isSiliconFlowTtsReady(cfg)
+        ? `硅基流动 CosyVoice2 (${cfg.siliconflowVoice || SILICONFLOW_TTS_DEFAULT_VOICE})`
+        : `Gemini 语音 (${cfg.ttsVoice || "Kore"})`;
+      const entry = await fetchGeminiAudioEntry(segText, cfg);
+      if (radioPlaying !== myPlayToken) return { ok: false, reason: "aborted" };
+      const playRes = await playUrlOnRadioAudio(entry.url, rate, watchdogMs, myPlayToken, false, onActualPlay);
+      if (playRes?.ok || playRes?.reason === "aborted") return playRes;
+      if (playRes?.reason === "decode_error" && entry.fromCache) {
+        await evictGeminiAudioCache(entry.cacheKey);
+      }
+    } catch (err) { console.warn("Radio Gemini TTS fallback:", err); }
   }
-  if (radioPlaying !== myPlayToken) return;
+  if (radioPlaying !== myPlayToken) return { ok: false, reason: "aborted" };
 
   // 2. Offline Kokoro af_heart clip (also routed through the single unlocked <audio> element)
   try {
@@ -1503,9 +1576,15 @@ async function playRadioTrackAt(idx) {
   const track = radioTracks[radioIndex];
   const myPlayToken = Date.now() + Math.random();
   radioPlaying = myPlayToken;
-  if (!radioPlayStartAt) radioPlayStartAt = Date.now();
-  radioSessionLog.clipsPlayed++;
-  radioSessionLog.lastChannel = `${radioChannel}:${radioScope}`;
+  let trackCounted = false;
+  const markTrackActualPlay = () => {
+    if (!radioPlayStartAt) radioPlayStartAt = Date.now();
+    if (!trackCounted) {
+      trackCounted = true;
+      radioSessionLog.clipsPlayed++;
+      radioSessionLog.lastChannel = `${radioChannel}:${radioScope}`;
+    }
+  };
 
   registerMediaSession({
     title: `${track.badge} · ${track.title}`,
@@ -1523,7 +1602,7 @@ async function playRadioTrackAt(idx) {
   const segs = Array.isArray(track.segments) && track.segments.length ? track.segments : [track.text];
   for (let i = 0; i < segs.length; i++) {
     if (radioPlaying !== myPlayToken) return;
-    await playRadioSegment(segs[i], radioRate, myPlayToken);
+    await playRadioSegment(segs[i], radioRate, myPlayToken, markTrackActualPlay);
     if (radioPlaying !== myPlayToken) return;
     if (i < segs.length - 1) {
       await new Promise(r => { radioTimer = setTimeout(r, 450); });
@@ -1655,11 +1734,7 @@ function renderPocketRadioDrawer() {
             btn("▶ 立即听", () => {
               data.radioQueue.splice(idx, 1);
               save();
-              radioChannel = item.channel || radioChannel;
-              radioSubView = "player";
-              refreshRadioTracks();
-              const eIdx = radioEpisodes.findIndex(e => e.id === item.episodeId);
-              playRadioPodcastAt(eIdx >= 0 ? eIdx : 0, { startAtSec: item.startSec || 0 });
+              playEpisodeByIdentity(item.channel || radioChannel, item.episodeId, item.contentHash || "", item.startSec || 0);
             }, "btn primary small-btn"),
             btn("移除", () => {
               data.radioQueue.splice(idx, 1);
@@ -1694,12 +1769,9 @@ function renderPocketRadioDrawer() {
           m.sentenceText ? p(m.sentenceText, "tiny") : el("span", ""),
           lines(
             btn(`▶ 从 ${fmtAudioClock(m.resumeAtSec)} 听上下文`, () => {
-              radioChannel = m.channel || radioChannel;
-              radioSubView = "player";
-              refreshRadioTracks();
-              const eIdx = radioEpisodes.findIndex(e => e.id === m.episodeId);
-              playRadioPodcastAt(eIdx >= 0 ? eIdx : 0, { startAtSec: m.resumeAtSec });
+              playEpisodeByIdentity(m.channel || radioChannel, m.episodeId, m.contentHash || "", m.resumeAtSec);
             }, "btn primary small-btn"),
+            btn("🎯 拿这句练两分钟", () => practiceMomentForTwoMinutes(m), "btn secondary small-btn"),
             btn("删除", () => {
               data.radioMoments = data.radioMoments.filter(x => x.id !== m.id);
               save();
@@ -1985,7 +2057,9 @@ function renderPocketRadioDrawer() {
   quickBar.append(
     btn(radioOfflineOnly ? "✈️ 仅离线:开" : "✈️ 仅离线:关", () => {
       radioOfflineOnly = !radioOfflineOnly;
-      notify(radioOfflineOnly ? "已开启「仅离线」模式：严禁调用任何云端语音接口。" : "已关闭仅离线模式，缺失节目可按需使用云端语音。");
+      data.settings.radioOfflineOnly = radioOfflineOnly;
+      save();
+      notify(radioOfflineOnly ? "已开启并记住「仅离线」模式：严禁调用任何云端语音接口。" : "已关闭仅离线模式，缺失节目可按需使用云端语音。");
       render();
     }, radioOfflineOnly ? "btn primary small-btn" : "btn secondary small-btn"),
     btn(`⚡ ${speedPreset.rate}×`, () => {
@@ -2181,7 +2255,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.2.3)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.3.0)", "eyebrow"),
     btn("关闭 ✕", () => { lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -2405,26 +2479,10 @@ async function pruneHistoricalSpeechCache() {
   if (typeof indexedDB === "undefined") { notify("当前环境不支持 IndexedDB 清理。"); return; }
   try {
     const activePackId = data.dailyPack?.packId || "";
-    const req = indexedDB.open("english-cultivation-audio-v1", 1);
-    req.onsuccess = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("clips")) { notify("本机暂无历史语音缓存需要清理。"); return; }
-      const tx = db.transaction("clips", "readwrite");
-      const store = tx.objectStore("clips");
-      const getAll = store.getAll();
-      getAll.onsuccess = () => {
-        const rows = Array.isArray(getAll.result) ? getAll.result : [];
-        let deleted = 0;
-        for (const row of rows) {
-          if (activePackId && row.packId === activePackId) continue;
-          if (!activePackId) continue;
-          store.delete(row.key || row.sha256 || row.id);
-          deleted++;
-        }
-        notify(deleted ? `已安全清理 ${deleted} 条非当前学习包的历史旧音频缓存（当前包音频、口语录音与 K/V/N 记录均完好保留）。` : "未发现可清理的非当前学习包旧音频缓存。");
-      };
-    };
-    req.onerror = () => notify("读取语音缓存库失败，未修改任何数据。");
+    const res = await pruneOldPackSpeechClips(activePackId);
+    notify(res.deleted
+      ? `已安全清理 ${res.deleted} 条旧学习包缓存（已保留 ${res.preserved} 条个人 MP3、电台原声、当前包音频与未知来源文件）。`
+      : `未发现可清理的旧学习包缓存（已完好保留 ${res.preserved} 条本机音频）。`);
   } catch {
     notify("历史语音清理暂不可用，未影响学习数据。");
   }
@@ -2523,6 +2581,7 @@ function renderDiscourseDiagnosticCard(userText, { referenceText = "", targetPhr
 let migrationNotice='';let selectedReadingId=null;let selectedSpeechId=null;let selectedText='';let selectedParagraphText='';let selectedParagraphIndex=0;let availableVoices=[];let speechVoicesBound=false;let speechQueue=[];let speechQueueIndex=0;let speechPaused=false;
 let data=load();
 applyTheme();
+radioOfflineOnly = Boolean(data?.settings?.radioOfflineOnly);
 // Curate real, neutral US female voices; never expose Apple's novelty character/effect voices.
 // This is a display filter, not a claim that the system voices are neural or premium.
 function refreshSpeechVoices(){if(!('speechSynthesis'in window))return [];const voices=window.speechSynthesis.getVoices().filter(voice=>voice&&/^en[-_]\w+/i.test(voice.lang||''));availableVoices=voices.sort((a,b)=>{const aUS=/^en[-_]US(?:[-_]|$)/i.test(a.lang||''),bUS=/^en[-_]US(?:[-_]|$)/i.test(b.lang||'');return Number(bUS)-Number(aUS);});return availableVoices;}
@@ -2578,7 +2637,8 @@ function load(){
 let draftSaveTimer=null;
 function flushDraftSave(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;save();}}
 function scheduleDraftSave(delayMs=450){clearTimeout(draftSaveTimer);draftSaveTimer=setTimeout(()=>{draftSaveTimer=null;save();},delayMs);}
-function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;if(Number.isFinite(result.revision))data.stateRevision=result.revision;return true;}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
+function showStaleConflictDraftDialog(draftSnapshot){if(!draftSnapshot||typeof document==='undefined')return;document.getElementById('conflict-draft-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='conflict-draft-dialog';const card=section('switch-dialog');const area=textarea(draftSnapshot,'');area.readOnly=true;area.rows=6;card.append(el('div','多标签页冲突保护 · DRAFT RECOVERY','eyebrow'),h('h2','另一标签页有更新的学习记录'),p('为保护新记录不被旧页面覆盖，本次写入已拦截。你刚才在本页输入的未提交草稿已保留在下方，可一键复制：','subtle'),field('本页未提交草稿',area),lines(btn('复制草稿',()=>{try{navigator.clipboard?.writeText(draftSnapshot);notify('草稿已复制。');}catch{area.select();}},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
+function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const pendingDraft=String(data?.activeSession?.draft||data?.dailyJourney?.transferDraft||data?.v19?.exactResume?.draftText||'').trim();const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;if(Number.isFinite(result.revision))data.stateRevision=result.revision;return true;}if(result.conflict==='stale_tab_revision'&&pendingDraft){showStaleConflictDraftDialog(pendingDraft);}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
 function notify(message){const n=document.getElementById('notice');n.textContent=message;n.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.hidden=true,3800);}
 function applyTheme(){const choice=data?.settings?.theme||'system';const night=choice==='night'||(choice==='system'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=night?'night':'day';const metaTheme=document.querySelector('meta[name="theme-color"]');if(metaTheme)metaTheme.setAttribute('content',night?'#07080b':'#f5f5f7');}
 function setTheme(theme){const previous=data.settings.theme;data.settings.theme=theme;if(!save()){data.settings.theme=previous;return;}applyTheme();render();}
@@ -2820,8 +2880,9 @@ function renderV19ContinuityBar(){
     [5,15,30].forEach(mins=>{
       sliceRow.append(btn(`我有 ${mins} 分钟`,()=>{
         const slice=buildTimeSlicedContinuation({packId:data.dailyPack.packId,remainingItems:todayPackItems(),availableMinutes:mins});
-        notify(`已按当前包（${slice.packId}）切出 ${mins} 分钟自然收尾段：${slice.selectedCount} 项`);
-        startDailyJourney?.();
+        if(!slice.selectedIds.length){notify('当前包已没有待练词句。');return;}
+        notify(`已按当前包切出 ${mins} 分钟自然收尾段（${slice.selectedCount} 项，不拆新包）`);
+        startSession('mixed',{scope:'today',packId:data.dailyPack.packId,queue:slice.selectedIds,dueGoal:mins});
       },'btn ghost'));
     });
     box.append(el('div','按可用时间继续当前包（不拆新包）','tiny'),sliceRow);
@@ -2872,11 +2933,19 @@ function renderV19ToolsInMore(){
 }
 function renderV19WeeklyEvidenceCard(){
   const v=getV19State();
-  const review=buildWeeklyEvidenceReview(data.attempts||[],[]);
+  const allTransfer=[...(data.transferAttempts||[]),...(data.dailyJourney?.transferAttempts||[])];
+  const review=buildWeeklyEvidenceReview([...(data.attempts||[]),...allTransfer],[],{now:new Date()});
   const conf=summarizeConfidenceDiagnostics(v.confidenceLogs||[]);
   const health=runPreExportHealthCheck({recordingStatus:typeof lastHandoverExportStatus!=='undefined'?lastHandoverExportStatus:null,exactResume:v.exactResume,disputes:v.disputes||[],versionedAttemptsCount:(data.attempts||[]).length});
   const box=section('v19-weekly-card');
   box.append(el('div','本周证据回顾与导出体检','study-section-label'),h('h3',review.actionQuestion));
+  if(review.failedAfterContextChange?.length){
+    review.failedAfterContextChange.slice(0,3).forEach((item,idx)=>{
+      box.append(p(`${idx+1}. ${item.target}（${item.source}）· 原答：${item.originalAnswer||'—'} → 换场景：${item.newContextAnswer||'—'}`,'tiny'));
+    });
+  }else{
+    box.append(p('本周换场景表达：尚未复测或暂无失误记录。','tiny'));
+  }
   box.append(p(`信心诊断：猜对 ${conf.guessedCorrectCount} 题 · 确信却答错 ${conf.highConfidenceErrorCount} 题 · 待复核争议 ${health.pendingDisputes} 条`,'subtle'));
   if(health.warnings.length)box.append(p(`导出前提醒：${health.warnings.join('；')}`,'hint'));
   return box;
