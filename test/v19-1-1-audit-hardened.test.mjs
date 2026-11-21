@@ -38,7 +38,7 @@ test('v19.1.1 setup shows current isolated PWA or Safari entry; offline precache
   assert.match(app,/runtime-entry-notice/);
   assert.match(app,/本机学习记录、录音和缓存彼此隔离/);
   assert.match(sw,/\.\/release-safety\.mjs/);
-  assert.match(sw,/static-v19\.2\.3/);
+  assert.match(sw,/static-v19\.3\.0/);
 });
 
 function recordingHarness(size=7,includeAudioTracks=true){
