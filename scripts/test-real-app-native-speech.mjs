@@ -32,7 +32,7 @@ try{
  await page.setViewportSize({width:390,height:844});
  console.log('FOUR EQUAL MOBILE NAV COLUMNS PASS');
  await page.locator('nav button[data-page="more"]').click();
- await page.getByRole('button',{name:'打开设置'}).click();
+ await page.getByRole('button',{name:/打开设置/}).click();
  await page.getByRole('heading',{name:'学习设置'}).waitFor();
  const engine=page.locator('#tts-engine-select');assert.equal(await engine.count(),1);
  const geminiVoice=page.locator('#gemini-voice-select');assert.equal(await geminiVoice.count(),1);
