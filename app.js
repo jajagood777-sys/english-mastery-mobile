@@ -991,6 +991,13 @@ async function importOfflineRadioZipFile(file) {
         save();
       }
     }
+    if (!radioPackFile) {
+      radioChannel = "notebook_spoken";
+      radioEpisodeIndex = 0;
+    }
+    radioPlayMode = "podcast";
+    radioPlayerTab = "lyrics";
+    radioActiveSegments = [];
     refreshRadioTracks();
     const human = formatRadioImportSummary({
       importedCount: audioSummary.imported,
@@ -999,11 +1006,8 @@ async function importOfflineRadioZipFile(file) {
       totalBytes: audioSummary.totalBytes || 0,
       unit: "集"
     });
-    notify(
-      customPackTitle
-        ? `✓ 已导入「${customPackTitle}」：${human}（已保存在本机，0 AI 额度秒播）。`
-        : `✓ 离线音频包就绪：${human}（已保存在本机，0 AI 额度秒播）。`
-    );
+    const destLabel = customPackTitle ? `「📦 ${customPackTitle}」` : "「📓 Notebook 口语与对话」（离线配音已就绪，非「我的音频」）";
+    notify(`${human} · 已切换到${destLabel}。`);
     render();
   } catch (err) {
     notify(`离线音频包导入失败（原有音频未受影响）：${err?.message || err}`);
@@ -2081,6 +2085,7 @@ function renderPocketRadioDrawer() {
       radioActiveSourceLabel = "";
       radioCoverageTracker = null;
       radioPlaylistFilter = "";
+      radioPlayerTab = "lyrics";
       refreshRadioTracks();
       if (wasPlaying) {
         if (radioPlayMode === "podcast") playRadioPodcastAt(0);
@@ -2580,6 +2585,10 @@ function renderPocketRadioDrawer() {
       nowCard.append(scriptDetails);
     }
   } else if (track) {
+    if ((!Array.isArray(radioActiveSegments) || radioActiveSegments.length === 0) && track.text) {
+      const singleSegs = buildAutoSyncedSegments({ title: track.title, badge: track.badge, text: track.text, tracksIncluded: [track] }, radioAudioEl?.duration || 0);
+      if (singleSegs.length > 0) radioActiveSegments = singleSegs;
+    }
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
       el("span", `${track.badge} · ${radioIndex + 1} / ${radioTracks.length}`, "chip tiny"),
@@ -2588,9 +2597,34 @@ function renderPocketRadioDrawer() {
     nowCard.append(
       badgeRow,
       h("h3", track.title),
-      p(track.text, "vocab-prompt-text"),
       track.subtext ? p(track.subtext, "tiny") : el("span", "")
     );
+    if (Array.isArray(radioActiveSegments) && radioActiveSegments.length > 0) {
+      const singleSubList = div("radio-subtitle-list");
+      const curNow = radioAudioEl?.currentTime || 0;
+      const curActiveIdx = findActiveSegmentIndex(radioActiveSegments, curNow, { offsetSec: radioSubtitleOffsetSec });
+      radioActiveSegments.forEach((seg, idx) => {
+        const lineBtn = el("button", "", `radio-sub-line${idx === curActiveIdx ? " is-active" : ""}`);
+        lineBtn.type = "button";
+        lineBtn.dataset.subIdx = String(idx);
+        const metaRow = div("radio-sub-line-meta");
+        if (seg.speaker) metaRow.append(el("span", seg.speaker, "radio-sub-role-badge"));
+        metaRow.append(el("span", fmtAudioClock(seg.startSec || 0), "radio-sub-time"));
+        lineBtn.append(metaRow, el("span", String(seg.text || ""), "radio-sub-text"));
+        lineBtn.addEventListener("click", () => {
+          if (radioAudioEl && Number.isFinite(Number(seg.startSec))) {
+            try { radioAudioEl.currentTime = Number(seg.startSec); } catch {}
+            if (radioPaused) resumePocketRadio();
+            syncAudioScrubbers();
+            syncRadioSubtitlesDom(Number(seg.startSec), { forceCenter: true });
+          }
+        });
+        singleSubList.append(lineBtn);
+      });
+      nowCard.append(singleSubList);
+    } else {
+      nowCard.append(p(track.text, "radio-track-text"));
+    }
   } else {
     nowCard.append(p(
       radioChannel === "speaking_qa"
@@ -2792,7 +2826,7 @@ let readingBlurMode = false;
 let retellingRefVisible = {};
 let swWaitingWorker = null;
 let zenFocusMode = false;
-function toggleZenFocusMode() { zenFocusMode = !zenFocusMode; if (typeof document !== 'undefined') document.body?.classList?.toggle('zen-focus', zenFocusMode); render(); }
+function toggleZenFocusMode() { zenFocusMode = !zenFocusMode; if (typeof document !== "undefined") document.documentElement.classList.toggle("zen-focus-mode", zenFocusMode); render(); }
 let lexiconDrawerOpen = false;
 let lexiconQuery = '';
 let aiDictLoading = false;
@@ -2825,7 +2859,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.7)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.8)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3213,7 +3247,7 @@ let draftSaveTimer=null;
 function flushDraftSave(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;save();}}
 function scheduleDraftSave(delayMs=450){clearTimeout(draftSaveTimer);draftSaveTimer=setTimeout(()=>{draftSaveTimer=null;save();},delayMs);}
 function showStaleConflictDraftDialog(draftSnapshot){if(!draftSnapshot||typeof document==='undefined')return;document.getElementById('conflict-draft-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='conflict-draft-dialog';const card=section('switch-dialog');const area=textarea(draftSnapshot,'');area.readOnly=true;area.rows=6;card.append(el('div','多标签页冲突保护 · DRAFT RECOVERY','eyebrow'),h('h2','另一标签页有更新的学习记录'),p('为保护新记录不被旧页面覆盖，本次写入已拦截。你刚才在本页输入的未提交草稿已保留在下方，可一键复制：','subtle'),field('本页未提交草稿',area),lines(btn('复制草稿',()=>{try{navigator.clipboard?.writeText(draftSnapshot);notify('草稿已复制。');}catch{area.select();}},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
-function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const pendingDraft=String(data?.activeSession?.draft||data?.dailyJourney?.transferDraft||data?.v19?.exactResume?.draftText||'').trim();const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;try{const parsed=JSON.parse(result.serialized);if(Number.isFinite(Number(parsed?.stateRevision)))data.stateRevision=Number(parsed.stateRevision);}catch{}return true;}if(result.conflict==='stale_tab_revision'&&pendingDraft){showStaleConflictDraftDialog(pendingDraft);}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
+function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const pendingDraft=String(data?.activeSession?.draft||data?.dailyJourney?.transferDraft||data?.v19?.exactResume?.draftText||'').trim();const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;try{const parsed=JSON.parse(result.serialized);if(parsed&&Number.isFinite(Number(parsed.stateRevision)))data.stateRevision=Number(parsed.stateRevision);}catch{}return true;}if(result.conflict==='stale_tab_revision'&&pendingDraft){showStaleConflictDraftDialog(pendingDraft);}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
 function notify(message){const n=document.getElementById('notice');n.textContent=message;n.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.hidden=true,3800);}
 function applyTheme(){const choice=data?.settings?.theme||'system';const night=choice==='night'||(choice==='system'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=night?'night':'day';const metaTheme=document.querySelector('meta[name="theme-color"]');if(metaTheme)metaTheme.setAttribute('content',night?'#07080b':'#f5f5f7');}
 function setTheme(theme){const previous=data.settings.theme;data.settings.theme=theme;if(!save()){data.settings.theme=previous;return;}applyTheme();render();}

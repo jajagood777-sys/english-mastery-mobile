@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { parseVocabPromptParts } from '../vocab.mjs';
 
-test('v19.6.7: parseVocabPromptParts separates instruction, meaning, and sentence cleanly', () => {
+test('v19.6.8: parseVocabPromptParts separates instruction, meaning, and sentence cleanly', () => {
   const cloze = parseVocabPromptParts(
     "Choose the word that best completes this source sentence. Meaning: To keep a feeling or thought secretly in your mind. Sentence: He continued to _____ doubts about the captain's explanation."
   );
@@ -39,7 +39,7 @@ test('v19.6.7: parseVocabPromptParts separates instruction, meaning, and sentenc
   assert.equal(plain.blocks[0].kind, 'plain');
 });
 
-test('v19.6.7: speaking submission receipt, live status pill, and mobile button wrap guard exist', () => {
+test('v19.6.8: speaking submission receipt, live status pill, and mobile button wrap guard exist', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(app, /parseVocabPromptParts\(task\.prompt\)/);

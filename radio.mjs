@@ -2080,6 +2080,20 @@ export function createRadioPlaybackClock() {
  * Convert daily learning pack speaking/transfer tasks into Pocket Radio speaking_qa episodes
  * so even 1–2 speaking prompts per pack seamlessly enter the IELTS Speaking commute playlist.
  */
+
+/**
+ * Strip pack-level exercise instructions (e.g. "ORIGINAL IELTS Part 2 Retake:",
+ * "Speak 75-100 seconds (focus on fixing: ...)") so Pocket Radio only speaks and
+ * subtitles the actual examiner question, never creating a fake Q2 instruction line.
+ */
+export function stripSpeakingPromptInstructions(raw = '') {
+  let s = cleanRad(raw);
+  if (!s) return '';
+  s = s.replace(/^ORIGINAL\s+IELTS\s+Part\s+\d+(?:\s+Retake)?\s*[:：]\s*/i, '');
+  s = s.replace(/\s*Speak\s+\d+(?:\s*[–—-]\s*\d+)?\s*seconds?(?:\s*\([^)]*\))?\.?\s*$/i, '');
+  return s.trim();
+}
+
 export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '学习包口语题' } = {}) {
   const list = Array.isArray(transferTasks) ? transferTasks : [];
   const episodes = [];
@@ -2089,7 +2103,8 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
     if (!tk) continue;
     const ttype = String(tk.taskType || tk.task_type || '').toLowerCase();
     if (!['speaking', 'reading_to_speaking'].includes(ttype)) continue;
-    const promptText = cleanRad(tk.prompt || '');
+    const rawPromptText = cleanRad(tk.prompt || '');
+    const promptText = stripSpeakingPromptInstructions(rawPromptText) || rawPromptText;
     const modelText = cleanRad(tk.referenceAnswer || tk.model_answer || tk.modelAnswer || '');
     if (!promptText && !modelText) continue;
     const dedupeKey = (promptText || modelText).toLocaleLowerCase('en');
@@ -2190,7 +2205,7 @@ export function buildAutoSyncedSegments(episode = {}, durationSec = 0) {
   if (!episode || typeof episode !== 'object') return [];
   const rawItems = [];
 
-  const promptText = cleanRad(episode.questionPrompt || '');
+  const promptText = stripSpeakingPromptInstructions(episode.questionPrompt || '') || cleanRad(episode.questionPrompt || '');
   const modelText = cleanRad(episode.modelAnswer || '');
   if (episode.fromLearningPack || promptText || modelText) {
     if (promptText) {
