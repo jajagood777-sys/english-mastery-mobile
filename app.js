@@ -40,7 +40,7 @@ import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
-import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure} from './radio.mjs';
+import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure,buildPackSpeakingQaEpisodes} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
@@ -691,13 +691,25 @@ function refreshRadioTracks(forceShuffle = false) {
       trackCount: Math.max(1, Number(t.segmentCount) || 1),
       tracksIncluded: [{ title: t.title || t.filename, text: t.hasSubtitles ? `已配同步字幕（${t.segmentCount || 0} 句 · 节目原声）` : "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
     }));
+    if (radioChannel === "speaking_qa") {
+      const packSpeakingEps = buildPackSpeakingQaEpisodes(
+        [
+          ...(Array.isArray(data.dailyPack?.transferTasks) ? data.dailyPack.transferTasks : []),
+          ...(Array.isArray(data.dailyPack?.transfer_tasks) ? data.dailyPack.transfer_tasks : [])
+        ],
+        { packTitle: data.dailyPack?.title || "今日学习包" }
+      );
+      if (packSpeakingEps.length) {
+        radioEpisodes = [...radioEpisodes, ...packSpeakingEps];
+      }
+    }
     radioTracks = radioEpisodes.map(ep => ({
       id: ep.id,
       badge: ep.badge,
       title: ep.title,
-      text: "",
-      subtext: "节目原声 · 仅存本机",
-      segments: []
+      text: ep.fromLearningPack ? (ep.text || "") : "",
+      subtext: ep.fromLearningPack ? "学习包口语题 · 语音朗读" : "节目原声 · 仅存本机",
+      segments: ep.fromLearningPack && Array.isArray(ep.segments) ? ep.segments : []
     }));
     if (radioIndex >= radioTracks.length) radioIndex = 0;
     if (radioEpisodeIndex >= radioEpisodes.length) radioEpisodeIndex = 0;
@@ -738,7 +750,9 @@ function refreshRadioTracks(forceShuffle = false) {
     items: data.items || [],
     vocabularyPractice: data.dailyPack?.vocabularyPractice || [],
     vocabularyAttempts: [...(data.vocabularyAttempts || []), ...(data.dailyJourney?.vocabularyAttempts || [])],
-    speeches: data.speeches || []
+    speeches: data.speeches || [],
+    readings: data.readings || [],
+    transferTasks: [...(data.dailyPack?.transferTasks || []), ...(data.dailyPack?.transfer_tasks || [])]
   });
   radioEpisodes = buildRadioPodcastEpisodes(radioTracks, { channel: radioChannel, maxChars: 3600 });
   if (radioIndex >= radioTracks.length) radioIndex = 0;
@@ -1292,7 +1306,7 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   }
 
   const cfg = loadAiConfig();
-  const isOriginalAudio = Boolean(episode.isOriginalAudio || radioChannel === "my_audio" || radioChannel === "speaking_qa");
+  const isOriginalAudio = Boolean(episode.isOriginalAudio || (!episode.fromLearningPack && (radioChannel === "my_audio" || radioChannel === "speaking_qa")));
   const contentHash = isOriginalAudio
     ? String(episode.audioSha256 || episode.id)
     : await speechTextHash(episode.text || "");
@@ -2762,7 +2776,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.3)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.5)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
