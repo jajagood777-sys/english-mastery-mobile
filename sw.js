@@ -1,4 +1,4 @@
-const CACHE='english-cultivation-static-v19.6.2';
+const CACHE='english-cultivation-static-v19.6.3';
 const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './discourse.mjs',
   './immersion.mjs',
@@ -26,7 +26,17 @@ self.addEventListener('fetch',event=>{
     );
     return;
   }
-  // Stale-While-Revalidate for core static assets (instant paint + background refresh).
+  // Network-First for JS/MJS/CSS to prevent ES-module version skew on iOS Safari; SWR for images/assets.
+  if(/\.(?:m?js|css)$/.test(url.pathname)){
+    event.respondWith(
+      fetch(event.request).then(response=>{
+        if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(event.request,copy));}
+        return response;
+      }).catch(()=>caches.match(event.request).then(cached=>cached||Response.error()))
+    );
+    return;
+  }
+  // Stale-While-Revalidate for non-code static assets (instant paint + background refresh).
   event.respondWith(
     caches.match(event.request).then(cached=>{
       const networkFetch=fetch(event.request).then(response=>{

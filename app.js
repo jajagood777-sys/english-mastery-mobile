@@ -2730,6 +2730,11 @@ function renderPocketRadioDrawer() {
   return overlay;
 }
 
+let lexiconDrawerOpen = false;
+let lexiconQuery = '';
+let aiDictLoading = false;
+let aiDictReplyText = '';
+let aiDictAutoRunQuery = '';
 let aiDictRequestSerial = 0;
 function invalidateAiDictRequest() { aiDictRequestSerial++; }
 function openAiLexiconDrawer(explicitText = "") {
@@ -2757,7 +2762,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.2)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.3)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3176,6 +3181,16 @@ let previouslyRenderedPage=null;
 let lastInteractionTarget=null;
 // Capture the action before its button is removed by a same-page re-render.
 document.addEventListener('click',event=>{if(app.contains(event.target))lastInteractionTarget=event.target;},true);
+let pwaUpdateReady = false;
+function renderPwaUpdateBanner() {
+  if (!pwaUpdateReady) return el('span', '');
+  const bar = div('pwa-update-banner');
+  bar.append(
+    el('span', '✨ 新版本已就绪，刷新即可生效（学习记录与录音完整保留）', 'tiny'),
+    btn('立即刷新', () => { try { location.reload(); } catch {} }, 'btn primary small-btn')
+  );
+  return bar;
+}
 function render(){
   if(page==='training')page='home';
   const samePage=previouslyRenderedPage===page;
@@ -5287,6 +5302,6 @@ if (typeof window !== 'undefined' && window.visualViewport) {
 }
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (typeof notify === 'function') notify('新版本已就绪：当前草稿与学习记录已保留，完成本题后刷新即可生效。');
+    pwaUpdateReady = true; if (typeof notify === 'function') notify('新版本已就绪：当前草稿与学习记录已保留，完成本题后刷新即可生效。');
   });
 }

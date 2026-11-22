@@ -23,8 +23,8 @@ import { readZipStore } from '../handover.mjs';
 import { buildRadioPlaylist, buildRadioPodcastEpisodes } from '../radio.mjs';
 import { APP_VERSION, validateBackup, mergeBackupState } from '../core.mjs';
 
-test('v19.6.2 Scenario 1 & 4: Content-addressed episode matching prevents Ep3 shift misplay & stale bookmark jump', () => {
-  assert.equal(APP_VERSION, '19.6.2');
+test('v19.6.3 Scenario 1 & 4: Content-addressed episode matching prevents Ep3 shift misplay & stale bookmark jump', () => {
+  assert.equal(APP_VERSION, '19.6.3');
   const oldTracks = buildRadioPlaylist({ channel: 'notebook_spoken', scope: 'all', items: [], vocabularyPractice: [], vocabularyAttempts: [], speeches: [] });
   const oldEps = buildRadioPodcastEpisodes(oldTracks, { channel: 'notebook_spoken', maxChars: 3600 });
   assert.equal(oldEps.length, 7);
@@ -46,7 +46,7 @@ test('v19.6.2 Scenario 1 & 4: Content-addressed episode matching prevents Ep3 sh
   assert.equal(resolveVersionedBookmark(bookmarks, 'notebook_spoken:ep3', newEp3Hash), null, 'Old bookmark must NOT jump into shifted Ep 3');
 });
 
-test('v19.6.2 Scenario 2: Offline-Only mode & My Audio enforce ZERO cloud TTS calls; 40s cloud preload defaults OFF and honors all safety guards', () => {
+test('v19.6.3 Scenario 2: Offline-Only mode & My Audio enforce ZERO cloud TTS calls; 40s cloud preload defaults OFF and honors all safety guards', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('let radioAutoPreloadNext = false;'), 'Cloud 40s preload MUST default to false');
   assert.ok(appSrc.includes('radioOfflineOnly'), 'Offline-only mode must exist in app.js');
@@ -99,7 +99,7 @@ test('v19.6.2 Scenario 2: Offline-Only mode & My Audio enforce ZERO cloud TTS ca
   }), true);
 });
 
-test('v19.6.2 Scenario B/C/F: Real sentence rewind vs explicit 5s fallback, moment bookmarks (-3s context), commute queue & honest listening coverage', () => {
+test('v19.6.3 Scenario B/C/F: Real sentence rewind vs explicit 5s fallback, moment bookmarks (-3s context), commute queue & honest listening coverage', () => {
   const segs = [
     { startSec: 0, endSec: 8.4, text: 'First sentence here.' },
     { startSec: 8.4, endSec: 17.2, text: 'Second sentence about phonics.' },
@@ -156,7 +156,7 @@ test('v19.6.2 Scenario B/C/F: Real sentence rewind vs explicit 5s fallback, mome
   assert.equal(resolveRadioSourceLabel({ fromOfflinePack: false }), RADIO_SOURCE_LABELS.cloud_tts);
 });
 
-test('v19.6.2 Raw MP3 Direct Import ("我的音频"): duplicate skip, same-name different-content disambiguation, rename, reorder & backup preservation', () => {
+test('v19.6.3 Raw MP3 Direct Import ("我的音频"): duplicate skip, same-name different-content disambiguation, rename, reorder & backup preservation', () => {
   const existing = [];
   const p1 = planRawAudioImport(existing, { filename: 'podcast.mp3', audioSha256: 'aaaa1111bbbb2222', bytes: 1_500_000, durationSec: 185 });
   assert.equal(p1.action, 'add');
@@ -201,7 +201,7 @@ test('v19.6.2 Raw MP3 Direct Import ("我的音频"): duplicate skip, same-name 
   assert.equal(merged.myAudioTracks.length, 2);
 });
 
-test('v19.6.2 Scenario 6: Real readback of final Notebook_Spoken_7Ep_OfflineRadio_af_heart.zip & SW cold-start precache completeness', async () => {
+test('v19.6.3 Scenario 6: Real readback of final Notebook_Spoken_7Ep_OfflineRadio_af_heart.zip & SW cold-start precache completeness', async () => {
   // Verify sw.js precaches ALL top-level static imports in app.js (cold-start Airplane Mode guarantee)
   const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   for (const mod of ['./radio-offline.mjs', './studio.mjs', './handover.mjs', './speech-clips.mjs', './radio.mjs', './ai-tutor.mjs']) {
