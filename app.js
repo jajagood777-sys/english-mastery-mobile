@@ -2747,6 +2747,8 @@ function renderPocketRadioDrawer() {
 let readingBlurMode = false;
 let retellingRefVisible = {};
 let swWaitingWorker = null;
+let zenFocusMode = false;
+function toggleZenFocusMode() { zenFocusMode = !zenFocusMode; if (typeof document !== 'undefined') document.body?.classList?.toggle('zen-focus', zenFocusMode); render(); }
 let lexiconDrawerOpen = false;
 let lexiconQuery = '';
 let aiDictLoading = false;
