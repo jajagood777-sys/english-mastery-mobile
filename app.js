@@ -1369,6 +1369,12 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
   } else if (!retryFresh && typeof getSpeechClipRecord === "function" && typeof indexedDB !== "undefined") {
     try {
       offlineRec = await getSpeechClipRecord(episode.text, "af_heart");
+      if (!offlineRec) {
+        for (const candidate of [episode.cleanText, episode.modelAnswer].filter(Boolean)) {
+          offlineRec = await getSpeechClipRecord(candidate, "af_heart");
+          if (offlineRec) break;
+        }
+      }
     } catch { offlineRec = null; }
   }
   if (radioPlaying !== myPlayToken) return;
@@ -1839,6 +1845,9 @@ async function playRadioTrackAt(idx) {
   }
   radioIndex = ((idx % radioTracks.length) + radioTracks.length) % radioTracks.length;
   const track = radioTracks[radioIndex];
+  radioActiveSegments = [];
+  radioActiveSubIdx = -1;
+  radioSentenceLoopIdx = -1;
   const myPlayToken = Date.now() + Math.random();
   radioPlaying = myPlayToken;
   let trackCounted = false;
@@ -1995,8 +2004,21 @@ function renderPocketRadioDrawer() {
     const moments = Array.isArray(data.radioMoments) ? data.radioMoments : [];
     qBox.append(h("h3", `📋 待听队列（${qList.length}）`));
     if (!qList.length) {
-      qBox.append(p("待听队列为空，可把收藏的原声瞬间一键串成今日通勤队列。", "tiny subtle"));
+      qBox.append(p("待听队列还是空的：下方可直接勾选任意频道的节目自由混排，或把收藏瞬间串成连播。", "tiny subtle"));
     } else {
+      qBox.append(lines(
+        btn("▶ 按队列顺序连播", () => {
+          const first = data.radioQueue.shift();
+          if (!first) return;
+          save();
+          playEpisodeByIdentity(first.channel || radioChannel, first.episodeId, first.contentHash || "", first.startSec || 0);
+        }, "btn primary small-btn"),
+        btn("清空队列", () => {
+          data.radioQueue = [];
+          save();
+          render();
+        }, "btn ghost small-btn")
+      ));
       qList.forEach((item, idx) => {
         const row = div("radio-script-item");
         row.append(
@@ -2055,6 +2077,77 @@ function renderPocketRadioDrawer() {
     } else {
       qBox.append(p("收听时点「⭐ 收藏瞬间」，会自动记住时间点与原句，下次从前 3 秒开始听上下文。", "tiny subtle"));
     }
+    // Cross-channel episode picker so user can freely mix & pick from every channel
+    const pickerSec = div("radio-queue-picker");
+    pickerSec.append(
+      h("h3", "🎛️ 自选跨频道节目加入待听队列"),
+      p("从下面不同频道点「+ 加入」自由混搭，想听哪几条就排哪几条：", "tiny subtle")
+    );
+    const pickerChannels = [
+      ...RADIO_CHANNELS,
+      { id: "my_audio", label: "🎵 我的音频" },
+      ...(Array.isArray(data.customRadioPacks) && data.customRadioPacks.length ? [{ id: "custom_offline", label: "📦 离线电台" }] : [])
+    ];
+    if (!window.__ydQueuePickerCh) window.__ydQueuePickerCh = radioChannel || "speaking_qa";
+    const pTabs = div("radio-quick-bar");
+    pickerChannels.forEach(pch => {
+      pTabs.append(btn(pch.label, () => {
+        window.__ydQueuePickerCh = pch.id;
+        render();
+      }, window.__ydQueuePickerCh === pch.id ? "btn primary small-btn" : "btn secondary small-btn"));
+    });
+    pickerSec.append(pTabs);
+    const activePickCh = window.__ydQueuePickerCh;
+    const pickTracks = buildRadioPlaylist({
+      channel: activePickCh,
+      scope: radioScope,
+      items: data.items,
+      readings: data.readings,
+      readingMarks: data.readingMarks,
+      dailyPack: data.dailyPack,
+      packHistory: data.packHistory,
+      myAudioTracks: data.myAudioTracks,
+      customRadioPacks: data.customRadioPacks
+    });
+    const pickEps = activePickCh === "speaking_qa"
+      ? [
+          ...pickTracks.map((t, i) => ({ id: t.id || `qa-${i}`, title: t.title || `口语问答 ${i + 1}`, audioSha256: t.audioSha256 || "", trackCount: t.segmentCount || 1 })),
+          ...buildPackSpeakingQaEpisodes(
+            [...(data.dailyPack?.transferTasks || []), ...(Array.isArray(data.packHistory) ? data.packHistory.flatMap(p => p?.transferTasks || []) : [])],
+            { packTitle: data.dailyPack?.title || "学习包口语" }
+          )
+        ]
+      : (activePickCh === "my_audio" || activePickCh === "custom_offline"
+          ? pickTracks.map((t, i) => ({ id: t.id || `track-${i}`, title: t.title || `音频 ${i + 1}`, audioSha256: t.audioSha256 || "", trackCount: 1 }))
+          : buildRadioPodcastEpisodes(pickTracks, { channel: activePickCh }));
+    if (!pickEps.length) {
+      pickerSec.append(p("该频道当前暂无节目，可切换其他频道挑选。", "tiny subtle"));
+    } else {
+      pickEps.slice(0, 24).forEach((ep, epIdx) => {
+        const alreadyIn = qList.some(q => q.episodeId === ep.id && q.channel === activePickCh);
+        const cleanTitle = cleanRadioEpisodeLabel(ep.title, epIdx);
+        const row = div("radio-script-item");
+        row.append(
+          el("strong", `${epIdx + 1}. ${cleanTitle}`, "tiny"),
+          lines(
+            btn(alreadyIn ? "✓ 已在队列" : "+ 加入队列", () => {
+              data.radioQueue = mergeRadioQueue(data.radioQueue || [], {
+                channel: activePickCh,
+                episodeId: ep.id,
+                contentHash: ep.audioSha256 || "",
+                title: cleanTitle,
+                startSec: 0
+              });
+              save();
+              notify(`已加入待听队列：${cleanTitle}`);
+              render();
+            }, alreadyIn ? "btn ghost small-btn" : "btn secondary small-btn")
+          )
+        );
+        pickerSec.append(row);
+      });
+    }
+    qBox.append(pickerSec);
     panel.append(qBox);
     overlay.append(panel);
     overlay.addEventListener("click", e => { if (e.target === overlay) stopPocketRadio(false); });
@@ -2118,7 +2211,7 @@ function renderPocketRadioDrawer() {
     } else {
       const epCacheKey = makeTtsCacheKey(episode.text, activeTtsVoiceForKey(cfgNow));
       Promise.all([
-        getSpeechClipRecord(episode.text, "af_heart"),
+        (async () => (await getSpeechClipRecord(episode.text, "af_heart")) || (episode.cleanText ? await getSpeechClipRecord(episode.cleanText, "af_heart") : null))(),
         geminiAudioCache.has(epCacheKey) ? Promise.resolve(true) : hasPersistentTtsAudio(epCacheKey),
         Promise.all(radioEpisodes.map(ep => hasLocalSpeechClip(ep.text, "af_heart")))
       ]).then(([offlineRec, cloudHit, allOfflineHits]) => {
@@ -2585,9 +2678,11 @@ function renderPocketRadioDrawer() {
       nowCard.append(scriptDetails);
     }
   } else if (track) {
-    if ((!Array.isArray(radioActiveSegments) || radioActiveSegments.length === 0) && track.text) {
+    const curTrackKey = String(track.id || track.title || radioIndex);
+    if ((!Array.isArray(radioActiveSegments) || radioActiveSegments.length === 0 || radioActiveEpisodeHash !== `track:${curTrackKey}`) && track.text) {
       const singleSegs = buildAutoSyncedSegments({ title: track.title, badge: track.badge, text: track.text, tracksIncluded: [track] }, radioAudioEl?.duration || 0);
-      if (singleSegs.length > 0) radioActiveSegments = singleSegs;
+      radioActiveSegments = singleSegs;
+      radioActiveEpisodeHash = `track:${curTrackKey}`;
     }
     const badgeRow = div("radio-card-meta");
     badgeRow.append(
@@ -2859,7 +2954,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.8)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.9)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");

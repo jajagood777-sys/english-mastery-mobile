@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPackSpeakingQaEpisodes, buildRadioPlaylist } from '../radio.mjs';
 
-test('v19.6.8: buildPackSpeakingQaEpisodes converts daily pack speaking tasks into playable Q&A episodes', () => {
+test('v19.6.9: buildPackSpeakingQaEpisodes converts daily pack speaking tasks into playable Q&A episodes', () => {
   const eps = buildPackSpeakingQaEpisodes([
     {
       id: 'T01',
@@ -21,7 +21,7 @@ test('v19.6.8: buildPackSpeakingQaEpisodes converts daily pack speaking tasks in
   assert.match(eps[0].text, /warm milk before bed/);
 });
 
-test('v19.6.8: sentences_listening radio channel pulls missed/skipped vocab, pack readings, and speaking models', () => {
+test('v19.6.9: sentences_listening radio channel pulls missed/skipped vocab, pack readings, and speaking models', () => {
   const tracks = buildRadioPlaylist({
     channel: 'sentences_listening',
     vocabularyPractice: [
