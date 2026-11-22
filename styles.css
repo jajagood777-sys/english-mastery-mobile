@@ -2579,3 +2579,33 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   display: inline-flex;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
+
+/* v19.5.2 Compact Vocab Feedback & Zero-Scroll Sticky Next Bar */
+.vocab-feedback-top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.vocab-feedback-top-bar h3 {
+  margin: 0;
+  font-size: 15.5px;
+}
+.vocab-sticky-next-bar {
+  position: sticky;
+  bottom: 66px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+.vocab-sticky-next-bar .vocab-next-btn {
+  flex: 1 1 auto;
+}

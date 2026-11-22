@@ -30,7 +30,7 @@ import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRec
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash,pruneOldPackSpeechClips} from './speech-clips.mjs';
-import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,buildEndOfDayContinuationCue,buildWeeklyThreePairHighlights} from './ux-100.mjs';
+import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,buildEndOfDayContinuationCue,shouldHideVocabTargetHeader,buildWeeklyThreePairHighlights} from './ux-100.mjs';
 import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity,naturalSortTracks,createUnclearMark,buildUnclearReplayQueue,computeScrubberUndoTarget,computeInterruptionResumeAction,computeCommuteReadiness} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings} from './handover.mjs';
@@ -4473,9 +4473,10 @@ function renderVocabularyStage(){
 
   const task=tasks[j.vocabularyIndex];
   const prior=findAttempt(task.id);
+  const hideTargetNow=!prior&&shouldHideVocabTargetHeader(task);
   const box=section('vocab-touch-stage');
   box.append(renderJourneyFlowRibbon('vocabulary'));
-  if(!prior)triggerAutoPlayIfEnabled(`vocab:${task.id}`,task.target||task.archivedExample||task.prompt,task.audioUrl);
+  if(!prior&&!hideTargetNow)triggerAutoPlayIfEnabled(`vocab:${task.id}`,task.target||task.archivedExample||task.prompt,task.audioUrl);
   const progressPct=Math.round(((j.vocabularyIndex)/Math.max(1,tasks.length))*100);
   const topBar=div('vocab-stage-header');
   topBar.append(
@@ -4490,14 +4491,14 @@ function renderVocabularyStage(){
   box.append(topBar,barTrack,p('轻触选项作答（仅计入识别练习）。','tiny'));
 
   const promptCard=section('vocab-prompt-card');
-  if(task.target&&task.type!=='contextual_cloze'&&task.type!=='reverse_definition'){
+  if(!hideTargetNow&&task.target&&task.type!=='contextual_cloze'&&task.type!=='reverse_definition'){
     const wordHead=div('vocab-word-header');
     wordHead.append(h('h2',task.target,'vocab-target-word'),btn('🔊 朗读词条',()=>speakEnglish(task.target),'btn secondary small-btn'));
     promptCard.append(wordHead);
   }
   const promptText=p(task.prompt,'vocab-prompt-text');
   promptCard.append(promptText);
-  if(task.archivedExample&&task.type!=='contextual_cloze'){
+  if(!hideTargetNow&&task.archivedExample&&task.type!=='contextual_cloze'){
     promptCard.append(lines(btn('🔊 朗读原句语境',()=>speakEnglish(task.archivedExample),'btn ghost small-btn')));
   }
   box.append(promptCard);
@@ -4565,8 +4566,8 @@ function renderVocabularyStage(){
     const cdtl=buildCdtlCard(task,prior.selectedOptionId,data.dailyPack?.originalWordArchive||[]);
     const feedbackBox=section(`vocab-feedback-card ${prior.skipped?'is-skipped':prior.correct?'is-correct':'is-wrong'}`);
     if(!prior.correct&&!prior.skipped)feedbackBox.append(renderGritQuoteBanner('error',j.vocabularyIndex));
-    feedbackBox.append(
-      h('h3',prior.skipped?'已记录跳过（不计掌握）':prior.correct?'✓ 识别正确（Recognition Verified）':'🔥 发现盲区 · CDTL 语境破局辨析'),
+    const nextLabel=j.vocabularyIndex+1>=tasks.length?'完成触控词汇，自动进入下一模块 →':'继续下一题 →';const topBar=div('vocab-feedback-top-bar');topBar.append(
+      h('h3',prior.skipped?'已记录跳过（不计掌握）':prior.correct?'✓ 识别正确（Recognition Verified）':'🔥 发现盲区 · CDTL 语境破局辨析'),btn(nextLabel,advanceNext,'btn primary small-btn vocab-next-btn'));feedbackBox.append(topBar);if(prior.correct){const senseLine=cdtl?.correct?.senseEn||task.explanationEn||task.explanationZh||'';const exLine=cdtl?.correct?.exampleEn||task.archivedExample||'';if(senseLine)feedbackBox.append(p('释义：'+senseLine,'small-block'));if(exLine)feedbackBox.append(p('例句：'+exLine,'hint'));}else{feedbackBox.append(
       p(`正确答案：${prior.firstCheck?.correctText||task.correctOptionIds.join('/')}${prior.selectedText?` · 你的首次选择：${prior.selectedOptionId}. ${prior.selectedText}`:''}`,'subtle'),
       p(task.explanationEn,'small-block')
     );
@@ -4593,7 +4594,7 @@ function renderVocabularyStage(){
       feedbackBox.append(compareGrid);
       if(cdtl.contrastAnchor)feedbackBox.append(p(cdtl.contrastAnchor,'cdtl-anchor-pill'));
       if(cdtl.chosenDistractor)feedbackBox.append(renderAiReplyWidget('🤖 追问 AI 怎么区分这两个词',()=>askAiContrastWords({target:cdtl.correct.expression,distractor:cdtl.chosenDistractor.expression,context:task.prompt})));
-    }
+    }}
     if(!prior.correct&&task.productionPrompt){
       const prodInput=textInput(prior.productionAnswer||'',task.productionPrompt);
       const saveProd=btn('保存造句复测并进入下一题',()=>{
@@ -4604,7 +4605,7 @@ function renderVocabularyStage(){
       feedbackBox.append(field('错词微产出复测（可选，不强制打字）',prodInput),lines(saveProd));
     }
     const nextBtn=btn(j.vocabularyIndex+1>=tasks.length?'完成触控词汇，自动进入下一模块 →':'继续下一题 →',advanceNext,'btn primary vocab-next-btn');
-    feedbackBox.append(lines(nextBtn,btn('🔊 朗读英文例句与释义',async()=>{
+    const stickyBar=div('vocab-sticky-next-bar');stickyBar.append(nextBtn,btn('🔊 朗读',async()=>{
       const ex=String(cdtl?.correct?.exampleEn||'').trim();
       const sense=String(cdtl?.correct?.senseEn||task.targetSense||'').trim();
       const targetWord=String(cdtl?.correct?.expression||task.target||'').trim();
@@ -4623,7 +4624,7 @@ function renderVocabularyStage(){
       }
       const line=[targetWord,sense,ex].filter(Boolean).join('. ')||task.explanationEn;
       speakEnglish(line);
-    },'btn secondary')));
+    },'btn secondary'));feedbackBox.append(stickyBar);
     box.append(feedbackBox);
   }
   app.append(box);

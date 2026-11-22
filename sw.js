@@ -36,6 +36,7 @@ self.addEventListener('fetch',event=>{
       return cached||networkFetch;
     })
   );
+// vocab-anti-leak-zero-scroll-20261122
 });
 
 self.addEventListener('message', event => { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });

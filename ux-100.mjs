@@ -236,3 +236,20 @@ export function buildWeeklyThreePairHighlights(data = {}) {
   }
   return pairs.slice(0, 3);
 }
+
+export function shouldHideVocabTargetHeader(task = {}) {
+  if (!task || !task.target) return true;
+  if (['contextual_cloze', 'reverse_definition', 'collocation_choice', 'confusable_pair', 'word_choice', 'meaning_to_word'].includes(task.type)) {
+    return true;
+  }
+  const targetNorm = String(task.target).trim().toLowerCase();
+  const opts = Array.isArray(task.options) ? task.options : [];
+  if (opts.some(o => String(o?.text || '').trim().toLowerCase() === targetNorm)) {
+    return true;
+  }
+  const prompt = String(task.prompt || '');
+  if (/_{2,}/.test(prompt) || /which one means/i.test(prompt)) {
+    return true;
+  }
+  return false;
+}
