@@ -40,7 +40,7 @@ import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
-import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure,buildPackSpeakingQaEpisodes} from './radio.mjs';
+import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure,buildPackSpeakingQaEpisodes,buildAutoSyncedSegments,rescaleSyncedSegments} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
@@ -354,6 +354,27 @@ async function hydrateSpeakingQaQuestionBank() {
     const collected = [];
     for (let epIdx = 0; epIdx < radioEpisodes.length; epIdx++) {
       const ep = radioEpisodes[epIdx];
+      if (ep?.fromLearningPack && Array.isArray(ep.qaSegments) && ep.qaSegments.length) {
+        if (epIdx === radioEpisodeIndex && !radioActiveSegments.length) {
+          radioActiveSegments = ep.qaSegments;
+        }
+        let qInPackEp = 0;
+        ep.qaSegments.forEach((seg, segIdx) => {
+          if (seg.role === "Q") {
+            qInPackEp++;
+            collected.push({
+              epIdx,
+              epId: ep.id,
+              epTitle: cleanRadioEpisodeLabel(ep.title, epIdx),
+              qInEp: qInPackEp,
+              segIdx,
+              startSec: Number(seg.startSec) || 0,
+              text: String(seg.text || "")
+            });
+          }
+        });
+        continue;
+      }
       if (!ep?.audioSha256) continue;
       const rec = await getRawAudioRecord(ep.audioSha256).catch(() => null);
       const segs = Array.isArray(rec?.segments) ? rec.segments : [];
@@ -389,6 +410,13 @@ async function hydrateSpeakingQaQuestionBank() {
   }
 }
 let radioActiveSegments = [];
+function resolveEpisodeSyncedSegments(episode, rawSegments = null, durationSec = 0) {
+  if (Array.isArray(rawSegments) && rawSegments.length > 0) return rawSegments;
+  if (!episode) return [];
+  const autoSegs = buildAutoSyncedSegments(episode, durationSec || Number(episode.durationSec) || 0);
+  if (autoSegs.length > 0) return autoSegs;
+  return Array.isArray(episode.qaSegments) ? episode.qaSegments : [];
+}
 let radioActiveEpisodeHash = "";
 let radioActiveSourceLabel = "";
 let radioLastRewindTapAt = 0;
@@ -692,12 +720,14 @@ function refreshRadioTracks(forceShuffle = false) {
       tracksIncluded: [{ title: t.title || t.filename, text: t.hasSubtitles ? `已配同步字幕（${t.segmentCount || 0} 句 · 节目原声）` : "原始音频文件（无文字稿，仅存本机）", subtext: formatBytesHuman(t.bytes || 0) }]
     }));
     if (radioChannel === "speaking_qa") {
+      const allPackTransferTasks = [
+        ...(Array.isArray(data.dailyPack?.transferTasks) ? data.dailyPack.transferTasks : []),
+        ...(Array.isArray(data.dailyPack?.transfer_tasks) ? data.dailyPack.transfer_tasks : []),
+        ...(Array.isArray(data.packHistory) ? data.packHistory.flatMap(p => [...(p?.transferTasks || []), ...(p?.transfer_tasks || [])]) : [])
+      ];
       const packSpeakingEps = buildPackSpeakingQaEpisodes(
-        [
-          ...(Array.isArray(data.dailyPack?.transferTasks) ? data.dailyPack.transferTasks : []),
-          ...(Array.isArray(data.dailyPack?.transfer_tasks) ? data.dailyPack.transfer_tasks : [])
-        ],
-        { packTitle: data.dailyPack?.title || "今日学习包" }
+        allPackTransferTasks,
+        { packTitle: data.dailyPack?.title || "学习包题库" }
       );
       if (packSpeakingEps.length) {
         radioEpisodes = [...radioEpisodes, ...packSpeakingEps];
@@ -752,7 +782,12 @@ function refreshRadioTracks(forceShuffle = false) {
     vocabularyAttempts: [...(data.vocabularyAttempts || []), ...(data.dailyJourney?.vocabularyAttempts || [])],
     speeches: data.speeches || [],
     readings: data.readings || [],
-    transferTasks: [...(data.dailyPack?.transferTasks || []), ...(data.dailyPack?.transfer_tasks || [])]
+    transferTasks: [
+      ...(data.dailyPack?.transferTasks || []),
+      ...(data.dailyPack?.transfer_tasks || []),
+      ...(Array.isArray(data.packHistory) ? data.packHistory.flatMap(p => [...(p?.transferTasks || []), ...(p?.transfer_tasks || [])]) : [])
+    ],
+    readingMarks: data.readingMarks || []
   });
   radioEpisodes = buildRadioPodcastEpisodes(radioTracks, { channel: radioChannel, maxChars: 3600 });
   if (radioIndex >= radioTracks.length) radioIndex = 0;
@@ -1373,16 +1408,16 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       entry = { url: URL.createObjectURL(originalBlob), fromCache: true, fromOfflinePack: true, isOriginalAudio: true, modelUsed: "original-audio", cacheKey };
       revokeAfterPlay = true;
       radioActiveSourceLabel = RADIO_SOURCE_LABELS.original_audio;
-      radioActiveSegments = Array.isArray(originalRec?.segments) ? originalRec.segments : [];
+      radioActiveSegments = resolveEpisodeSyncedSegments(episode, originalRec?.segments, originalRec?.durationSec || episode.durationSec || 0);
     } else if (offlineRec) {
       entry = { url: URL.createObjectURL(offlineRec.blob), fromCache: true, fromOfflinePack: true, modelUsed: offlineRec.engine || "onnxruntime-q8-cmudict-ipa", cacheKey };
       revokeAfterPlay = true;
       radioActiveSourceLabel = resolveRadioSourceLabel({ fromOfflinePack: true, engine: offlineRec.engine });
-      radioActiveSegments = Array.isArray(offlineRec.segments) ? offlineRec.segments : [];
+      radioActiveSegments = resolveEpisodeSyncedSegments(episode, offlineRec.segments, offlineRec.durationSec || episode.durationSec || 0);
     } else {
       entry = await fetchGeminiAudioEntry(episode.text, cfg, { bypassCache: retryFresh });
       radioActiveSourceLabel = RADIO_SOURCE_LABELS.cloud_tts;
-      radioActiveSegments = [];
+      radioActiveSegments = resolveEpisodeSyncedSegments(episode, null, episode.durationSec || 0);
     }
     if (radioPlaying !== myPlayToken) {
       if (revokeAfterPlay) try { URL.revokeObjectURL(entry.url); } catch {}
@@ -1489,6 +1524,11 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       }
     };
     audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && Array.isArray(radioActiveSegments) && radioActiveSegments.some(s => s && s.autoTimed)) {
+        radioActiveSegments = rescaleSyncedSegments(radioActiveSegments, audio.duration);
+        syncRadioSubtitlesDom(audio.currentTime || 0, { forceCenter: true });
+        render();
+      }
       if (savedPos > 1 && Number.isFinite(audio.duration) && savedPos < audio.duration - 3) {
         try { audio.currentTime = savedPos; } catch {}
         notify(`🎧 已自动续播至 ${fmtAudioClock(savedPos)}`);
@@ -2194,6 +2234,10 @@ function renderPocketRadioDrawer() {
     if (radioChannel === "speaking_qa" && radioEpisodes.length > 0) {
       hydrateSpeakingQaQuestionBank();
     }
+    if ((!Array.isArray(radioActiveSegments) || radioActiveSegments.length === 0) && episode) {
+      const autoPreview = resolveEpisodeSyncedSegments(episode, null, episode.durationSec || 0);
+      if (autoPreview.length > 0) radioActiveSegments = autoPreview;
+    }
     const hasSyncedSegments = Array.isArray(radioActiveSegments) && radioActiveSegments.length > 0;
     const currentEpQuestions = hasSyncedSegments
       ? radioActiveSegments
@@ -2747,8 +2791,6 @@ function renderPocketRadioDrawer() {
 let readingBlurMode = false;
 let retellingRefVisible = {};
 let swWaitingWorker = null;
-let zenFocusMode = false;
-function toggleZenFocusMode() { zenFocusMode = !zenFocusMode; if (typeof document !== 'undefined') document.body?.classList?.toggle('zen-focus', zenFocusMode); render(); }
 let lexiconDrawerOpen = false;
 let lexiconQuery = '';
 let aiDictLoading = false;
@@ -2781,7 +2823,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.5)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.7)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3169,7 +3211,7 @@ let draftSaveTimer=null;
 function flushDraftSave(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;save();}}
 function scheduleDraftSave(delayMs=450){clearTimeout(draftSaveTimer);draftSaveTimer=setTimeout(()=>{draftSaveTimer=null;save();},delayMs);}
 function showStaleConflictDraftDialog(draftSnapshot){if(!draftSnapshot||typeof document==='undefined')return;document.getElementById('conflict-draft-dialog')?.remove();const backdrop=div('switch-backdrop');backdrop.id='conflict-draft-dialog';const card=section('switch-dialog');const area=textarea(draftSnapshot,'');area.readOnly=true;area.rows=6;card.append(el('div','多标签页冲突保护 · DRAFT RECOVERY','eyebrow'),h('h2','另一标签页有更新的学习记录'),p('为保护新记录不被旧页面覆盖，本次写入已拦截。你刚才在本页输入的未提交草稿已保留在下方，可一键复制：','subtle'),field('本页未提交草稿',area),lines(btn('复制草稿',()=>{try{navigator.clipboard?.writeText(draftSnapshot);notify('草稿已复制。');}catch{area.select();}},'btn primary'),btn('关闭',()=>backdrop.remove(),'btn ghost')));backdrop.append(card);document.body.append(backdrop);}
-function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const pendingDraft=String(data?.activeSession?.draft||data?.dailyJourney?.transferDraft||data?.v19?.exactResume?.draftText||'').trim();const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;try{const parsed=JSON.parse(result.serialized);if(Number.isFinite(Number(parsed?.stateRevision)))data.stateRevision=Number(parsed.stateRevision);}catch{}return true;}if(result.conflict==='stale_tab_revision'&&pendingDraft){showStaleConflictDraftDialog(pendingDraft);}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
+function save(){if(draftSaveTimer){clearTimeout(draftSaveTimer);draftSaveTimer=null;}const pendingDraft=String(data?.activeSession?.draft||data?.dailyJourney?.transferDraft||data?.v19?.exactResume?.draftText||'').trim();const result=persistState(localStorage,STORE,{...data,version:VERSION},lastPersistedRaw);if(result.ok){lastPersistedRaw=result.serialized;return true;}if(result.conflict==='stale_tab_revision'&&pendingDraft){showStaleConflictDraftDialog(pendingDraft);}if(lastPersistedRaw){try{data=migrateBackupPayload(JSON.parse(lastPersistedRaw));}catch{}}notify(`保存失败：${result.error||'本地存储不可用'}。当前记录已回退到上一次成功保存的状态，请先导出备份。`);return false;}
 function notify(message){const n=document.getElementById('notice');n.textContent=message;n.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.hidden=true,3800);}
 function applyTheme(){const choice=data?.settings?.theme||'system';const night=choice==='night'||(choice==='system'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=night?'night':'day';const metaTheme=document.querySelector('meta[name="theme-color"]');if(metaTheme)metaTheme.setAttribute('content',night?'#07080b':'#f5f5f7');}
 function setTheme(theme){const previous=data.settings.theme;data.settings.theme=theme;if(!save()){data.settings.theme=previous;return;}applyTheme();render();}
