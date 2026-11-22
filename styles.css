@@ -1124,7 +1124,8 @@ html[data-theme="night"] .mode-card span { color: var(--theme-muted); }
   .feature-card { min-height: 118px; padding: 14px; }
   .reading-toolbar { bottom: calc(74px + env(safe-area-inset-bottom)); }
   .notice { top: calc(12px + env(safe-area-inset-top)); bottom: auto; }
-  .actions > .btn { flex: 1; min-width: 0; }
+  .actions > .btn { flex: 1 1 138px; min-width: min(138px, 100%); white-space: normal; }
+  .recording-panel .actions > .btn { flex: 0 1 auto; min-width: 112px; }
 }
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
@@ -1636,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v19.5.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v19.6.2 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -1782,7 +1783,7 @@ details[open] > summary::after {
   }
 }
 
-/* v19.5.1 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
+/* v19.6.2 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
 .v19-continuity-card, .v19-more-tools, .v19-weekly-card { margin-top: 14px; }
 .v19-disclosure { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
 .v19-disclosure summary { cursor: pointer; padding: 6px 0; user-select: none; }
@@ -1791,7 +1792,7 @@ details[open] > summary::after {
 .v19-one-hand .btn, .v19-one-hand .radio-play-btn, .v19-one-hand .radio-seek-btn { min-height: 52px; min-width: 52px; }
 
 /* ==========================================================================
-   v19.5.1 Contemporary Oriental Study (当代东方书房) Design System
+   v19.6.2 Contemporary Oriental Study (当代东方书房) Design System
    Warm natural-light paper · Near-ink typography · Deep Jade primary action
    Hairline hierarchy · Zero glass clutter · Restrained seal brand detail
    ========================================================================== */
@@ -2030,13 +2031,13 @@ html[data-theme="night"] .site-header {
   .radio-seek-btn { width: 48px; min-width: 48px; font-size: 11.5px !important; }
 }
 
-/* v19.5.1 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
+/* v19.6.2 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
 html.v19-keyboard-open .mobile-nav { display: none !important; }
 html.v19-keyboard-open .reading-toolbar { position: static; margin-top: 12px; }
 html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 
 /* ==========================================================================
-   v19.5.1 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
+   v19.6.2 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
    ========================================================================== */
 .radio-subtitle-panel {
   margin-top: 12px;
@@ -2138,7 +2139,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
-/* v19.5.1 Commute One-Hand 44x44 CSS px touch target guarantee */
+/* v19.6.2 Commute One-Hand 44x44 CSS px touch target guarantee */
 .radio-transport-row .radio-icon-btn,
 .radio-transport-row .radio-seek-btn,
 .radio-transport-row .radio-play-btn {
@@ -2147,7 +2148,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.5.1 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
+   v19.6.2 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
    ========================================================================== */
 .lexicon-drawer-panel,
 .switch-dialog {
@@ -2279,7 +2280,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.5.1 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
+   v19.6.2 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
    ========================================================================== */
 .radio-view-tabs {
   display: grid;
@@ -2441,7 +2442,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.5.1 Cross-Episode Question Bank & Random Mock Examiner Bar
+   v19.6.2 Cross-Episode Question Bank & Random Mock Examiner Bar
    ========================================================================== */
 .radio-q-toolbar {
   display: flex;
@@ -2472,7 +2473,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.5.1 Batch 1: Unclear Mark Undo Toast, Interruption Resume & Mirror Mode
+   v19.6.2 Batch 1: Unclear Mark Undo Toast, Interruption Resume & Mirror Mode
    ========================================================================== */
 .radio-unclear-banner,
 .radio-interrupt-banner,
@@ -2511,7 +2512,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v19.5.1 Batch 2: Home Env/Deferred Card, Minimal Diff, Reading Flash & Compare
+   v19.6.2 Batch 2: Home Env/Deferred Card, Minimal Diff, Reading Flash & Compare
    ========================================================================== */
 .home-env-bar,
 .home-deferred-card,
@@ -2580,7 +2581,9 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
-/* v19.5.2 Compact Vocab Feedback & Zero-Scroll Sticky Next Bar */
+/* ==========================================================================
+   v19.6.2 Compact Vocab Feedback & Zero-Scroll Sticky Next Bar
+   ========================================================================== */
 .vocab-feedback-top-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2608,4 +2611,150 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 .vocab-sticky-next-bar .vocab-next-btn {
   flex: 1 1 auto;
+}
+
+/* ==========================================================================
+   v19.6.2 Commute Quiz Flow: Fast-Flow Toggle, 15-Item Batch & Delayed Retry
+   ========================================================================== */
+.vocab-commute-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface-soft, rgba(127, 127, 127, 0.06));
+  border: 1px solid var(--theme-border);
+  margin: 6px 0 8px;
+}
+.vocab-retry-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(217, 119, 6, 0.16);
+  color: #b45309;
+}
+[data-theme="night"] .vocab-retry-pill {
+  color: #fbbf24;
+}
+
+/* ==========================================================================
+   v19.6.2 Vocabulary Instruction Separation & Speaking Recording Receipt
+   ========================================================================== */
+.vocab-prompt-instruction {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--theme-card));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--theme-border));
+}
+.vocab-instruction-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 1px;
+}
+.vocab-instruction-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--theme-muted);
+  font-weight: 500;
+}
+.vocab-prompt-body {
+  display: grid;
+  gap: 12px;
+}
+.vocab-prompt-block {
+  display: grid;
+  gap: 5px;
+}
+.vocab-prompt-block.is-sentence {
+  padding: 13px 15px;
+  border-radius: 13px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-left: 3.5px solid var(--accent);
+}
+.vocab-prompt-chip {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.vocab-prompt-text.is-meaning-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--theme-muted);
+}
+.vocab-prompt-text.is-sentence-text {
+  font-size: 17.5px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.vocab-blank {
+  display: inline-block;
+  min-width: 58px;
+  text-align: center;
+  padding: 0 6px;
+  border-bottom: 2.5px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.recording-attach-pill {
+  margin-top: 10px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.recording-attach-pill.is-attached {
+  background: var(--success-soft, rgba(22, 163, 74, 0.1));
+  border: 1px solid var(--success, #16a34a);
+  color: var(--theme-text);
+}
+.recording-attach-pill.is-empty {
+  background: var(--surface-elevated);
+  border: 1px dashed var(--theme-border);
+  color: var(--theme-muted);
+  font-weight: 500;
+}
+
+.submitted-recording-receipt {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border-radius: 13px;
+}
+.submitted-recording-receipt.is-attached {
+  background: var(--success-soft, rgba(22, 163, 74, 0.1));
+  border: 1px solid var(--success, #16a34a);
+}
+.submitted-recording-receipt.is-text-only {
+  background: var(--surface-elevated);
+  border: 1px solid var(--theme-border);
+}
+.submitted-recording-title {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--theme-text);
+}
+.submitted-recording-receipt .actions {
+  margin-top: 4px;
 }

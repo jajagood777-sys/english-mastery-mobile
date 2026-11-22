@@ -15,12 +15,14 @@ import {
   buildWordDiffHighlight,
   buildHomeResumeBanner,
   buildEndOfDayContinuationCue,
-  buildWeeklyThreePairHighlights
+  buildWeeklyThreePairHighlights,
+  shouldHideVocabTargetHeader
 } from '../ux-100.mjs';
 import { APP_VERSION, mergeTransferAttempts, validateBackup, mergeBackupState } from '../core.mjs';
+import { checkVocabularyTaskLeak, scheduleInSessionDelayedRetry } from '../vocab.mjs';
 
-test('v19.5.1 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, natural sort & interruption resume', () => {
-  assert.equal(APP_VERSION, '19.5.1');
+test('v19.6.2 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, natural sort & interruption resume', () => {
+  assert.equal(APP_VERSION, '19.6.2');
 
   const sorted = naturalSortTracks([
     { title: '第10集_Travel' },
@@ -75,7 +77,7 @@ test('v19.5.1 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, 
   assert.match(readiness.summaryText, /2\/3 集已就绪，第 2 集需要重导/);
 });
 
-test('v19.5.1 Batch 2: Cursor dictation, minimal word diff, home env/deferred card & real continuation cue', () => {
+test('v19.6.2 Batch 2: Cursor dictation, minimal word diff, home env/deferred card & real continuation cue', () => {
   const ins = insertDictationAtCursor('First sentence. Third sentence.', 'Second sentence.', 16, 16);
   assert.equal(ins.value, 'First sentence. Second sentence. Third sentence.');
 
@@ -129,7 +131,7 @@ test('v19.5.1 Batch 2: Cursor dictation, minimal word diff, home env/deferred ca
   assert.equal(pairs.length, 3);
 });
 
-test('v19.5.1 Six Legacy Regression Routes & Accident Guards remain intact', () => {
+test('v19.6.2 Six Legacy Regression Routes & Accident Guards remain intact', () => {
   // Route 1: Idempotent backup merge (restored twice -> no duplicates)
   const att = [{ id: 'ta1', taskId: 't1', firstAnswer: 'orig', retryAnswer: '' }];
   const merged1 = mergeTransferAttempts([], att);
@@ -161,7 +163,7 @@ test('v19.5.1 Six Legacy Regression Routes & Accident Guards remain intact', () 
   assert.match(app, /insertDictationAtCursor/);
 });
 
-test('v19.5.1 Bugfix Guards: validateBackup/mergeBackupState persist unclearMarks & deferredSpeaking, manual pause never triggers BT banner, replay exits cleanly', () => {
+test('v19.6.2 Bugfix Guards: validateBackup/mergeBackupState persist unclearMarks & deferredSpeaking, manual pause never triggers BT banner, replay exits cleanly', () => {
   const s1 = validateBackup({
     version: 4.3,
     items: [{ id: "i1", kind: "word", target: "test", meaning: "测试" }],
@@ -181,4 +183,55 @@ test('v19.5.1 Bugfix Guards: validateBackup/mergeBackupState persist unclearMark
   assert.match(app, /radioPaused = true;\s*try \{ radioAudioEl\.pause\(\); \}/);
   assert.match(app, /if \(!fromUnclearReplay\) \{ radioUnclearReplayQueue = \[\]; radioUnclearReplayCursor = -1; \}/);
   assert.match(app, /d\.status='completed';d\.completedAt=submittedAt;/);
+});
+
+test('v19.6.2 Vocab Anti-Leak & Compact Zero-Scroll Feedback: hides target when options contain target word or blank', () => {
+  assert.equal(shouldHideVocabTargetHeader({
+    type: 'collocation_choice',
+    target: 'subdue',
+    prompt: 'The team managed to ______ the fire.',
+    options: [{ id: 'A', text: 'safeguard' }, { id: 'B', text: 'subdue' }]
+  }), true);
+  assert.equal(shouldHideVocabTargetHeader({
+    type: 'confusable_pair',
+    target: 'inflict',
+    prompt: 'Which one means: To cause someone to suffer something unpleasant.',
+    options: [{ id: 'A', text: 'inflict' }, { id: 'B', text: 'reinforce' }]
+  }), true);
+  assert.equal(shouldHideVocabTargetHeader({
+    type: 'definition_choice',
+    target: 'relic',
+    prompt: 'Choose the best English meaning for this word.',
+    options: [{ id: 'A', text: 'An object that survives from an earlier historical period.' }]
+  }), false);
+
+  const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(app, /const hideTargetNow=!prior&&shouldHideVocabTargetHeader\(task\);/);
+  assert.match(app, /vocab-sticky-next-bar/);
+  assert.match(app, /vocab-feedback-top-bar/);
+});
+
+test('v19.6.2 Commute Quiz System: anti-leak pack gate, 3-item delayed retry interleaving & fast-flow toggle', () => {
+  const leakCheck = checkVocabularyTaskLeak({
+    type: 'collocation_challenge',
+    target: 'subdue',
+    prompt: 'Choose the precise expression to subdue the fire.',
+    archivedExample: 'The team managed to subdue the fire.',
+    options: [{ id: 'A', text: 'safeguard' }, { id: 'B', text: 'subdue' }]
+  });
+  assert.equal(leakCheck.hasLeak, true);
+  assert.equal(leakCheck.shouldHideHeader, true);
+  assert.equal(leakCheck.leaks.length, 2);
+
+  const q = [{ id: 'q1' }, { id: 'q2' }, { id: 'q3' }, { id: 'q4' }, { id: 'q5' }];
+  const nextQ = scheduleInSessionDelayedRetry(q, 0, { id: 'q1', target: 'subdue', prompt: 'Pick subdue', archivedExample: 'They subdue it.' }, { delayGap: 3 });
+  assert.equal(nextQ.length, 6);
+  assert.equal(nextQ[4].id, 'q1__retry');
+  assert.equal(nextQ[4].isDelayedRetry, true);
+  assert.doesNotMatch(nextQ[4].prompt, /subdue/i);
+
+  const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(app, /⚡ 极速连刷/);
+  assert.match(app, /vocabBatchTargetCount/);
+  assert.match(app, /scheduleInSessionDelayedRetry/);
 });
