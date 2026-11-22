@@ -55,7 +55,7 @@ test('15.1.4 battle report logs passive radio exposure honestly without counting
     items: [],
     radioLog: { clipsPlayed: 12, activeMs: 185000, lastChannel: 'weak_sniper' }
   });
-  assert.equal(report.app_version, '19.6.5');
+  assert.equal(report.app_version, '19.6.7');
   assert.equal(report.radio_exposure.clipsPlayed, 12);
   assert.equal(report.radio_exposure.countsAsMasteryK, false);
 

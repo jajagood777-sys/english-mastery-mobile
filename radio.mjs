@@ -1706,6 +1706,7 @@ export function buildRadioPlaylist({
   speeches = [],
   readings = [],
   transferTasks = [],
+  readingMarks = [],
   customYoutubeTracks = [],
   customNotebookTracks = []
 } = {}) {
@@ -1819,6 +1820,25 @@ export function buildRadioPlaylist({
         });
       }
     }
+  }
+
+  // 1b. Reading saved/marked words (surface N/V or saved reading words as audio flashcards in sentences_listening & weak_sniper)
+  for (const mk of (Array.isArray(readingMarks) ? readingMarks : [])) {
+    if (!mk) continue;
+    const w = cleanRad(mk.wordText || mk.normalizedWord || mk.word || '');
+    const sent = cleanRad(mk.originalSentence || mk.original_sentence || '');
+    if (!w || !sent) continue;
+    const segments = [w, sent].filter(Boolean);
+    pushTrack({
+      id: `radio:rmark:${w.toLowerCase()}`,
+      kind: 'reading_vocab',
+      badge: '阅读生词闪卡',
+      title: w,
+      text: `${w}. ${sent}`,
+      segments,
+      subtext: cleanRad(mk.sourceTitle || mk.source_title || '阅读标注生词'),
+      priority: 2
+    });
   }
 
   // 2. Card items (words, sentences, listening)
@@ -2081,6 +2101,11 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
       promptText ? `Question: ${promptText}` : '',
       modelText ? `Sample Answer: ${modelText}` : ''
     ].filter(Boolean);
+    const qaSegments = buildAutoSyncedSegments({
+      fromLearningPack: true,
+      questionPrompt: promptText,
+      modelAnswer: modelText
+    });
     episodes.push({
       id: `pack-speaking-qa:${tk.id || i + 1}`,
       fromLearningPack: true,
@@ -2091,6 +2116,9 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
       badge: `📦 ${cleanRad(packTitle) || '学习包'} · 雅思口语问答`,
       text: fullText,
       segments,
+      qaSegments,
+      questionPrompt: promptText,
+      modelAnswer: modelText,
       segmentCount: segments.length,
       estimatedMinutes: Math.max(1, Math.round(fullText.split(/\s+/).filter(Boolean).length / 130)),
       trackCount: segments.length,
@@ -2102,3 +2130,176 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
   }
   return episodes;
 }
+
+const STUB_TRACK_TEXT_RE = /^(?:原始音频文件（无文字稿|已配同步字幕（)/;
+
+function splitTextIntoSubtitleSentences(rawText = '') {
+  const cleaned = cleanRad(rawText).replace(/\s*\.\.\.\s+/g, '\n');
+  if (!cleaned || STUB_TRACK_TEXT_RE.test(cleaned)) return [];
+  const paragraphs = cleaned.split(/\n+/).map(p => p.trim()).filter(Boolean);
+  const out = [];
+  for (const para of paragraphs) {
+    const rough = para.split(/(?<=[.!?。！？])\s+/).map(s => s.trim()).filter(Boolean);
+    for (const piece of rough) {
+      if (piece.length > 180) {
+        // Split very long unpunctuated or multi-clause lines near the middle on ; or ,
+        const clauses = piece.split(/(?<=[;；,，])\s+/).map(s => s.trim()).filter(Boolean);
+        let acc = '';
+        for (const cl of clauses) {
+          if (acc && (acc.length + cl.length + 1) > 135) {
+            out.push(acc.trim());
+            acc = cl;
+          } else {
+            acc = acc ? `${acc} ${cl}` : cl;
+          }
+        }
+        if (acc.trim()) out.push(acc.trim());
+      } else if (out.length && piece.length < 18 && out[out.length - 1].length < 110 && !/^(?:Q|A|Host|Guest|Interviewer|Candidate|Speaker)\s*[:：]/i.test(piece)) {
+        out[out.length - 1] = `${out[out.length - 1]} ${piece}`.trim();
+      } else {
+        out.push(piece);
+      }
+    }
+  }
+  return out.filter(Boolean);
+}
+
+function detectDialogueRoleAndSpeaker(sentence = '', fallbackSpeaker = '', fallbackRole = '') {
+  const m = String(sentence || '').match(/^(Q|A|Question|Answer|Model Answer|Sample Answer|Examiner|Candidate|Interviewer|Host|Guest|Speaker\s*[A-Z0-9]+)\s*[:：]\s*(.+)$/i);
+  if (m) {
+    const tag = m[1].trim();
+    const body = m[2].trim();
+    const low = tag.toLowerCase();
+    if (low === 'q' || low === 'question' || low === 'examiner' || low === 'interviewer') {
+      return { role: 'Q', speaker: 'Q · 考官提问', text: body };
+    }
+    if (low === 'a' || low === 'answer' || low === 'model answer' || low === 'sample answer' || low === 'candidate') {
+      return { role: 'A', speaker: 'A · 示范回答', text: body };
+    }
+    return { role: fallbackRole || '', speaker: tag, text: body };
+  }
+  return { role: fallbackRole || '', speaker: fallbackSpeaker || '', text: String(sentence || '').trim() };
+}
+
+/**
+ * Build sentence-level auto-timed synced subtitle segments for ANY Pocket Radio episode
+ * (daily learning packs, YouTube speeches, sentences & listening, Notebook dialogues, etc.).
+ * Timestamps start with natural speech-rate estimates and rescale cleanly once real audio.duration loads.
+ */
+export function buildAutoSyncedSegments(episode = {}, durationSec = 0) {
+  if (!episode || typeof episode !== 'object') return [];
+  const rawItems = [];
+
+  const promptText = cleanRad(episode.questionPrompt || '');
+  const modelText = cleanRad(episode.modelAnswer || '');
+  if (episode.fromLearningPack || promptText || modelText) {
+    if (promptText) {
+      const qSents = splitTextIntoSubtitleSentences(promptText);
+      qSents.forEach((s, idx) => {
+        rawItems.push({
+          role: 'Q',
+          speaker: idx === 0 ? 'Q · 考官提问' : 'Q',
+          text: s,
+          pauseWeight: idx === qSents.length - 1 ? 10 : 2
+        });
+      });
+    }
+    if (modelText) {
+      const aSents = splitTextIntoSubtitleSentences(modelText);
+      aSents.forEach((s, idx) => {
+        rawItems.push({
+          role: 'A',
+          speaker: idx === 0 ? 'A · Band 7 范文' : 'A',
+          text: s,
+          pauseWeight: 2
+        });
+      });
+    }
+  }
+
+  if (!rawItems.length && Array.isArray(episode.tracksIncluded) && episode.tracksIncluded.length) {
+    for (const tr of episode.tracksIncluded) {
+      const tText = cleanRad(tr?.text || '');
+      if (!tText || STUB_TRACK_TEXT_RE.test(tText)) continue;
+      const tTitle = cleanRad(tr?.title || '').slice(0, 38);
+      const tRole = /^Q\b/i.test(tTitle) ? 'Q' : /^A\b/i.test(tTitle) ? 'A' : '';
+      const sents = splitTextIntoSubtitleSentences(tText);
+      sents.forEach((s, idx) => {
+        const parsed = detectDialogueRoleAndSpeaker(s, idx === 0 ? tTitle : '', tRole);
+        rawItems.push({
+          role: parsed.role,
+          speaker: parsed.speaker,
+          text: parsed.text,
+          subtext: idx === 0 ? cleanRad(tr?.subtext || '') : '',
+          pauseWeight: idx === sents.length - 1 ? 8 : 2
+        });
+      });
+    }
+  }
+
+  if (!rawItems.length && cleanRad(episode.text || '')) {
+    const sents = splitTextIntoSubtitleSentences(episode.text);
+    const fallbackSpeaker = cleanRad(episode.badge || episode.title || '').slice(0, 34);
+    sents.forEach((s, idx) => {
+      const parsed = detectDialogueRoleAndSpeaker(s, idx === 0 ? fallbackSpeaker : '', '');
+      rawItems.push({
+        role: parsed.role,
+        speaker: parsed.speaker,
+        text: parsed.text,
+        pauseWeight: 2
+      });
+    });
+  }
+
+  if (!rawItems.length) return [];
+
+  const totalWords = rawItems.reduce((sum, item) => sum + ((item.text.match(/\b[A-Za-z][A-Za-z'-]*\b/g) || []).length || Math.max(2, Math.ceil(item.text.length / 4))), 0);
+  const estDuration = Math.max(6, Math.round((totalWords / 2.35) * 10) / 10);
+  const targetDuration = Number.isFinite(Number(durationSec)) && Number(durationSec) > 0
+    ? Number(durationSec)
+    : (Number.isFinite(Number(episode.durationSec)) && Number(episode.durationSec) > 0 ? Number(episode.durationSec) : estDuration);
+
+  const weights = rawItems.map(item => Math.max(12, item.text.length) + (item.pauseWeight || 0));
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+  let cursor = 0;
+  return rawItems.map((item, idx) => {
+    const slice = (weights[idx] / totalWeight) * targetDuration;
+    const startSec = Number(cursor.toFixed(2));
+    cursor += slice;
+    const endSec = idx === rawItems.length - 1
+      ? Number(targetDuration.toFixed(2))
+      : Number(Math.max(startSec + 0.4, cursor).toFixed(2));
+    return {
+      role: item.role || '',
+      speaker: item.speaker || '',
+      startSec,
+      endSec,
+      text: item.text,
+      ...(item.subtext ? { subtext: item.subtext } : {}),
+      autoTimed: true
+    };
+  });
+}
+
+/**
+ * Proportionally rescale auto-timed segments to match the exact real audio.duration
+ * once the HTMLAudioElement fires loadedmetadata.
+ */
+export function rescaleSyncedSegments(segments = [], durationSec = 0) {
+  if (!Array.isArray(segments) || !segments.length) return [];
+  const dur = Number(durationSec);
+  if (!Number.isFinite(dur) || dur <= 0) return segments;
+  const oldEnd = Math.max(...segments.map(s => Number(s?.endSec) || 0));
+  if (!Number.isFinite(oldEnd) || oldEnd <= 0) return segments;
+  const ratio = dur / oldEnd;
+  return segments.map((seg, idx) => {
+    const startSec = Number((Math.max(0, Number(seg.startSec) || 0) * ratio).toFixed(2));
+    const rawEnd = Number((Math.max(0, Number(seg.endSec) || 0) * ratio).toFixed(2));
+    const endSec = idx === segments.length - 1
+      ? Number(dur.toFixed(2))
+      : Number(Math.min(dur, Math.max(startSec + 0.25, rawEnd)).toFixed(2));
+    return { ...seg, startSec, endSec };
+  });
+}
+
