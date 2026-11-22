@@ -314,3 +314,124 @@ export function summarizeVocabularyPractice(tasks = [], attempts = []) {
     recognitionOnlyNotice: '触控选择题与同轮微回炉仅代表语境识别与短时修正，不自动计为 K 或独立无提示掌握。'
   };
 }
+
+// ==========================================================================
+// v19.6.0 Anti-Leak Pack Gate & In-Session Delayed Interleaving (3-4 items)
+// ==========================================================================
+export const HIDE_TARGET_HEADER_TYPES = Object.freeze([
+  'contextual_cloze',
+  'reverse_definition',
+  'collocation_challenge',
+  'confusable_words',
+  'confusable_pair',
+  'synonym_discrimination',
+  'phrasal_verb_selection',
+  'register_appropriateness',
+  'morphology_derivation',
+  'antonym_contrast',
+  'idiom_in_context',
+  'sentence_paraphrase_match',
+  'word_choice',
+  'meaning_to_word'
+]);
+
+export function checkVocabularyTaskLeak(task = {}) {
+  const leaks = [];
+  if (!task || typeof task !== 'object') return { hasLeak: false, leaks };
+  const target = String(task.target || '').trim();
+  if (!target) return { hasLeak: false, leaks };
+  const targetLower = target.toLowerCase();
+  const options = Array.isArray(task.options) ? task.options : [];
+  const optionHasTarget = options.some(o => String(o?.text || '').trim().toLowerCase() === targetLower);
+  const promptLower = String(task.prompt || '').toLowerCase();
+  const exampleLower = String(task.archivedExample || task.example || '').toLowerCase();
+  const isMaskedType = HIDE_TARGET_HEADER_TYPES.includes(task.type) || optionHasTarget || /_{2,}/.test(promptLower);
+
+  if (isMaskedType) {
+    if (promptLower.includes(targetLower) && !/_{2,}/.test(promptLower)) {
+      leaks.push(`题干 prompt 直接暴露了目标词 "${target}"`);
+    }
+    if (exampleLower && exampleLower.includes(targetLower)) {
+      leaks.push(`例句 archivedExample 直接暴露了目标词 "${target}"`);
+    }
+  }
+  return {
+    hasLeak: leaks.length > 0,
+    shouldHideHeader: isMaskedType,
+    leaks
+  };
+}
+
+export function scheduleInSessionDelayedRetry(queue = [], currentIndex = 0, task = null, { delayGap = 3 } = {}) {
+  const list = Array.isArray(queue) ? [...queue] : [];
+  if (!task || !task.id) return list;
+  const retryId = `${task.id}__retry`;
+  if (list.some(item => item && item.id === retryId)) return list;
+  const insertAt = Math.min(list.length, Math.max(currentIndex + 1, currentIndex + 1 + delayGap));
+  const maskedPrompt = task.target
+    ? String(task.prompt || '').replace(new RegExp(task.target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '______')
+    : String(task.prompt || '');
+  const retryTask = {
+    ...task,
+    id: retryId,
+    isDelayedRetry: true,
+    originalTaskId: task.id,
+    typeLabel: '🔄 隔题回马枪 · 错词巩固',
+    prompt: task.archivedExample
+      ? `还记得刚才错过的词吗？根据语境选出正确词条：${String(task.archivedExample).replace(new RegExp((task.target || '___').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '______')}`
+      : maskedPrompt
+  };
+  list.splice(insertAt, 0, retryTask);
+  return list;
+}
+
+export function parseVocabPromptParts(prompt = '') {
+  const raw = String(prompt || '').trim();
+  if (!raw) return { instruction: '', blocks: [] };
+
+  // Pattern 1: Structured English labels (Meaning: / Definition: / Sentence: / Example: / Context:)
+  const labelRe = /\b(Meaning|Definition|Sentence|Example|Context):\s*/gi;
+  const matches = [...raw.matchAll(labelRe)];
+  if (matches.length > 0) {
+    const instruction = raw.slice(0, matches[0].index).trim();
+    const blocks = [];
+    for (let i = 0; i < matches.length; i++) {
+      const key = matches[i][1].toLowerCase();
+      const start = matches[i].index + matches[i][0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : raw.length;
+      const text = raw.slice(start, end).trim();
+      if (!text) continue;
+      if (key === 'meaning' || key === 'definition') {
+        blocks.push({ kind: 'meaning', label: key === 'definition' ? '英文释义 · DEFINITION' : '核心释义 · MEANING', text });
+      } else {
+        blocks.push({ kind: 'sentence', label: key === 'example' ? '例句语境 · EXAMPLE' : '语境原句 · SENTENCE', text });
+      }
+    }
+    if (blocks.length > 0) return { instruction, blocks };
+  }
+
+  // Pattern 2: "Which word matches this English definition? <body...>" or "... Which one means: <body...>"
+  const colonSplit = raw.match(/^(.+?(?:means|definition|sentence|example|词条|语境|释义)[:：])\s*(.+)$/i);
+  if (colonSplit && colonSplit[2].trim()) {
+    const inst = colonSplit[1].replace(/[:：]\s*$/, '').trim();
+    const body = colonSplit[2].trim();
+    const isSentence = /_{2,}|sentence|example|语境|词条/i.test(inst) || /_{2,}/.test(body);
+    return {
+      instruction: inst,
+      blocks: [{ kind: isSentence ? 'sentence' : 'meaning', label: isSentence ? '语境原句 · CONTEXT' : '目标释义 · MEANING', text: body }]
+    };
+  }
+
+  const qSplit = raw.match(/^([^?？]+[?？])\s+(.+)$/);
+  if (qSplit && qSplit[2].trim()) {
+    const inst = qSplit[1].trim();
+    const body = qSplit[2].trim();
+    const isSentence = /_{2,}/.test(body);
+    return {
+      instruction: inst,
+      blocks: [{ kind: isSentence ? 'sentence' : 'meaning', label: isSentence ? '语境原句 · CONTEXT' : '英文释义 · DEFINITION', text: body }]
+    };
+  }
+
+  return { instruction: '', blocks: [{ kind: 'plain', label: '', text: raw }] };
+}

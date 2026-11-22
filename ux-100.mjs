@@ -239,7 +239,12 @@ export function buildWeeklyThreePairHighlights(data = {}) {
 
 export function shouldHideVocabTargetHeader(task = {}) {
   if (!task || !task.target) return true;
-  if (['contextual_cloze', 'reverse_definition', 'collocation_choice', 'confusable_pair', 'word_choice', 'meaning_to_word'].includes(task.type)) {
+  if ([
+    'contextual_cloze', 'reverse_definition', 'collocation_challenge', 'collocation_choice',
+    'confusable_words', 'confusable_pair', 'synonym_discrimination', 'phrasal_verb_selection',
+    'register_appropriateness', 'morphology_derivation', 'antonym_contrast', 'idiom_in_context',
+    'sentence_paraphrase_match', 'word_choice', 'meaning_to_word'
+  ].includes(task.type)) {
     return true;
   }
   const targetNorm = String(task.target).trim().toLowerCase();
