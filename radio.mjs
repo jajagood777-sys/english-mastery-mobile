@@ -1704,6 +1704,8 @@ export function buildRadioPlaylist({
   vocabularyPractice = [],
   vocabularyAttempts = [],
   speeches = [],
+  readings = [],
+  transferTasks = [],
   customYoutubeTracks = [],
   customNotebookTracks = []
 } = {}) {
@@ -1790,16 +1792,16 @@ export function buildRadioPlaylist({
 
   const missedVocabIds = new Set(
     (Array.isArray(vocabularyAttempts) ? vocabularyAttempts : [])
-      .filter(a => a && !a.skipped && (a.firstCheck ? !a.firstCheck.correct : a.correct === false))
+      .filter(a => a && (a.skipped || (a.firstCheck ? !a.firstCheck.correct : a.correct === false)))
       .map(a => cleanRad(a.taskId || a.id))
   );
 
-  // 1. Vocabulary practice tracks (split into exact [target, example] segments for Kokoro MP3 hits)
-  if (channel !== 'sentences_listening') {
+  // 1. Vocabulary practice tracks (in sentences_listening, surface missed/skipped words as priority audio flashcards)
+  if (channel !== 'sentences_listening' || missedVocabIds.size > 0) {
     for (const v of (Array.isArray(vocabularyPractice) ? vocabularyPractice : [])) {
       if (!inScope(v)) continue;
       const isMissed = missedVocabIds.has(cleanRad(v?.id));
-      if (channel === 'weak_sniper' && !isMissed) continue;
+      if ((channel === 'weak_sniper' || channel === 'sentences_listening') && !isMissed) continue;
       const head = cleanRad(v?.target);
       const ex = cleanRad(v?.archivedExample);
       const segments = [head, ex].filter(Boolean);
@@ -1877,6 +1879,47 @@ export function buildRadioPlaylist({
           subtext: cleanRad(sp.authorOrSpeaker || 'Speech Chamber'),
           priority: 8
         });
+      });
+    }
+  }
+
+  // 4. Daily Pack Readings (paragraphs for commute listening in sentences_listening)
+  if (channel === 'sentences_listening') {
+    for (const rdItem of (Array.isArray(readings) ? readings : [])) {
+      if (!inScope(rdItem)) continue;
+      const paras = cleanRad(rdItem?.text || '')
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length >= 24)
+        .slice(0, 8);
+      paras.forEach((sent, idx) => {
+        pushTrack({
+          id: `radio:reading:${rdItem.id || 'r'}:${idx + 1}`,
+          kind: 'reading',
+          badge: `学习包故事 · 段 ${idx + 1}`,
+          title: cleanRad(rdItem.title) || 'Story Reading',
+          text: sent,
+          segments: [sent],
+          subtext: cleanRad(rdItem.source || '今日学习包精读'),
+          priority: 6
+        });
+      });
+    }
+    // 5. Daily Pack Speaking Model Answers (shadowing clips in sentences_listening)
+    for (const tk of (Array.isArray(transferTasks) ? transferTasks : [])) {
+      const ttype = String(tk?.taskType || tk?.task_type || '').toLowerCase();
+      if (!['speaking', 'reading_to_speaking'].includes(ttype)) continue;
+      const model = cleanRad(tk?.referenceAnswer || tk?.model_answer || tk?.modelAnswer || '');
+      if (!model) continue;
+      pushTrack({
+        id: `radio:pack-speaking:${tk.id || 's'}`,
+        kind: 'speaking_model',
+        badge: '学习包 · 口语范文',
+        title: cleanRad(tk.prompt || 'IELTS Speaking Practice').slice(0, 56),
+        text: model,
+        segments: [model],
+        subtext: cleanRad(tk.prompt || ''),
+        priority: 4
       });
     }
   }
@@ -2011,4 +2054,51 @@ export function createRadioPlaybackClock() {
       lastChannel = '';
     }
   };
+}
+
+/**
+ * Convert daily learning pack speaking/transfer tasks into Pocket Radio speaking_qa episodes
+ * so even 1–2 speaking prompts per pack seamlessly enter the IELTS Speaking commute playlist.
+ */
+export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '学习包口语题' } = {}) {
+  const list = Array.isArray(transferTasks) ? transferTasks : [];
+  const episodes = [];
+  const seen = new Set();
+  for (let i = 0; i < list.length; i++) {
+    const tk = list[i];
+    if (!tk) continue;
+    const ttype = String(tk.taskType || tk.task_type || '').toLowerCase();
+    if (!['speaking', 'reading_to_speaking'].includes(ttype)) continue;
+    const promptText = cleanRad(tk.prompt || '');
+    const modelText = cleanRad(tk.referenceAnswer || tk.model_answer || tk.modelAnswer || '');
+    if (!promptText && !modelText) continue;
+    const dedupeKey = (promptText || modelText).toLocaleLowerCase('en');
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    const fullText = [promptText ? `Question: ${promptText}` : '', modelText ? `Model Answer: ${modelText}` : ''].filter(Boolean).join(' ');
+    const shortTitle = (promptText.replace(/^ORIGINAL IELTS[^:]*:\s*/i, '') || `学习包口语题 ${episodes.length + 1}`).slice(0, 54);
+    const segments = [
+      promptText ? `Question: ${promptText}` : '',
+      modelText ? `Sample Answer: ${modelText}` : ''
+    ].filter(Boolean);
+    episodes.push({
+      id: `pack-speaking-qa:${tk.id || i + 1}`,
+      fromLearningPack: true,
+      isOriginalAudio: false,
+      hasSubtitles: true,
+      hasQaRoles: true,
+      title: `📦 ${shortTitle}`,
+      badge: `📦 ${cleanRad(packTitle) || '学习包'} · 雅思口语问答`,
+      text: fullText,
+      segments,
+      segmentCount: segments.length,
+      estimatedMinutes: Math.max(1, Math.round(fullText.split(/\s+/).filter(Boolean).length / 130)),
+      trackCount: segments.length,
+      tracksIncluded: [
+        ...(promptText ? [{ title: 'Q · 考官提问', text: promptText, subtext: '先停顿心里默答，再听 7 分范文' }] : []),
+        ...(modelText ? [{ title: 'A · Band 7 参考范文', text: modelText, subtext: Array.isArray(tk.targetPhrases || tk.target_phrases) && (tk.targetPhrases || tk.target_phrases).length ? `核心表达：${(tk.targetPhrases || tk.target_phrases).join(', ')}` : '学习包配套标准答案' }] : [])
+      ]
+    });
+  }
+  return episodes;
 }
