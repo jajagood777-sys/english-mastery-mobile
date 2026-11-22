@@ -2110,7 +2110,9 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
     const dedupeKey = (promptText || modelText).toLocaleLowerCase('en');
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
-    const fullText = [promptText ? `Question: ${promptText}` : '', modelText ? `Model Answer: ${modelText}` : ''].filter(Boolean).join(' ');
+    const rawFullText = [rawPromptText ? `Question: ${rawPromptText}` : '', modelText ? `Model Answer: ${modelText}` : ''].filter(Boolean).join(' ');
+    const cleanFullText = [promptText ? `Question: ${promptText}` : '', modelText ? `Model Answer: ${modelText}` : ''].filter(Boolean).join(' ');
+    const fullText = rawFullText || cleanFullText;
     const shortTitle = (promptText.replace(/^ORIGINAL IELTS[^:]*:\s*/i, '') || `学习包口语题 ${episodes.length + 1}`).slice(0, 54);
     const segments = [
       promptText ? `Question: ${promptText}` : '',
@@ -2130,6 +2132,7 @@ export function buildPackSpeakingQaEpisodes(transferTasks = [], { packTitle = '�
       title: `📦 ${shortTitle}`,
       badge: `📦 ${cleanRad(packTitle) || '学习包'} · 雅思口语问答`,
       text: fullText,
+      cleanText: cleanFullText,
       segments,
       qaSegments,
       questionPrompt: promptText,
@@ -2238,7 +2241,8 @@ export function buildAutoSyncedSegments(episode = {}, durationSec = 0) {
       if (!tText || STUB_TRACK_TEXT_RE.test(tText)) continue;
       const tTitle = cleanRad(tr?.title || '').slice(0, 38);
       const tRole = /^Q\b/i.test(tTitle) ? 'Q' : /^A\b/i.test(tTitle) ? 'A' : '';
-      const sents = splitTextIntoSubtitleSentences(tText);
+      const cleanedTrackText = stripSpeakingPromptInstructions(tText) || tText;
+      const sents = splitTextIntoSubtitleSentences(cleanedTrackText);
       sents.forEach((s, idx) => {
         const parsed = detectDialogueRoleAndSpeaker(s, idx === 0 ? tTitle : '', tRole);
         rawItems.push({
