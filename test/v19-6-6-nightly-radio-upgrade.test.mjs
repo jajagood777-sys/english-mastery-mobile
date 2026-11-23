@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildPackSpeakingQaEpisodes, buildRadioPlaylist } from '../radio.mjs';
 
-test('v19.7.0: buildPackSpeakingQaEpisodes generates structured Q/A qaSegments for Question Bank & Mock Examiner', () => {
+test('v19.7.1: buildPackSpeakingQaEpisodes generates structured Q/A qaSegments for Question Bank & Mock Examiner', () => {
   const eps = buildPackSpeakingQaEpisodes([
     {
       id: '20261115-T01',
@@ -19,7 +19,7 @@ test('v19.7.0: buildPackSpeakingQaEpisodes generates structured Q/A qaSegments f
   assert.equal(eps[0].qaSegments[1].role, 'A');
 });
 
-test('v19.7.0: buildRadioPlaylist surfaces readingMarks as reading_vocab audio flashcards', () => {
+test('v19.7.1: buildRadioPlaylist surfaces readingMarks as reading_vocab audio flashcards', () => {
   const tracks = buildRadioPlaylist({
     channel: 'sentences_listening',
     readingMarks: [
@@ -31,7 +31,7 @@ test('v19.7.0: buildRadioPlaylist surfaces readingMarks as reading_vocab audio f
   assert.ok(tracks.some(t => t.kind === 'reading_vocab' && t.title === 'archivist'));
 });
 
-test('v19.7.0: app.js hydrates pack speaking Qs into Question Bank and preserves FullGreen pagehide/reading guards', () => {
+test('v19.7.1: app.js hydrates pack speaking Qs into Question Bank and preserves FullGreen pagehide/reading guards', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /let readingBlurMode = false;/);
   assert.match(app, /let retellingRefVisible = \{\};/);
