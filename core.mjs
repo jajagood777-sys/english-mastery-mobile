@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.7.1';
+export const APP_VERSION = '19.8.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -475,6 +475,36 @@ export function autoSentenceClozeParts(sentence, target='') {
   const pool = candidates.length ? candidates : words.filter(w => w.length >= 4);
   const pick = (pool.length ? pool : words).slice().sort((a, b) => b.length - a.length)[0];
   return pick ? sentenceClozeParts(text, pick) : null;
+}
+export function buildSentenceChunks(sentence = '') {
+  const text = String(sentence || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  const words = text.split(' ').filter(Boolean);
+  if (words.length < 3) return null;
+  const targetChunkCount = words.length <= 6 ? 3 : words.length <= 10 ? 4 : words.length <= 15 ? 5 : 6;
+  const baseSize = Math.floor(words.length / targetChunkCount);
+  let extra = words.length % targetChunkCount;
+  const ordered = [];
+  let cursor = 0;
+  for (let i = 0; i < targetChunkCount && cursor < words.length; i++) {
+    const take = baseSize + (extra > 0 ? 1 : 0);
+    if (extra > 0) extra--;
+    ordered.push(words.slice(cursor, cursor + take).join(' '));
+    cursor += take;
+  }
+  const indexed = ordered.map((chunk, idx) => ({ id: `c${idx}`, text: chunk, order: idx }));
+  let seed = 0;
+  for (let i = 0; i < text.length; i++) seed = ((seed * 31) + text.charCodeAt(i)) >>> 0;
+  const shuffled = indexed.slice();
+  for (let k = shuffled.length - 1; k > 0; k--) {
+    seed = ((seed * 1664525) + 1013904223) >>> 0;
+    const j = seed % (k + 1);
+    [shuffled[k], shuffled[j]] = [shuffled[j], shuffled[k]];
+  }
+  if (shuffled.length > 1 && shuffled.every((c, i) => c.order === i)) {
+    [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+  }
+  return { ordered, shuffled, answer: text };
 }
 export function dateKeyInTimeZone(date = new Date(), timeZone = 'Asia/Shanghai') {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(date));

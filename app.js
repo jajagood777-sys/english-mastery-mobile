@@ -26,7 +26,7 @@ import {
   runPreExportHealthCheck
 } from './continuity-os.mjs';
 import {captureStableViewport,restoreStableViewport} from './scroll-stability.mjs';
-import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmission,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,autoSentenceClozeParts,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
+import {VERSION,APP_VERSION,revealedReadingRecall,composeReadingRetellingSubmission,recordsFromCSV,sentencesFromText,recordsFromLearningPack,mergeItems,wordPrompt,sentenceCloze,sentenceClozeParts,autoSentenceClozeParts,buildSentenceChunks,dateKeyInTimeZone,addActiveInterval,summarizeSessionTime,readingQuestionProgress,transferTaskProgressState,compareAnswer,compareWordAnswer,scheduleReview,nextDue,isDue,buildQueue,migrateBackupPayload,buildBattleReport,battleReportMarkdown,makeCSV,normalized,homeSummary,persistState,mergeBackupState,readingSelectionContext,readingCardId,readingMarkId,mergeReadingMarks,collectSavedReadingWords,readingVocabularyHandoff,centralLearningHandoff,buildCentralLearningFeedback,mergeDailyPackItems,isFullBackup,safeSourceUrl,safeAudioUrl,isValidAudioLoop,clampSpeechSeek,normalizeSourceMeta,makeWeakness,mergeWeaknesses,mergeTransferAttempts,normalizeTransferAttempt,buildTransferAnalytics,transferEvidenceStatus,buildMasteryAnalytics,resolveTaskInputMode,compareReadingChoice,compareSpellingAnswer,buildSpellingSummary,findExistingSpellingAttempt,createSpellingFirstAttempt,spellingPassed} from './core.mjs';
 import {recordingCapability,recordingMetadata,putRecording,listRecordings,getRecording} from './recordings.mjs';
 import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHint} from './english-first.mjs';
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
@@ -2954,7 +2954,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.7.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.0)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3211,6 +3211,19 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
 
 let lastAutoPlayedKey = "";
 let vocabMistakeDrawerOpen = false;
+function isVocabMastered(word = '') {
+  const k = String(word || '').trim().toLowerCase();
+  return Boolean(k && Array.isArray(data?.masteredVocabWords) && data.masteredVocabWords.includes(k));
+}
+function toggleVocabMastered(word = '') {
+  const k = String(word || '').trim().toLowerCase();
+  if (!k) return false;
+  if (!Array.isArray(data.masteredVocabWords)) data.masteredVocabWords = [];
+  const idx = data.masteredVocabWords.indexOf(k);
+  if (idx >= 0) { data.masteredVocabWords.splice(idx, 1); return false; }
+  data.masteredVocabWords.push(k);
+  return true;
+}
 function isVocabAutoPronounceOn() {
   return data?.settings?.vocabAutoPronounce !== false;
 }
@@ -3898,7 +3911,7 @@ function journeyStages(){
   const readingIds=new Set(data.dailyPack?.readingIds||[]);
   const hasReading=(data.readings||[]).some(reading=>readingIds.has(reading.id));
   const hasVocab=journeyVocabularyTasks().length>0;
-  const stages=[...(hasVocab?['vocabulary']:[]),'words',...(data.dailyPack?.spellingTasks?.length?['spelling']:[]),'sentences','reading','listening'].filter(stage=>stage==='vocabulary'?hasVocab:stage==='reading'?hasReading:stage==='spelling'?true:relevant.some(item=>moduleForItem(item)===stage));
+  const stages=[...(hasVocab?['vocabulary']:[]),'words','reading',...(data.dailyPack?.spellingTasks?.length?['spelling']:[]),'sentences','listening'].filter(stage=>stage==='vocabulary'?hasVocab:stage==='reading'?hasReading:stage==='spelling'?true:relevant.some(item=>moduleForItem(item)===stage));
   if(journeySpeeches().length)stages.push('speech');
   if((data.dailyPack?.transferTasks||[]).length)stages.push('transfer');
   return stages;
@@ -4238,7 +4251,7 @@ function buildWordQuestion(container,item,s){
     container.append(card);retryBox(container,item,s,item.target,item.acceptedAnswers||[]);rateControls(container,item,s);
   }
 }
-function sentenceStyleOptions(s){const opts=div('setup-options');for(const [value,label,sub] of [['cloze','句子填空','只填缺少的词'],['recall','整句回忆','写出完整句子'],['listening','听力回忆','先听后写']]){const radio=el('input');radio.type='radio';radio.name='sentence-style';radio.value=value;radio.checked=s.sentenceStyle===value;radio.addEventListener('change',()=>{s.sentenceStyle=value;s.step=null;s.draft='';s.skipped=false;if(save())render();});const wrap=el('label');wrap.append(radio,el('span',`${label} · ${sub}`));opts.append(wrap);}return opts;}
+function sentenceStyleOptions(s){const opts=div('setup-options');for(const [value,label,sub] of [['cloze','句子填空','只填缺少的词'],['chunks','语块拼句','点选语块免打字'],['recall','整句回忆','写出完整句子'],['listening','听力回忆','先听后写']]){const radio=el('input');radio.type='radio';radio.name='sentence-style';radio.value=value;radio.checked=s.sentenceStyle===value;radio.addEventListener('change',()=>{s.sentenceStyle=value;s.step=null;s.draft='';s.chunkPickIds=[];s.skipped=false;if(save())render();});const wrap=el('label');wrap.append(radio,el('span',`${label} · ${sub}`));opts.append(wrap);}return opts;}
 function audioTime(seconds){return Number.isFinite(seconds)?`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`:'--:--';}
 function stopActiveAudio(){if(activeAudio){activeAudio.pause();activeAudio.removeAttribute('src');activeAudio.load();activeAudio=null;}if(speechObjectUrl){URL.revokeObjectURL(speechObjectUrl);speechObjectUrl=null;}}
 function audioControls(url){
@@ -4332,7 +4345,51 @@ function renderExtendedListeningQuestion(container,item,s){
     p('这条记录不计K/V/N，也不产生FSRS到期或自动发音分数。','tiny'));
   container.append(group);
 }
-function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening'&&isExtendedListening(item.text)){renderExtendedListeningQuestion(container,item,s);return;}if(s.sentenceStyle==='listening'){const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';if(read){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','先听英文，再写出你听到的内容。'),sentenceStyleOptions(s),p('浏览器朗读不是真人录音，也不提供发音评分。','subtle'),lines(speechButton(item.text),btn('开始听写',()=>{s.step='recall';s.promptUsed=true;if(save())render();},'btn primary')));}else if(!reveal){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','请写出完整英文句子。'));const input=textarea(s.draft,'请输入你听到的英文句子……');input.rows=4;input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>s.draft=input.value);container.append(field('听写答案',input),lines(speechButton(item.text),btn('查看原文并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary')));}else{const card=section('answer-card');card.append(el('div','原始英文句子','eyebrow'),p(item.text,'question'),p(s.draft?`你的听写：${s.draft}`:'本题已跳过。','small-block'),speechButton(item.text));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card,renderListeningStudio(item),followAlongRecordingControls(item,s,'retry'));retryBox(container,item,s,item.text);rateControls(container,item,s);}return;}const parts=autoSentenceClozeParts(item.text,item.clozeTarget||item.clozeAnswer||item.target||'');if(s.sentenceStyle==='cloze'&&!parts)s.sentenceStyle='recall';const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';const question=div('question');
+function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening'&&isExtendedListening(item.text)){renderExtendedListeningQuestion(container,item,s);return;}if(s.sentenceStyle==='listening'){const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';if(read){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','先听英文，再写出你听到的内容。'),sentenceStyleOptions(s),p('浏览器朗读不是真人录音，也不提供发音评分。','subtle'),lines(speechButton(item.text),btn('开始听写',()=>{s.step='recall';s.promptUsed=true;if(save())render();},'btn primary')));}else if(!reveal){container.append(audioControls(item.audioUrl),renderListeningStudio(item),followAlongRecordingControls(item,s,'original'),el('div','听力回忆 · LISTENING','question-label'),h('h2','请写出完整英文句子。'));const input=textarea(s.draft,'请输入你听到的英文句子……');input.rows=4;input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>s.draft=input.value);container.append(field('听写答案',input),lines(speechButton(item.text),btn('查看原文并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary')));}else{const card=section('answer-card');card.append(el('div','原始英文句子','eyebrow'),p(item.text,'question'),p(s.draft?`你的听写：${s.draft}`:'本题已跳过。','small-block'),speechButton(item.text));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card,renderListeningStudio(item),followAlongRecordingControls(item,s,'retry'));retryBox(container,item,s,item.text);rateControls(container,item,s);}return;}if(s.sentenceStyle==='chunks'){
+  const chunkPack=buildSentenceChunks(item.text);
+  if(chunkPack){
+    if(!Array.isArray(s.chunkPickIds))s.chunkPickIds=[];
+    container.append(el('div','语块拼句 · CHUNK ASSEMBLY','question-label'),h('h2','听英文原句，按顺序点选语块拼出完整句子。'),sentenceStyleOptions(s));
+    container.append(lines(speechButton(item.text)));
+    if(s.step!=='revealed'){
+      const pickedObjs=s.chunkPickIds.map(cid=>chunkPack.shuffled.find(c=>c.id===cid)).filter(Boolean);
+      const assembledText=pickedObjs.map(c=>c.text).join(' ');
+      const tray=section('vocab-prompt-card');
+      tray.append(el('div','已拼句子（点语块可撤回）','eyebrow'));
+      const pickedRow=div('row wrap');
+      if(!pickedObjs.length){
+        pickedRow.append(p('请点选下方语块按顺序拼句……','subtle'));
+      }else{
+        pickedObjs.forEach((c,pos)=>{
+          pickedRow.append(btn(c.text,()=>{s.chunkPickIds.splice(pos,1);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');if(save())render();},'btn primary small-btn'));
+        });
+      }
+      tray.append(pickedRow);
+      container.append(tray);
+      const poolRow=div('row wrap');
+      chunkPack.shuffled.forEach(c=>{
+        const used=s.chunkPickIds.includes(c.id);
+        const cb=btn(c.text,()=>{if(used)return;s.chunkPickIds.push(c.id);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');if(save())render();},used?'btn ghost small-btn':'btn secondary small-btn');
+        if(used)cb.disabled=true;
+        poolRow.append(cb);
+      });
+      container.append(poolRow,lines(
+        btn('检查拼句',()=>{const ans=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');revealAnswer(s,ans,item.text,false);},'btn primary'),
+        btn('清空重拼',()=>{s.chunkPickIds=[];s.draft='';if(save())render();},'btn ghost'),
+        btn('跳过并揭晓',()=>{s.chunkPickIds=[];revealAnswer(s,'',item.text,true);},'btn')
+      ));
+    }else{
+      const card=section('answer-card');
+      card.append(el('div','标准原句','eyebrow'),p(item.text,'question'));
+      if(s.draft.trim())card.append(p(`你的拼句：${s.draft}`,'small-block'));else card.append(p('本题已跳过。','tiny'));
+      if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));
+      container.append(card);retryBox(container,item,s,item.text);rateControls(container,item,s);
+    }
+    return;
+  }
+  s.sentenceStyle='cloze';
+}
+const parts=autoSentenceClozeParts(item.text,item.clozeTarget||item.clozeAnswer||item.target||'');if(s.sentenceStyle==='cloze'&&!parts)s.sentenceStyle='recall';const read=s.step===null||s.step==='read';const reveal=s.step==='revealed';const question=div('question');
 if(s.sentenceStyle==='cloze'&&parts){container.append(el('div','句子填空 · Missing Words','question-label'),h('h2','听英文原句，只填写缺少的单词。'),sentenceStyleOptions(s));question.textContent=s.hintLevel===2?firstLetterPrompt(parts.question,parts.answer):parts.question;question.classList.add('cloze-question');container.append(question,lines(speechButton(item.text)),p('点上方「朗读英文」听出缺失词即可，不需要输入整句话。','subtle'));if(s.hintLevel&&s.hintLevel<3)container.append(btn(s.hintLevel===2?'取消首字母提示':'给我一点提示',()=>{s.hintLevel=s.hintLevel===2?3:2;s.promptUsed=true;if(save())render();},'btn ghost'));if(s.step!=='revealed'){const input=textInput(s.draft,'请输入缺少的英文单词……');input.classList.add('answer-input','compact-answer-input');focusForMobile(input);input.addEventListener('keydown',e=>{if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'){e.preventDefault();revealAnswer(s,input.value,parts.answer,false);}});input.addEventListener('input',()=>s.draft=input.value);container.append(field('缺少的英文单词',input));question.addEventListener('click',()=>input.focus());container.append(lines(btn('检查答案',()=>revealAnswer(s,input.value,parts.answer,false),'btn primary'),btn('跳过并揭晓',()=>revealAnswer(s,'',parts.answer,true),'btn')));}else{const card=section('answer-card');card.append(el('div','原句','eyebrow'),p(item.text,'question'),el('div','参考缺失词','eyebrow'),h('strong',parts.answer));if(s.draft.trim())card.append(p(`你的答案：${s.draft}`,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));container.append(card);retryBox(container,item,s,parts.answer);rateControls(container,item,s);}return;}
 if(read){container.append(el('div','整句回忆 · Full Sentence Recall','question-label'),h('h2','先阅读完整句子，再隐藏并回忆。'),sentenceStyleOptions(s));question.textContent=item.text;container.append(question,lines(speechButton(item.text),btn('我已阅读，隐藏句子',()=>{s.step='recall';if(save())render();},'btn primary')));}else if(!reveal){container.append(el('div','整句回忆 · Full Sentence Recall','question-label'),h('h2','请写出完整英文句子。'),p('原句已隐藏，请根据记忆输入整句话。','subtle'));const input=textarea(s.draft,'请输入完整英文句子……');input.rows=4;focusForMobile(input);input.addEventListener('keydown',e=>{if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter'&&e.metaKey){e.preventDefault();revealAnswer(s,input.value,item.text,false);}});input.addEventListener('input',()=>s.draft=input.value);container.append(field('你的整句回忆',input));container.append(lines(btn('查看原句并对照',()=>revealAnswer(s,input.value,item.text,false),'btn primary'),btn('跳过并查看原句',()=>revealAnswer(s,'',item.text,true),'btn')));}else{const card=section('answer-card');card.append(el('div','原始句子','eyebrow'),p(item.text,'question'));if(s.draft.trim())card.append(el('div','你的回忆','eyebrow'),p(s.draft,'small-block'));else card.append(p('本题已跳过。','tiny'));if(answerFeedback(s.answerCheck))card.append(answerFeedback(s.answerCheck));card.append(speechButton(item.text));container.append(card);retryBox(container,item,s,item.text);rateControls(container,item,s);}}
 function rateControls(container,item,s){container.append(h('h3','请根据真实回忆自评'));
@@ -4592,6 +4649,7 @@ function renderVocabularyStage(){
   topBar.lastChild.append(
     h('h1',`触控词汇 ${j.vocabularyIndex+1} / ${tasks.length}`),
     task.isReviewMistake?el('span','🔁 历史错题回炉','chip'):el('span',''),
+    isVocabMastered(task.target)?el('span','✓ 已斩熟词','chip'):el('span',''),
     el('span',`正向计时 ${fmtTime(journeyElapsedMs())}`,'chip')
   );
   const barTrack=div('bar-track');const barFill=div('bar-fill');barFill.style.width=`${progressPct}%`;barTrack.append(barFill);
@@ -4715,7 +4773,7 @@ function renderVocabularyStage(){
     }
     if(!attempt.correct&&!task.isDelayedRetry&&!j.vocabularyDelayedQueue.some(x=>x?.task?.originalTaskId===task.id)){
       const retryWrapped=scheduleInSessionDelayedRetry([task],0,task,{delayGap:1}).find(x=>x&&x.isDelayedRetry);
-      if(retryWrapped)j.vocabularyDelayedQueue.push({showAtIndex:j.vocabularyIndex+3,done:false,task:retryWrapped});
+      if(retryWrapped)j.vocabularyDelayedQueue.push({showAtIndex:Math.min(tasks.length,j.vocabularyIndex+10),done:false,task:retryWrapped});
     }
     if(save())render();
     if(attempt.correct&&data.settings?.vocabFastFlow){
@@ -4857,6 +4915,7 @@ function renderVocabularyStage(){
       btn(nextLabel,advanceNext,'btn primary vocab-next-btn'),
       vocabFastAdvanceTimer?btn('⏸ 停下看',()=>{clearVocabFastAdvance();render();},'btn ghost small-btn'):el('span',''),
       task.target?btn('🔊 读词',()=>speakEnglish(task.target),'btn ghost small-btn'):el('span',''),
+      task.target?btn(isVocabMastered(task.target)?'取消斩词':'✓ 斩词',()=>{const on=toggleVocabMastered(task.target);save();notify(on?`已将「${task.target}」标为已斩熟词，后续自动标记跳过。`:`已取消「${task.target}」的斩词标记。`);render();},'btn ghost small-btn'):el('span',''),
       btn('🔊 朗读',speakFeedback,'btn secondary small-btn')
     );
     feedbackBox.append(stickyBar);
