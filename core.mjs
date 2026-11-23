@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '19.7.0';
+export const APP_VERSION = '19.7.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -455,6 +455,26 @@ export function sentenceClozeParts(sentence, target='') {
   if (!match) return null;
   const start = match.index + match[1].length; const found = match[2];
   return {question:`${text.slice(0,start)}_____ ${text.slice(start + found.length)}`.replace(/\s+/g,' ').trim(), answer:found};
+}
+const CLOZE_STOPWORDS = new Set([
+  'about','after','again','against','almost','along','already','always','among','another','around',
+  'because','before','behind','below','between','beyond','cannot','could','during','either','enough',
+  'every','first','found','great','having','house','however','might','never','nothing','often','other',
+  'people','place','right','shall','should','since','small','still','their','there','these','thing',
+  'think','those','though','three','through','today','under','until','using','where','which','while',
+  'whose','within','without','world','would','write','years','young'
+]);
+export function autoSentenceClozeParts(sentence, target='') {
+  const explicit = sentenceClozeParts(sentence, target);
+  if (explicit) return explicit;
+  const text = String(sentence || '').trim();
+  if (!text) return null;
+  const words = text.match(/[A-Za-z][A-Za-z'-]{2,}/g) || [];
+  if (!words.length) return null;
+  const candidates = words.filter(w => w.length >= 5 && !CLOZE_STOPWORDS.has(w.toLowerCase()));
+  const pool = candidates.length ? candidates : words.filter(w => w.length >= 4);
+  const pick = (pool.length ? pool : words).slice().sort((a, b) => b.length - a.length)[0];
+  return pick ? sentenceClozeParts(text, pick) : null;
 }
 export function dateKeyInTimeZone(date = new Date(), timeZone = 'Asia/Shanghai') {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(date));
