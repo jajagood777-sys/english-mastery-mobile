@@ -2954,7 +2954,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.6.9)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.7.0)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3210,13 +3210,25 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
 }
 
 let lastAutoPlayedKey = "";
+let vocabMistakeDrawerOpen = false;
+function isVocabAutoPronounceOn() {
+  return data?.settings?.vocabAutoPronounce !== false;
+}
+function triggerVocabAutoPronounce(key, text, audioUrl = "") {
+  if (!isVocabAutoPronounceOn() || !key || !text || lastAutoPlayedKey === key) return;
+  lastAutoPlayedKey = key;
+  setTimeout(() => {
+    if (audioUrl) playReferenceAudio(audioUrl, text);
+    else speakNaturalOrDevice(text, null, { silentMissing: true });
+  }, 70);
+}
 function triggerAutoPlayIfEnabled(key, text, audioUrl = "") {
   if (!data?.settings?.autoPlayAudio || !key || lastAutoPlayedKey === key) return;
   lastAutoPlayedKey = key;
   registerMediaSession({ title: `${data.dailyPack?.title || '言道修炼殿'} · ${key}`, artist: 'Kokoro af_heart Offline Audio', onPlay: () => audioUrl ? playReferenceAudio(audioUrl, text) : speakEnglish(text), onPause: () => { stopSpeech(); stopActiveAudio(); } });
   setTimeout(() => {
     if (audioUrl) playReferenceAudio(audioUrl, text);
-    else if (text) speakEnglish(text);
+    else if (text) speakNaturalOrDevice(text, null, { silentMissing: true });
   }, 60);
 }
 function renderJourneyFlowRibbon(activeStage = "") {
@@ -4488,19 +4500,36 @@ function renderVocabularyStage(){
     const rehearsalQueue = !j.vocabularyRehearsalDone ? buildIntraSessionRehearsalQueue(tasks, j.vocabularyAttempts, { maxItems: 5 }) : [];
     if (rehearsalQueue.length > 0) {
       const item = rehearsalQueue[0];
+      const isDefMode = Boolean(item.optionsAreDefinitions);
+      if (isDefMode && item.target) {
+        triggerVocabAutoPronounce(`rehearsal:${item.taskId}`, item.target);
+      }
       const box = section("vocab-touch-stage vocab-rehearsal-stage");
       box.append(
         renderJourneyFlowRibbon("vocabulary"),
         el("div", `同轮错词 30 秒微回炉 · INTRA-JOURNEY REHEARSAL（剩余 ${rehearsalQueue.length} 词）`, "eyebrow"),
-        h("h1", `迎难而上 · 主动线索回想：${item.firstLetterCue || item.target}`), renderGritQuoteBanner("rehearsal", rehearsalQueue.length),
-        p("错词快速回想，可随时跳过。", "subtle")
+        h("h1", isDefMode ? `迎难而上 · 听词选义：${item.target}` : `迎难而上 · 主动线索回想：${item.firstLetterCue || "____"}`),
+        renderGritQuoteBanner("rehearsal", rehearsalQueue.length),
+        p("错词快速回想，已防泄题并重排选项，可随时跳过。", "subtle")
       );
       const cueCard = section("vocab-prompt-card");
-      cueCard.append(
-        p(`核心英义：${item.targetSense || "结合原句语境回想"}`, "vocab-prompt-text"),
-        item.maskedExample ? p(`语境填空：${item.maskedExample}`, "hint") : el("span", ""),
-        item.priorWrongChoice ? p(`首次误选干扰项：${item.priorWrongChoice}`, "tiny") : el("span", "")
-      );
+      if (isDefMode) {
+        const wHead = div("vocab-word-header");
+        wHead.append(
+          h("h2", item.target || "目标词", "vocab-target-word"),
+          btn("🔊 朗读词条", () => speakEnglish(item.target), "btn secondary small-btn")
+        );
+        cueCard.append(
+          wHead,
+          p(`请选择「${item.target}」最准确的英文释义：`, "vocab-prompt-text"),
+          item.archivedExample ? p(`原句语境：${item.archivedExample}`, "hint") : el("span", "")
+        );
+      } else {
+        cueCard.append(
+          p(`核心英义：${item.targetSense || "结合原句语境回想"}`, "vocab-prompt-text"),
+          item.maskedExample ? p(`语境填空：${item.maskedExample}`, "hint") : el("span", "")
+        );
+      }
       box.append(cueCard);
       const grid = div("vocab-options-grid");
       for (const opt of (item.options || [])) {
@@ -4515,7 +4544,10 @@ function renderVocabularyStage(){
             att.rehearsalPassed = isRight;
             att.rehearsalAt = new Date().toISOString();
           }
-          notify(isRight ? `✓ 微回炉修正成功：${item.target}` : `已记录微回炉，正确词条为：${item.target}`);
+          if (!isDefMode && item.target && isVocabAutoPronounceOn()) {
+            speakNaturalOrDevice(item.target, null, { silentMissing: true });
+          }
+          notify(isRight ? `✓ 微回炉修正成功：${item.target}` : `已记录微回炉，正确词条为：${item.target}（${item.targetSense || ""}）`);
           if (save()) render();
         });
         grid.append(b);
@@ -4548,7 +4580,9 @@ function renderVocabularyStage(){
   const box=section('vocab-touch-stage');
   box.append(renderJourneyFlowRibbon('vocabulary'));
   const hideTargetNow=!prior&&shouldHideVocabTargetHeader(task);
-  if(!prior&&!hideTargetNow)triggerAutoPlayIfEnabled(`vocab:${task.id}`,task.target||task.archivedExample||task.prompt,task.audioUrl);
+  if(!prior&&!hideTargetNow&&task.target){
+    triggerVocabAutoPronounce(`vocab:${task.id}`,task.target,task.audioUrl);
+  }
   const progressPct=Math.round(((j.vocabularyIndex)/Math.max(1,tasks.length))*100);
   const topBar=div('vocab-stage-header');
   topBar.append(
@@ -4557,15 +4591,33 @@ function renderVocabularyStage(){
   );
   topBar.lastChild.append(
     h('h1',`触控词汇 ${j.vocabularyIndex+1} / ${tasks.length}`),
+    task.isReviewMistake?el('span','🔁 历史错题回炉','chip'):el('span',''),
     el('span',`正向计时 ${fmtTime(journeyElapsedMs())}`,'chip')
   );
   const barTrack=div('bar-track');const barFill=div('bar-fill');barFill.style.width=`${progressPct}%`;barTrack.append(barFill);
   const fastOn=Boolean(data.settings?.vocabFastFlow);
+  const autoPronOn=isVocabAutoPronounceOn();
+  const mistakeMap=new Map();
+  for(const att of (data.vocabularyAttempts||[])){
+    if(!att||!att.target)continue;
+    if(att.correct===false||att.skipped){
+      const k=String(att.target).trim().toLowerCase();
+      if(!mistakeMap.has(k))mistakeMap.set(k,{target:att.target,at:att.at||'',wrongText:att.selectedText||''});
+    }
+  }
+  const allMistakes=[...mistakeMap.values()];
   const commuteBar=div('vocab-commute-bar');
   const batchLeft=vocabBatchTargetCount?Math.max(0,vocabBatchTargetCount-j.vocabularyIndex):Math.max(0,tasks.length-j.vocabularyIndex);
   commuteBar.append(
     el('span',vocabBatchTargetCount?`🚇 本组热身剩 ${batchLeft} 题`:`共 ${tasks.length} 题`,'tiny'),
     lines(
+      btn(autoPronOn?'🔊 进题自动读词:开':'🔇 进题自动读词:关',()=>{
+        data.settings.vocabAutoPronounce=!autoPronOn;
+        lastAutoPlayedKey='';
+        save();
+        notify(data.settings.vocabAutoPronounce?'已开启进题自动读词：看词自动念发音，填空题答后自动念发音。':'已关闭进题自动读词（静音刷题模式）。');
+        render();
+      },autoPronOn?'btn secondary small-btn':'btn ghost small-btn'),
       btn(fastOn?'⚡ 极速连刷:开':'⚡ 极速连刷:关',()=>{
         data.settings.vocabFastFlow=!fastOn;
         if(!data.settings.vocabFastFlow)clearVocabFastAdvance();
@@ -4573,6 +4625,10 @@ function renderVocabularyStage(){
         notify(data.settings.vocabFastFlow?'已开启极速连刷：答对 1.1 秒自动进下一题，答错停下看辨析。':'已关闭极速连刷，每题手动点下一题。');
         render();
       },fastOn?'btn primary small-btn':'btn secondary small-btn'),
+      allMistakes.length?btn(`🔁 错题本 (${allMistakes.length})`,()=>{
+        vocabMistakeDrawerOpen=!vocabMistakeDrawerOpen;
+        render();
+      },vocabMistakeDrawerOpen?'btn primary small-btn':'btn ghost small-btn'):el('span',''),
       tasks.length>20?btn(vocabBatchTargetCount?'显示全部':'切 15 题小包',()=>{
         vocabBatchTargetCount=vocabBatchTargetCount?0:Math.min(tasks.length,j.vocabularyIndex+15);
         render();
@@ -4580,6 +4636,16 @@ function renderVocabularyStage(){
     )
   );
   box.append(topBar,barTrack,commuteBar);
+  if(vocabMistakeDrawerOpen&&allMistakes.length){
+    const mBox=section('vocab-mistake-drawer');
+    mBox.append(el('div',`🔁 历史错题回顾（累计 ${allMistakes.length} 词 · 点词即读发音）`,'eyebrow'));
+    const mList=div('row wrap');
+    allMistakes.slice(0,30).forEach(m=>{
+      mList.append(btn(`🔊 ${m.target}`,()=>speakEnglish(m.target),'btn secondary small-btn'));
+    });
+    mBox.append(mList,p('新学习包导入后也会自动把历史错词编入「🔁 历史错题回炉」优先复测。','tiny'));
+    box.append(mBox);
+  }
 
   const promptCard=section('vocab-prompt-card');
   if(task.target&&!hideTargetNow){
@@ -4644,6 +4710,9 @@ function renderVocabularyStage(){
     };
     j.vocabularyAttempts.push(attempt);
     data.vocabularyAttempts=[...(data.vocabularyAttempts||[]).filter(r=>r.id!==attempt.id),attempt];
+    if(hideTargetNow&&task.target&&isVocabAutoPronounceOn()){
+      triggerVocabAutoPronounce(`vocab-reveal:${task.id}`,task.target,task.audioUrl);
+    }
     if(!attempt.correct&&!task.isDelayedRetry&&!j.vocabularyDelayedQueue.some(x=>x?.task?.originalTaskId===task.id)){
       const retryWrapped=scheduleInSessionDelayedRetry([task],0,task,{delayGap:1}).find(x=>x&&x.isDelayedRetry);
       if(retryWrapped)j.vocabularyDelayedQueue.push({showAtIndex:j.vocabularyIndex+3,done:false,task:retryWrapped});
@@ -4787,6 +4856,7 @@ function renderVocabularyStage(){
     stickyBar.append(
       btn(nextLabel,advanceNext,'btn primary vocab-next-btn'),
       vocabFastAdvanceTimer?btn('⏸ 停下看',()=>{clearVocabFastAdvance();render();},'btn ghost small-btn'):el('span',''),
+      task.target?btn('🔊 读词',()=>speakEnglish(task.target),'btn ghost small-btn'):el('span',''),
       btn('🔊 朗读',speakFeedback,'btn secondary small-btn')
     );
     feedbackBox.append(stickyBar);

@@ -127,6 +127,11 @@ export function validateVocabularyTask(raw, index = 0) {
       explanationEn,
       productionPrompt: cleanVocab(raw.production_prompt || raw.productionPrompt || ''),
       audioUrl: cleanVocab(raw.audio_url || raw.audioUrl || ''),
+      archivedExample: cleanVocab(raw.archived_example || raw.archivedExample || ''),
+      commuteMode: cleanVocab(raw.commute_mode || raw.commuteMode || ''),
+      batchGroup: cleanVocab(raw.batch_group || raw.batchGroup || ''),
+      isReviewMistake: Boolean(raw.is_review_mistake || raw.isReviewMistake || /错题|回炉|review_mistake/i.test(String(raw.batch_group || raw.batchGroup || ''))),
+      priorMistakeNote: cleanVocab(raw.prior_mistake_note || raw.priorMistakeNote || ''),
       supportLevel: cleanVocab(raw.support_level || raw.supportLevel || 'ORIGINAL_WORD_AND_EXAMPLE_WITH_NEW_DISTRACTORS'),
       source: {
         id: cleanVocab(sourceObj.id || raw.pack_id || ''),
@@ -245,11 +250,37 @@ export function buildIntraSessionRehearsalQueue(tasks = [], attempts = [], { max
 
     const correctOpt = (task.options || []).find(o => (task.correctOptionIds || []).includes(o.id));
     const targetWord = cleanVocab(task.target || correctOpt?.text || '');
+    const normSense = cleanVocab(task.targetSense).toLowerCase().replace(/[.;!?]+$/, '');
+    const normCorrectText = cleanVocab(correctOpt?.text || '').toLowerCase().replace(/[.;!?]+$/, '');
+    const avgOptWords = (task.options || []).length
+      ? (task.options || []).reduce((sum, o) => sum + cleanVocab(o?.text || '').split(/\s+/).filter(Boolean).length, 0) / task.options.length
+      : 0;
+    const optionsAreDefinitions = Boolean(
+      ['definition_recognition', 'definition_selection', 'meaning_in_context'].includes(task.type)
+      || (normSense && normCorrectText && (normCorrectText === normSense || normCorrectText.includes(normSense) || normSense.includes(normCorrectText)))
+      || avgOptWords >= 4
+    );
+
+    // Deterministic seeded shuffle of options so user cannot memorize letter position
+    const rawOpts = Array.isArray(task.options) ? task.options.map(o => ({ ...o, _wasCorrect: (task.correctOptionIds || []).includes(o.id) })) : [];
+    let seed = 0;
+    const seedStr = `${task.id || ''}:rehearsal:${targetWord}`;
+    for (let s = 0; s < seedStr.length; s++) seed = ((seed * 31) + seedStr.charCodeAt(s)) >>> 0;
+    for (let k = rawOpts.length - 1; k > 0; k--) {
+      seed = ((seed * 1664525) + 1013904223) >>> 0;
+      const swapIdx = seed % (k + 1);
+      [rawOpts[k], rawOpts[swapIdx]] = [rawOpts[swapIdx], rawOpts[k]];
+    }
+    const keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const shuffledOptions = rawOpts.map((o, idx) => ({ id: keys[idx] || String(idx + 1), text: o.text }));
+    const shuffledCorrectIds = rawOpts.map((o, idx) => (o._wasCorrect ? (keys[idx] || String(idx + 1)) : null)).filter(Boolean);
+
     const firstLetterCue = targetWord
       ? `${targetWord[0]}_____ (${targetWord.length} letters)`
       : '';
-    const maskedExample = task.archivedExample && targetWord
-      ? task.archivedExample.replace(new RegExp(targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), '_____')
+    const archivedExample = cleanVocab(task.archivedExample || '');
+    const maskedExample = archivedExample && targetWord
+      ? archivedExample.replace(new RegExp(targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), '_____')
       : '';
 
     queue.push({
@@ -257,11 +288,13 @@ export function buildIntraSessionRehearsalQueue(tasks = [], attempts = [], { max
       sourceItemId: task.sourceItemId,
       target: targetWord,
       targetSense: cleanVocab(task.targetSense),
+      archivedExample,
+      optionsAreDefinitions,
       firstLetterCue,
       maskedExample,
       originalPrompt: task.prompt,
-      options: task.options,
-      correctOptionIds: task.correctOptionIds,
+      options: shuffledOptions.length ? shuffledOptions : task.options,
+      correctOptionIds: shuffledCorrectIds.length ? shuffledCorrectIds : task.correctOptionIds,
       priorWrongChoice: cleanVocab(attempt.selectedText || attempt.selectedOptionId)
     });
     if (queue.length >= maxItems) break;
