@@ -1,3 +1,4 @@
+export function isSupportedSourcePackSchema(v){const s=String(v||'').trim();return s==='2.0'||/^r11/i.test(s);}
 /** Local-only Central Handover package writer. Store-only ZIP avoids a new dependency. */
 
 const encoder=new TextEncoder();
@@ -31,13 +32,13 @@ export function handoverEntries({report=null,feedback=null,pack=null,sourcePack=
   if(sourceBytes){
     try{
       sourceParsed=JSON.parse(new TextDecoder().decode(sourceBytes));
-      if(sourceParsed?.schema_version!=='2.0')throw Error('source pack schema_version is not 2.0');
+      if(!isSupportedSourcePackSchema(sourceParsed?.schema_version))throw Error('source pack schema_version is not 2.0');
       const sourceId=clean(sourceParsed.pack_id||fallbackSource.packId);
       if(!sourceId)throw Error('source pack has no pack_id');
       if(clean(sourceParsed.pack_id)!==sourceId)throw Error('source pack metadata mismatch');
       if(report?.pack_id&&report.pack_id!==sourceId)throw Error('report.pack_id does not match source pack');
       if(pack?.packId&&pack.packId!==sourceId)throw Error('daily pack ID does not match source pack');
-      fallbackSource.packId=sourceId;fallbackSource.schemaVersion='2.0';
+      fallbackSource.packId=sourceId;fallbackSource.schemaVersion=String(sourceParsed.schema_version||'2.0');
     }catch(error){sourceParsed=null;sourceError=`source pack rejected: ${error.message}`;}
   }
   const sourceIncluded=Boolean(sourceParsed&&sourceBytes);
