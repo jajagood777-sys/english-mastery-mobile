@@ -24,21 +24,28 @@ export async function unpackSpeechZip(file){
  return out;
 }
 async function expandFiles(input){const list=Array.from(input||[]);if(list.length===1&&/\.zip$/i.test(list[0].name))return unpackSpeechZip(list[0]);return list;}
+export function normalizeSpeechManifestPayload(parsed){
+  if(Array.isArray(parsed))return {version:1,clips:parsed};
+  if(parsed&&typeof parsed==='object'&&Array.isArray(parsed.clips)&&(parsed.version===1||parsed.version==='1'||parsed.version===undefined))return {...parsed,version:1,clips:parsed.clips};
+  return null;
+}
 export async function importSpeechClips(files,{onProgress=()=>{}}={}){
   const list=await expandFiles(files),manifest=list.find(f=>f.name==='speech-manifest.json'||f.name==='manifest.json');
   if(!manifest)throw Error('请选择包含 speech-manifest.json 的音频文件集合。');
-  const parsed=JSON.parse(await manifest.text());
-  if(parsed.version!==1||!Array.isArray(parsed.clips))throw Error('音频清单格式不受支持。');
-  const byName=new Map(list.map(f=>[f.name,f])),total=parsed.clips.length,manifestNames=new Set(),byCategory={};
+  const normalizedManifest=normalizeSpeechManifestPayload(JSON.parse(await manifest.text()));
+  if(!normalizedManifest)throw Error('音频清单格式不受支持。');
+  const byName=new Map(list.map(f=>[f.name,f])),total=normalizedManifest.clips.length,manifestNames=new Set(),byCategory={};
   let imported=0,skipped=0,missing=0,totalDurationSec=0,totalBytes=0;
   const staged=[];
-  for(const item of parsed.clips){
+  for(const item of normalizedManifest.clips){
     const category=String(item.category||'other');
     const coverage=byCategory[category]??={total:0,imported:0,missing:0};
     coverage.total++;
-    const voice=item.voice;
+    const voice=item.voice||'af_heart';
     if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');
-    const filename=String(item.file||'');
+    const rawFile=String(item.file||'').trim();
+    if(rawFile.includes('..')||rawFile.includes('\\'))throw Error(`音频清单包含不安全文件名：${rawFile}`);
+    const filename=rawFile.split('/').pop()||'';
     if(!/^[A-Za-z0-9._-]+\.(mp3|wav|m4a|aac)$/i.test(filename))throw Error(`音频清单包含不安全文件名：${filename}`);
     if(manifestNames.has(filename))throw Error(`音频清单包含重复文件名：${filename}`);
     manifestNames.add(filename);
