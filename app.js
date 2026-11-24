@@ -37,6 +37,8 @@ import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVe
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings,isSupportedSourcePackSchema} from './handover.mjs';
 import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS,scheduleInSessionDelayedRetry,parseVocabPromptParts,resolveOptionMicroGloss,findLookAlikeWords,highlightLookAlikeDiff} from './vocab.mjs';
+import {FSRS_DEFAULTS,clampDesiredRetention,scheduleFsrsReview,mapBehaviorToFsrsRating,isLeechCard,evaluateThreeDayCriterion,selectDifficultyTierByStability,computeStabilityDistribution} from './fsrs-engine.mjs';
+import {isHypercorrectionError,computeLexicalCoverage,annotateConnectedSpeechAndWeakForms,MINI_432_SECONDS,STEADY_REFINE_SECONDS,DISCOVERY_DIAGNOSIS_TAGS,FOCUSED_SELF_CHECK_DIMENSIONS,CIRCUMLOCUTION_CUES} from './sla-enhancers.mjs';
 import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
@@ -336,6 +338,20 @@ let readingFlashParagraphIndex = null;
 let vocabFastAdvanceTimer = null;
 let vocabBatchTargetCount = 0;
 let vocabLookAlikeOpenId = null;
+let vocabQuestionShownAt = 0;
+let vocabGuardUntil = 0;
+let vocabUndoState = null;
+let vocabUndoTimer = null;
+let readingPureBookMode = false;
+let readingSentenceFocusMode = false;
+let readingProsodyMode = false;
+let speechTimerMode = 'steady';
+let speechRoundIdx = 0;
+let speechPlanActive = false;
+function isSilentCommuteOn(){return Boolean(data?.settings?.silentCommuteMode);}
+function toggleSilentCommute(){data.settings=data.settings||{};data.settings.silentCommuteMode=!data.settings.silentCommuteMode;if(data.settings.silentCommuteMode){stopSpeech();stopActiveAudio();stopLocalAudio();}save();notify(data.settings.silentCommuteMode?'🚇 已开启通勤静音模式（停止自动外放，保留音标锚点）':'🔊 已关闭通勤静音模式');render();}
+function showFloatingUndoPill(label,onUndo){if(vocabUndoTimer){clearTimeout(vocabUndoTimer);vocabUndoTimer=null;}document.getElementById('yd-floating-undo')?.remove();const bar=div('floating-undo-pill');bar.id='yd-floating-undo';bar.append(el('span',label,'tiny'),btn('撤回',()=>{if(vocabUndoTimer){clearTimeout(vocabUndoTimer);vocabUndoTimer=null;}bar.remove();onUndo();},'btn primary small-btn'));document.body.append(bar);vocabUndoTimer=setTimeout(()=>{vocabUndoTimer=null;bar.remove();},3500);}
+try{if(typeof navigator!=='undefined'&&navigator.storage&&typeof navigator.storage.persist==='function'){void navigator.storage.persist().catch(()=>{});}}catch{}
 
 function cleanRadioEpisodeLabel(title, fallbackIdx = 0) {
   const cleaned = String(title || `第 ${fallbackIdx + 1} 集`)
@@ -2956,7 +2972,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.7)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.0.0)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4748,6 +4764,15 @@ function renderVocabularyStage(){
   }
   box.append(promptCard);
 
+  if(!prior){vocabQuestionShownAt=Date.now();vocabGuardUntil=Date.now()+300;}
+  const v20Bar=div('v20-commute-bar');
+  const curRet=clampDesiredRetention(data.settings?.desiredRetention??FSRS_DEFAULTS.desiredRetention);
+  v20Bar.append(
+    btn(isSilentCommuteOn()?'🚇 静音中':'🔊 有声',toggleSilentCommute,'btn ghost small-btn'),
+    btn(curRet<=0.85?'⚡ 节能 85%':'🎯 标准 90%',()=>{data.settings=data.settings||{};data.settings.desiredRetention=curRet<=0.85?0.90:0.85;save();notify(`FSRS 目标留存率已切为 ${Math.round(data.settings.desiredRetention*100)}%`);render();},'btn ghost small-btn'),
+    btn(data.settings?.vocabFastFlow?'⚡ 极简纯修中':'极简纯修',()=>{data.settings=data.settings||{};data.settings.vocabFastFlow=!data.settings.vocabFastFlow;save();notify(data.settings.vocabFastFlow?'⚡ 已开启极简纯修快刷流':'已关闭极简纯修自动切题');render();},'btn ghost small-btn')
+  );
+  box.append(v20Bar);
   const optionsGrid=div('vocab-options-grid');
   const recordChoice=(optionId,skipped=false)=>{
     if(prior)return;
@@ -4770,8 +4795,26 @@ function renderVocabularyStage(){
       productionAnswer:'',
       at:new Date().toISOString()
     };
+    const rtMs=vocabQuestionShownAt?Math.max(50,Date.now()-vocabQuestionShownAt):3000;
+    attempt.rtMs=rtMs;
+    attempt.hypercorrection=isHypercorrectionError({rtMs,correct:attempt.correct});
+    if(task.target){
+      const tk=String(task.target).toLowerCase().trim();
+      data.fsrsState=data.fsrsState||{};
+      const rating=mapBehaviorToFsrsRating({correct:attempt.correct,usedHint:Boolean(skipped),rtMs});
+      data.fsrsState[tk]=scheduleFsrsReview(data.fsrsState[tk],rating,{desiredRetention:data.settings?.desiredRetention??FSRS_DEFAULTS.desiredRetention});
+    }
     j.vocabularyAttempts.push(attempt);
     data.vocabularyAttempts=[...(data.vocabularyAttempts||[]).filter(r=>r.id!==attempt.id),attempt];
+    if(!attempt.correct){
+      const snapAttemptId=attempt.id;
+      showFloatingUndoPill('误触了？已记入 +10 题回炉',()=>{
+        j.vocabularyAttempts=j.vocabularyAttempts.filter(r=>r.id!==snapAttemptId);
+        data.vocabularyAttempts=(data.vocabularyAttempts||[]).filter(r=>r.id!==snapAttemptId);
+        j.vocabularyDelayedQueue=(j.vocabularyDelayedQueue||[]).filter(x=>x?.task?.originalTaskId!==task.id);
+        save();render();
+      });
+    }
     if(hideTargetNow&&task.target&&isVocabAutoPronounceOn()){
       triggerVocabAutoPronounce(`vocab-reveal:${task.id}`,task.target,task.audioUrl);
     }
@@ -4809,7 +4852,7 @@ function renderVocabularyStage(){
     b.append(el('span',opt.id,'vocab-option-key'),optMain);
     if(prior&&isCorrectOpt)b.append(el('span','✓ 正确项','vocab-option-badge'));
     else if(prior&&isSelected&&!prior.correct)b.append(el('span','✗ 你的首答','vocab-option-badge'));
-    b.addEventListener('click',()=>recordChoice(opt.id,false));
+    b.addEventListener('click',()=>{if(Date.now()<vocabGuardUntil)return;recordChoice(opt.id,false);});
     optionsGrid.append(b);
   }
   box.append(optionsGrid);
@@ -4874,6 +4917,16 @@ function renderVocabularyStage(){
       btn(nextLabel,advanceNext,'btn primary small-btn')
     );
     feedbackBox.append(topFbBar);
+    if(prior.hypercorrection){
+      feedbackBox.append(div('hypercorrection-banner').appendChild(el('span','⚡ 高信心秒错（超校正窗口）· 请花 2 秒对比下方释义与形近词','tiny')).parentNode);
+    }
+    if(task.target&&data.fsrsState?.[String(task.target).toLowerCase().trim()]){
+      const fCard=data.fsrsState[String(task.target).toLowerCase().trim()];
+      const crit=evaluateThreeDayCriterion(fCard);
+      const tier=selectDifficultyTierByStability(fCard.s);
+      const metaLine=`FSRS 稳定度 ${fCard.s}天 · 三日脱敏 ${crit.dots} · ${tier.label}${isLeechCard(fCard)?' · ⚠️ 顽固词建议急救':''}`;
+      feedbackBox.append(p(metaLine,'tiny subtle'));
+    }
 
     const cleanSense=String(cdtl?.correct?.senseEn||task.targetSense||'').trim();
     const cleanExample=String(cdtl?.correct?.exampleEn||task.archivedExample||'').trim();
@@ -4929,7 +4982,7 @@ function renderVocabularyStage(){
       vocabFastAdvanceTimer?btn('⏸ 停下看',()=>{clearVocabFastAdvance();render();},'btn ghost small-btn'):el('span',''),
       task.target?btn('🔊 读词',()=>speakEnglish(task.target),'btn ghost small-btn'):el('span',''),
       lookalikes.length?btn(`${lookAlikeOpen?'收起形近词':'🔍 形近词'} (${lookalikes.length})`,()=>{clearVocabFastAdvance();vocabLookAlikeOpenId=lookAlikeOpen?null:task.id;render();},`btn ghost small-btn${!prior.correct&&!lookAlikeOpen?' is-lookalike-alert':''}`):el('span',''),
-      task.target?btn(isVocabMastered(task.target)?'取消斩词':'✓ 斩词',()=>{const on=toggleVocabMastered(task.target);save();notify(on?`已将「${task.target}」标为已斩熟词，后续自动标记跳过。`:`已取消「${task.target}」的斩词标记。`);render();},'btn ghost small-btn'):el('span',''),
+      task.target?btn(isVocabMastered(task.target)?'取消斩词':'✓ 斩词',()=>{const on=toggleVocabMastered(task.target);save();if(on)showFloatingUndoPill(`已斩熟词「${task.target}」`,()=>{toggleVocabMastered(task.target);save();render();});else notify(`已取消「${task.target}」的斩词标记。`);render();},'btn ghost small-btn'):el('span',''),
       btn('🔊 朗读',speakFeedback,'btn secondary small-btn')
     );
     feedbackBox.append(stickyBar);
@@ -5140,7 +5193,11 @@ function renderTransferChallenge(){
     const input=textarea(j.transferDraft||'',taskType==='writing'?'写作初稿（可选 80–100 词）……':taskType==='grammar'?'请独立完成语法改写……':'请用英文回答（文字可选，口语题可直接录音）……');input.classList.add('answer-input');focusForMobile(input);input.addEventListener('input',()=>{j.transferDraft=input.value;scheduleDraftSave();});
     if(taskType==='writing'){const count=el('div',`当前字数：${j.transferDraft.trim()?j.transferDraft.trim().split(/\s+/).length:0} · 建议 80–100 词`,'tiny');input.addEventListener('input',()=>count.textContent=`当前字数：${input.value.trim()?input.value.trim().split(/\s+/).length:0} · 建议 80–100 词`);prompt.append(count);}
     const weakness=inferredWeaknesses().find(row=>row.id===`weakness:transfer:${task.id}`)||makeWeakness({id:`weakness:transfer:${task.id}`,...normalizeSourceMeta(task),taskType,targetExpression:task.targetExpression||'',contexts:task.contexts});if(inputMode==='speaking'||inputMode==='both')prompt.append(renderRecordingControls({weaknessId:weakness.id,taskId:task.id,attemptId:`journey:${j.id}:${task.id}`,role:'original',onSaved:row=>{j.transferRecordingIds={...(j.transferRecordingIds||{}),[task.id]:[...new Set([...(j.transferRecordingIds?.[task.id]||[]),row.id]) ]};save();}}));
-    const actions=[btn(j.transferPromptUsed?'再次查看提示':'给我一点提示',()=>{j.transferPromptUsed=true;save();render();},'btn ghost')];if(inputMode==='speaking'||inputMode==='both'){actions.push(btn('仅保存录音并提交初答',()=>submitTransferRecordingOnly(), 'btn secondary'),btn('🌙 晚点开口',()=>{data.deferredSpeaking=[...(Array.isArray(data.deferredSpeaking)?data.deferredSpeaking:[]).filter(x=>x.taskId!==task.id),{id:`defer:${task.id}`,packId:j.packId,taskId:task.id,page:'transfer',title:task.prompt?.slice(0,36)||'口语复述',estimatedMin:1,status:'deferred_speaking',createdAt:new Date().toISOString()}];save();notify('已记为「待开口」，不计错误也不计完成；晚上在首页一键回来开口。');advanceTransferTask({action:'skip'});},'btn ghost'));}if(taskType==='writing')actions.push(btn('保存草稿',()=>{j.transferDraft=input.value;if(save())notify('写作草稿已保存。');},'btn secondary'));actions.unshift(renderDictationAssistButton(input,val=>{j.transferDraft=val;save();}));actions.push(btn('提交初答',()=>submitTransfer(input.value),'btn primary'),btn('跳过本题',()=>advanceTransferTask({action:'skip'}),'btn'));prompt.append(field(taskType==='writing'?'写作初稿':taskType==='grammar'?'语法改写':'文字辅助回答',input),lines(...actions));if(j.transferPromptUsed&&task.hints?.length)prompt.append(p(`提示：${task.hints[0]}`,'hint'));
+    const actions=[btn(j.transferPromptUsed?'再次查看提示':'给我一点提示',()=>{j.transferPromptUsed=true;save();render();},'btn ghost')];if(inputMode==='speaking'||inputMode==='both'){actions.push(btn('仅保存录音并提交初答',()=>submitTransferRecordingOnly(), 'btn secondary'),btn('🌙 晚点开口',()=>{data.deferredSpeaking=[...(Array.isArray(data.deferredSpeaking)?data.deferredSpeaking:[]).filter(x=>x.taskId!==task.id),{id:`defer:${task.id}`,packId:j.packId,taskId:task.id,page:'transfer',title:task.prompt?.slice(0,36)||'口语复述',estimatedMin:1,status:'deferred_speaking',createdAt:new Date().toISOString()}];save();notify('已记为「待开口」，不计错误也不计完成；晚上在首页一键回来开口。');advanceTransferTask({action:'skip'});},'btn ghost'));}if(taskType==='writing')actions.push(
+      btn('保存草稿',()=>{j.transferDraft=input.value;if(save())notify('写作草稿已保存。');},'btn secondary'),
+      btn('🧩 I-R-E 三句骨架',()=>{if(!input.value.trim()){input.value='[Idea] ...\n[Reasoning] Because ...\n[Evidence] For instance, ...';j.transferDraft=input.value;save();notify('已插入 Idea→Reasoning→Evidence 三槽位微骨架');}},'btn ghost small-btn'),
+      btn('🔊 听我刚写的',()=>{if(input.value.trim())speakEnglish(input.value.trim());else notify('请先写 1–2 句再听觉自诊');},'btn ghost small-btn')
+    );actions.unshift(renderDictationAssistButton(input,val=>{j.transferDraft=val;save();}));actions.push(btn('提交初答',()=>submitTransfer(input.value),'btn primary'),btn('跳过本题',()=>advanceTransferTask({action:'skip'}),'btn'));prompt.append(field(taskType==='writing'?'写作初稿':taskType==='grammar'?'语法改写':'文字辅助回答',input),lines(...actions));if(j.transferPromptUsed&&task.hints?.length)prompt.append(p(`提示：${task.hints[0]}`,'hint'));
   }else{const row=j.transferAttempts.at(-1);
     const refExpr=row?.referenceAnswer||task.referenceAnswer||'';
     if(row?.firstAnswer&&refExpr){
@@ -5288,6 +5345,15 @@ function completeSpeech(speech,skipped=false){
  if(save()){notify(skipped?'已记为跳过，未计入演讲能力。':'已保存本人自报的演讲练习，未进行发音自动评分。');render();}
 }
 function renderSpeechChamber(){
+  const spBar=div('v20-commute-bar');
+  const secList=speechTimerMode==='432'?MINI_432_SECONDS:STEADY_REFINE_SECONDS;
+  const curSec=secList[speechRoundIdx%secList.length];
+  spBar.append(
+    btn(speechTimerMode==='432'?`⏱️ 4/3/2 压时（第${(speechRoundIdx%3)+1}轮 ${curSec}s）`:`🎯 恒时精修（${curSec}s×3）`,()=>{speechTimerMode=speechTimerMode==='432'?'steady':'432';speechRoundIdx=0;notify(speechTimerMode==='432'?'已切至微缩 4/3/2 压时复述（24s→18s→14s）':'已切至恒时精修模式（20s×3 抓准度）');render();},'btn ghost small-btn'),
+    btn('下一轮压时',()=>{speechRoundIdx=(speechRoundIdx+1)%3;notify(`已切换至第 ${speechRoundIdx+1} 轮（目标 ${secList[speechRoundIdx]} 秒）`);render();},'btn ghost small-btn'),
+    btn(speechPlanActive?'🧠 15s 关键词构思中':'🧠 15s 防背稿提纲',()=>{speechPlanActive=!speechPlanActive;if(speechPlanActive)notify('15 秒构思开始：只盯 3 个逻辑锚点词，不背整句！');render();},'btn ghost small-btn')
+  );
+  app.append(spBar);
  stopActiveAudio();
  app.append(el('div','言道演讲 · SPEECH CHAMBER','eyebrow'),h('h1','英语演讲与影子跟读'),
    p('听读 → 影子跟读 → 隐藏文本脱稿。','lead'));
@@ -5417,7 +5483,20 @@ function renderReadingRetelling(reading){
  }
  return box;
 }
-function renderReading(){app.append(el('div','英语阅读 · READING','eyebrow'),h('h1','阅读英语材料'),p('双击或长按英文词即可标词或 AI 查词。','lead'),lines(btn('打开阅读生词本',()=>setPage('readingVocabulary'),'btn secondary')));
+function renderReading(){
+  const curRead=data.dailyPack?.readings?.[0];
+  const cov=curRead?computeLexicalCoverage(curRead.text||curRead.passage||'',Object.keys(data.masteredVocabWords||{})):null;
+  app.append(
+    el('div','英语阅读 · READING','eyebrow'),
+    h('h1','阅读英语材料'),
+    p(cov?`当前篇目已知词覆盖率 ${cov.coveragePct}%（${cov.status==='optimal'?'✅ 处于 95%–98% i+1 黄金区':'⚠️ 生词偏密，建议开逐句聚焦+伴读'}）· 双击英文词可标词查词。`:'双击或长按英文词即可标词或 AI 查词。','lead'),
+    lines(
+      btn('打开阅读生词本',()=>setPage('readingVocabulary'),'btn secondary'),
+      btn(readingPureBookMode?'📖 纯净纸书：开':'📖 纯净纸书',()=>{readingPureBookMode=!readingPureBookMode;document.body.classList.toggle('pure-book-mode',readingPureBookMode);render();},'btn ghost small-btn'),
+      btn(readingSentenceFocusMode?'🎯 逐句聚焦：开':'🎯 逐句聚焦',()=>{readingSentenceFocusMode=!readingSentenceFocusMode;document.body.classList.toggle('sentence-focus-mode',readingSentenceFocusMode);render();},'btn ghost small-btn'),
+      btn(readingProsodyMode?'🎵 弱读韵律：开':'🎵 弱读韵律',()=>{readingProsodyMode=!readingProsodyMode;render();},'btn ghost small-btn')
+    )
+  );
 const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){app.append(renderJourneyFlowRibbon('reading'));const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('正向计时，不强制结束；读完点击确认即可。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));const recallActive=Boolean(readingJourney.readingRecallQueue?.length);box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(recallActive?'完成即时回忆后继续':remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning||recallActive)));app.append(box);}
 if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const rfSize=data.settings?.readingFontSize||'md';const article=div(`reading-article font-${rfSize}${readingBlurMode?' is-blind-blur':''}`);const scrollRibbon=div('reading-scroll-bar');const scrollFill=div('reading-scroll-fill');scrollRibbon.append(scrollFill);list.append(scrollRibbon);const syncReadScroll=()=>{if(!article.isConnected)return;const rect=article.getBoundingClientRect();const total=Math.max(1,article.offsetHeight-window.innerHeight*0.5);const pct=Math.max(0,Math.min(100,Math.round((-rect.top/total)*100)));scrollFill.style.width=`${pct}%`;};if(typeof window!=='undefined'){window.removeEventListener('scroll',window.__ydReadScroll);window.__ydReadScroll=syncReadScroll;window.addEventListener('scroll',syncReadScroll,{passive:true});}article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny'));const marks=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id);paragraphs.forEach((para,index)=>{const node=renderMarkedParagraph(para,marks.filter(mark=>Number(mark.paragraphIndex)===index));node.dataset.paragraphIndex=String(index);if(readingFlashParagraphIndex===index)node.classList.add('is-reading-return-flash');article.append(node);});if(readingQuestionReturnState&&readingQuestionReturnState.readingId===reading.id){const backQ=btn(`↩ 回到第 ${readingQuestionReturnState.questionIndex+1} 题`,()=>{const target=document.querySelector('.reading-check-panel');if(target)target.scrollIntoView({behavior:'smooth',block:'center'});readingFlashParagraphIndex=null;if(target){const fieldEl=target.querySelector('textarea,input[type=text]');if(fieldEl&&readingQuestionReturnState?.draft&&!fieldEl.value)fieldEl.value=readingQuestionReturnState.draft;}render();},'btn primary small-btn reading-back-to-q-btn');article.append(backQ);}article.addEventListener('dblclick',()=>setTimeout(()=>{const selection=window.getSelection?.();if(selection?.toString().trim())toggleReadingMark(reading,paragraphs);},0));const pending=marks.filter(mark=>mark.savedStatus!=='SAVED').length;const toolbar=div('reading-toolbar');
