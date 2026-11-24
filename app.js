@@ -2954,7 +2954,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.2)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4310,7 +4310,7 @@ function finishExtendedListening(item,s,{skipped=false,level='',summary=''}={}){
     learning_stage_before:item.learningStage||'review',
     learning_stage_after:item.learningStage||'review',at};
   data.attempts.push(row);
-  s.completed.push(row.id);s.index++;s.step=null;s.draft='';s.referenceAnswer=null;
+  s.completed.push(row.id);s.index++;s.step=null;s.draft='';s.chunkPickIds=[];s.referenceAnswer=null;
   s.hint=false;s.hintLevel=0;s.skipped=false;s.retryCompleted=false;s.retryDraft='';
   s.answerCheck=null;s.retryCheck=null;s.recordingIds=[];s.retryRecordingIds=[];
   s.promptUsed=false;s.promptEvents=[];s.viewedChinese=false;s.meaningShown=false;
@@ -4352,16 +4352,19 @@ function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening
     container.append(el('div','语块拼句 · CHUNK ASSEMBLY','question-label'),h('h2','听英文原句，按顺序点选语块拼出完整句子。'),sentenceStyleOptions(s));
     container.append(lines(speechButton(item.text)));
     if(s.step!=='revealed'){
+      const validIds=new Set(chunkPack.shuffled.map(c=>c.id));
+      s.chunkPickIds=s.chunkPickIds.filter(cid=>validIds.has(cid));
       const pickedObjs=s.chunkPickIds.map(cid=>chunkPack.shuffled.find(c=>c.id===cid)).filter(Boolean);
       const assembledText=pickedObjs.map(c=>c.text).join(' ');
+      s.draft=assembledText;
       const tray=section('vocab-prompt-card');
-      tray.append(el('div','已拼句子（点语块可撤回）','eyebrow'));
+      tray.append(el('div',`已拼句子（已选 ${pickedObjs.length} / ${chunkPack.shuffled.length} 块 · 点语块可撤回）`,'eyebrow'));
       const pickedRow=div('row wrap');
       if(!pickedObjs.length){
         pickedRow.append(p('请点选下方语块按顺序拼句……','subtle'));
       }else{
         pickedObjs.forEach((c,pos)=>{
-          pickedRow.append(btn(c.text,()=>{s.chunkPickIds.splice(pos,1);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');if(save())render();},'btn primary small-btn'));
+          pickedRow.append(btn(c.text,()=>{s.chunkPickIds.splice(pos,1);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');save();render();},'btn primary small-btn'));
         });
       }
       tray.append(pickedRow);
@@ -4369,13 +4372,13 @@ function buildSentenceQuestion(container,item,s){if(s.sentenceStyle==='listening
       const poolRow=div('row wrap');
       chunkPack.shuffled.forEach(c=>{
         const used=s.chunkPickIds.includes(c.id);
-        const cb=btn(c.text,()=>{if(used)return;s.chunkPickIds.push(c.id);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');if(save())render();},used?'btn ghost small-btn':'btn secondary small-btn');
+        const cb=btn(c.text,()=>{if(used)return;s.chunkPickIds.push(c.id);s.draft=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');save();render();},used?'btn ghost small-btn':'btn secondary small-btn');
         if(used)cb.disabled=true;
         poolRow.append(cb);
       });
       container.append(poolRow,lines(
-        btn('检查拼句',()=>{const ans=s.chunkPickIds.map(id=>chunkPack.shuffled.find(x=>x.id===id)?.text||'').filter(Boolean).join(' ');revealAnswer(s,ans,item.text,false);},'btn primary'),
-        btn('清空重拼',()=>{s.chunkPickIds=[];s.draft='';if(save())render();},'btn ghost'),
+        btn('检查拼句',()=>{const ans=pickedObjs.map(c=>c.text).join(' ').trim()||String(s.draft||'').trim();if(!ans){notify('请先点选下方语块拼出句子，或点「跳过并揭晓」。');return;}revealAnswer(s,ans,item.text,false);},'btn primary'),
+        btn('清空重拼',()=>{s.chunkPickIds=[];s.draft='';save();render();},'btn ghost'),
         btn('跳过并揭晓',()=>{s.chunkPickIds=[];revealAnswer(s,'',item.text,true);},'btn')
       ));
     }else{
@@ -4549,7 +4552,6 @@ function renderVocabularyStage(){
   j.vocabularyIndex=Math.max(0,Number.isInteger(j.vocabularyIndex)?j.vocabularyIndex:0);
   j.vocabularyAttempts=Array.isArray(j.vocabularyAttempts)?j.vocabularyAttempts:[];
   j.vocabularyDelayedQueue=Array.isArray(j.vocabularyDelayedQueue)?j.vocabularyDelayedQueue:[];
-  if(!vocabBatchTargetCount&&tasks.length>20)vocabBatchTargetCount=Math.min(tasks.length,j.vocabularyIndex+15);
   const allAttempts=[...(data.vocabularyAttempts||[]),...j.vocabularyAttempts];
   const findAttempt=taskId=>j.vocabularyAttempts.find(r=>r.taskId===taskId)||allAttempts.find(r=>r.taskId===taskId&&r.packId===j.packId)||null;
 
@@ -4667,7 +4669,7 @@ function renderVocabularyStage(){
   const commuteBar=div('vocab-commute-bar');
   const batchLeft=vocabBatchTargetCount?Math.max(0,vocabBatchTargetCount-j.vocabularyIndex):Math.max(0,tasks.length-j.vocabularyIndex);
   commuteBar.append(
-    el('span',vocabBatchTargetCount?`🚇 本组热身剩 ${batchLeft} 题`:`共 ${tasks.length} 题`,'tiny'),
+    el('span',vocabBatchTargetCount?`🎯 本段剩 ${batchLeft} 题（总计 ${tasks.length} 题）`:`剩余 ${Math.max(0,tasks.length-j.vocabularyIndex)} / ${tasks.length} 题`,'tiny'),
     lines(
       btn(autoPronOn?'🔊 进题自动读词:开':'🔇 进题自动读词:关',()=>{
         data.settings.vocabAutoPronounce=!autoPronOn;
@@ -4687,7 +4689,7 @@ function renderVocabularyStage(){
         vocabMistakeDrawerOpen=!vocabMistakeDrawerOpen;
         render();
       },vocabMistakeDrawerOpen?'btn primary small-btn':'btn ghost small-btn'):el('span',''),
-      tasks.length>20?btn(vocabBatchTargetCount?'显示全部':'切 15 题小包',()=>{
+      tasks.length>20?btn(vocabBatchTargetCount?'取消分段':'切 15 题小段',()=>{
         vocabBatchTargetCount=vocabBatchTargetCount?0:Math.min(tasks.length,j.vocabularyIndex+15);
         render();
       },'btn ghost small-btn'):el('span','')
@@ -4814,7 +4816,7 @@ function renderVocabularyStage(){
     if(vocabBatchTargetCount&&j.vocabularyIndex+1>=vocabBatchTargetCount&&j.vocabularyIndex+1<tasks.length){
       j.vocabularyIndex++;
       if(save()){
-        notify(`🎉 本组 15 题通勤热身完成！已保存进度，可继续下一组或先回首页。`);
+        notify(`✅ 本段 15 题完成（总进度 ${j.vocabularyIndex}/${tasks.length}），进度已保存。`);
         vocabBatchTargetCount=Math.min(tasks.length,j.vocabularyIndex+15);
         render();
       }
