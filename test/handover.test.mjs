@@ -20,7 +20,7 @@ test('handover finds reading retelling and ordinary recordings and reports missi
  assert.equal(readZipStore(zipStore(entries).bytes).find(x=>x.name==='recordings/c.webm').size,2);
 });
 
-test('19.8.4 handover recording completeness reports missing reading retelling retry clearly while preserving packaged files', () => {
+test('19.8.5 handover recording completeness reports missing reading retelling retry clearly while preserving packaged files', () => {
   const report = {
     report_id: 'report:synthetic-rec',
     session_id: 'session-rec',

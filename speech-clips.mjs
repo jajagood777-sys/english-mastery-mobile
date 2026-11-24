@@ -69,11 +69,11 @@ export async function importSpeechClips(files,{onProgress=()=>{}}={}){
       category,coverage,item,file,actualFileSha,
       record:{
         key,blob:file,text:normalizeSpeechText(item.text),voice,created:Date.now(),
-        source:item.source||'daily_pack',packId:item.packId||parsed.pack_id||'',manifest:manifest.name,
+        source:item.source||'daily_pack',packId:item.packId||normalizedManifest.pack_id||'',manifest:manifest.name,
         durationSeconds:Number(item.durationSeconds||0),
         segments:Array.isArray(item.segments)?item.segments:[],
         episodeId:item.episodeId||null,segmentIds:Array.isArray(item.segmentIds)?item.segmentIds:[],
-        engine:item.engine||parsed.engine||'',title:item.title||'',fileSha256:actualFileSha
+        engine:item.engine||normalizedManifest.engine||'',title:item.title||'',fileSha256:actualFileSha
       }
     });
   }
