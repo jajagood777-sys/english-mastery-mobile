@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { autoSentenceClozeParts, sentenceClozeParts } from '../core.mjs';
 
-test('v19.8.3 autoSentenceClozeParts falls back to strongest content word when no explicit target is set', () => {
+test('v19.8.4 autoSentenceClozeParts falls back to strongest content word when no explicit target is set', () => {
   const s = 'She suggested checking the original record before making an accusation.';
   assert.equal(sentenceClozeParts(s, ''), null);
   const auto = autoSentenceClozeParts(s, '');
@@ -16,7 +16,7 @@ test('v19.8.3 autoSentenceClozeParts falls back to strongest content word when n
   assert.equal(explicit.answer, 'checking');
 });
 
-test('v19.8.3 app.js enables cloze listen-and-fill, mode switch in listening, and hides false no-audio banner', () => {
+test('v19.8.4 app.js enables cloze listen-and-fill, mode switch in listening, and hides false no-audio banner', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /autoSentenceClozeParts\(item\.text/);
   assert.match(app, /听英文原句，只填写缺少的单词。/);
