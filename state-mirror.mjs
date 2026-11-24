@@ -22,7 +22,9 @@ export function computeStateProgressScore(state = null) {
       + (Array.isArray(j.transferAttempts) ? j.transferAttempts.length * 2 : 0)
       + (Array.isArray(j.speechDoneIds) ? j.speechDoneIds.length * 2 : 0)
     : 0;
-  return attempts + vocab + retell * 3 + transfer * 2 + sessions * 5 + speechTop + readingChecks + jScore;
+  const fsrsCount = state.fsrsState && typeof state.fsrsState === 'object' && !Array.isArray(state.fsrsState) ? Object.keys(state.fsrsState).length : 0;
+  const masteredCount = Array.isArray(state.masteredVocabWords) ? state.masteredVocabWords.length : 0;
+  return attempts + vocab + retell * 3 + transfer * 2 + sessions * 5 + speechTop + readingChecks + fsrsCount + masteredCount + jScore;
 }
 
 export function pickNewerStateSnapshot(localObj = null, idbObj = null) {

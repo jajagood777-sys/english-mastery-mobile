@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '20.0.0';
+export const APP_VERSION = '20.0.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -1235,6 +1235,8 @@ export function validateBackup(value){
         deferredSpeaking:Array.isArray(value.deferredSpeaking)?value.deferredSpeaking:[],
         radioQueue:Array.isArray(value.radioQueue)?value.radioQueue:[],
         radioBookmarksV2:value.radioBookmarksV2&&typeof value.radioBookmarksV2==='object'&&!Array.isArray(value.radioBookmarksV2)?value.radioBookmarksV2:{},
+        fsrsState:value.fsrsState&&typeof value.fsrsState==='object'&&!Array.isArray(value.fsrsState)?value.fsrsState:{},
+        masteredVocabWords:Array.isArray(value.masteredVocabWords)?value.masteredVocabWords.map(w=>String(w||'').toLowerCase().trim()).filter(Boolean):(value.masteredVocabWords&&typeof value.masteredVocabWords==='object'?Object.keys(value.masteredVocabWords).map(w=>String(w||'').toLowerCase().trim()).filter(Boolean):[]),
         stateRevision:Number.isFinite(Number(value.stateRevision))?Number(value.stateRevision):0,
         v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
