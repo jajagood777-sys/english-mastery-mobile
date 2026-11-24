@@ -2972,7 +2972,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.0.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.0.1)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4924,8 +4924,21 @@ function renderVocabularyStage(){
       const fCard=data.fsrsState[String(task.target).toLowerCase().trim()];
       const crit=evaluateThreeDayCriterion(fCard);
       const tier=selectDifficultyTierByStability(fCard.s);
-      const metaLine=`FSRS 稳定度 ${fCard.s}天 · 三日脱敏 ${crit.dots} · ${tier.label}${isLeechCard(fCard)?' · ⚠️ 顽固词建议急救':''}`;
+      const leechNow=isLeechCard(fCard);
+      const metaLine=`FSRS 稳定度 ${fCard.s}天 · 三日脱敏 ${crit.dots} · ${tier.label}${leechNow?' · ⚠️ 顽固词已触发急救':''}`;
       feedbackBox.append(p(metaLine,'tiny subtle'));
+      if(leechNow){
+        const leechBox=div('hypercorrection-banner');
+        leechBox.append(
+          el('div',`🚑 顽固词急救台（累计遗忘 ${fCard.lapses} 次）· 换个方式攻克「${task.target}」`,'tiny'),
+          lines(
+            btn('🔄 重置难度换语境',()=>{fCard.d=5.0;fCard.lapses=0;fCard.consecutiveMisses=0;fCard.leech=false;save();notify(`已为「${task.target}」重置 FSRS 难度因子，下轮切换新语境重学`);render();},'btn ghost small-btn'),
+            lookalikes.length?btn('🔍 展开形近排雷',()=>{clearVocabFastAdvance();vocabLookAlikeOpenId=task.id;render();},'btn ghost small-btn'):el('span',''),
+            btn('⏸ 暂缓放生（斩词跳过）',()=>{if(!isVocabMastered(task.target))toggleVocabMastered(task.target);fCard.suspended=true;save();showFloatingUndoPill(`已暂缓挂起顽固词「${task.target}」`,()=>{if(isVocabMastered(task.target))toggleVocabMastered(task.target);fCard.suspended=false;save();render();});render();},'btn ghost small-btn')
+          )
+        );
+        feedbackBox.append(leechBox);
+      }
     }
 
     const cleanSense=String(cdtl?.correct?.senseEn||task.targetSense||'').trim();
@@ -5485,7 +5498,8 @@ function renderReadingRetelling(reading){
 }
 function renderReading(){
   const curRead=data.dailyPack?.readings?.[0];
-  const cov=curRead?computeLexicalCoverage(curRead.text||curRead.passage||'',Object.keys(data.masteredVocabWords||{})):null;
+  const knownSet=new Set([...(Array.isArray(data.masteredVocabWords)?data.masteredVocabWords:Object.keys(data.masteredVocabWords||{})),...Object.keys(data.fsrsState||{}),...(data.items||[]).filter(x=>x.kind==='word'&&x.status==='K').map(x=>x.target)]);
+  const cov=curRead?computeLexicalCoverage(curRead.text||curRead.passage||'',[...knownSet]):null;
   app.append(
     el('div','英语阅读 · READING','eyebrow'),
     h('h1','阅读英语材料'),
