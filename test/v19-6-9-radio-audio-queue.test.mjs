@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildPackSpeakingQaEpisodes, stripSpeakingPromptInstructions } from '../radio.mjs';
 
-test('v19.8.7: buildPackSpeakingQaEpisodes keeps rawText for offline MP3 hash matching while cleaning qaSegments', () => {
+test('v20.0.0: buildPackSpeakingQaEpisodes keeps rawText for offline MP3 hash matching while cleaning qaSegments', () => {
   const rawPrompt = "ORIGINAL IELTS Part 2 Retake: Describe a time when you discovered that a popular claim or advice online was unreliable. Speak 75–100 seconds (focus on fixing: uncountable 'do some research').";
   const model = "A while ago, I came across a popular claim. It sounded plausible.";
   const eps = buildPackSpeakingQaEpisodes([{
@@ -22,7 +22,7 @@ test('v19.8.7: buildPackSpeakingQaEpisodes keeps rawText for offline MP3 hash ma
   assert.ok(!qSegs[0].text.includes('Speak 75'));
 });
 
-test('v19.8.7: app.js clears single-track subtitles on track change, falls back offline lookup, and adds cross-channel queue picker', () => {
+test('v20.0.0: app.js clears single-track subtitles on track change, falls back offline lookup, and adds cross-channel queue picker', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('for (const candidate of [episode.cleanText, episode.modelAnswer].filter(Boolean))'));
   assert.ok(appSrc.includes('radioActiveEpisodeHash !== `track:${curTrackKey}`'));
