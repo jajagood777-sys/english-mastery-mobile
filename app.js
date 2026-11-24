@@ -36,7 +36,7 @@ import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,bui
 import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity,naturalSortTracks,createUnclearMark,buildUnclearReplayQueue,computeScrubberUndoTarget,computeInterruptionResumeAction,computeCommuteReadiness} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings,isSupportedSourcePackSchema} from './handover.mjs';
-import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS,scheduleInSessionDelayedRetry,parseVocabPromptParts} from './vocab.mjs';
+import {evaluateVocabularyChoice,summarizeVocabularyPractice,buildIntraSessionRehearsalQueue,VOCAB_TYPE_LABELS,scheduleInSessionDelayedRetry,parseVocabPromptParts,resolveOptionMicroGloss,findLookAlikeWords,highlightLookAlikeDiff} from './vocab.mjs';
 import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
@@ -2955,7 +2955,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.5)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.6)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4799,7 +4799,13 @@ function renderVocabularyStage(){
     const b=el('button','',cls);
     b.type='button';
     b.disabled=Boolean(prior);
-    b.append(el('span',opt.id,'vocab-option-key'),el('span',opt.text,'vocab-option-text'));
+    const optMain=div('vocab-option-main');
+    optMain.append(el('span',opt.text,'vocab-option-text'));
+    if(prior){
+      const microGloss=resolveOptionMicroGloss(opt,task,data.dailyPack?.originalWordArchive||[]);
+      if(microGloss)optMain.append(el('span',`≈ ${microGloss}`,'vocab-option-gloss'));
+    }
+    b.append(el('span',opt.id,'vocab-option-key'),optMain);
     if(prior&&isCorrectOpt)b.append(el('span','✓ 正确项','vocab-option-badge'));
     else if(prior&&isSelected&&!prior.correct)b.append(el('span','✗ 你的首答','vocab-option-badge'));
     b.addEventListener('click',()=>recordChoice(opt.id,false));
@@ -4808,6 +4814,7 @@ function renderVocabularyStage(){
   box.append(optionsGrid);
 
   const advanceNext=()=>{
+    vocabLookAlikeOpenId=null;
     clearVocabFastAdvance();
     if(activeDelayedItem){
       activeDelayedItem.done=true;
@@ -4913,15 +4920,37 @@ function renderVocabularyStage(){
         feedbackBox.append(field('错词微产出复测（可选，不强制打字）',prodInput),lines(saveProd));
       }
     }
+    const lookalikes=findLookAlikeWords(task,data.dailyPack?.originalWordArchive||[]);
+    const lookAlikeOpen=vocabLookAlikeOpenId===task.id;
     const stickyBar=div('vocab-sticky-next-bar');
     stickyBar.append(
       btn(nextLabel,advanceNext,'btn primary vocab-next-btn'),
       vocabFastAdvanceTimer?btn('⏸ 停下看',()=>{clearVocabFastAdvance();render();},'btn ghost small-btn'):el('span',''),
       task.target?btn('🔊 读词',()=>speakEnglish(task.target),'btn ghost small-btn'):el('span',''),
+      lookalikes.length?btn(`${lookAlikeOpen?'收起形近词':'🔍 形近词'} (${lookalikes.length})`,()=>{clearVocabFastAdvance();vocabLookAlikeOpenId=lookAlikeOpen?null:task.id;render();},`btn ghost small-btn${!prior.correct&&!lookAlikeOpen?' is-lookalike-alert':''}`):el('span',''),
       task.target?btn(isVocabMastered(task.target)?'取消斩词':'✓ 斩词',()=>{const on=toggleVocabMastered(task.target);save();notify(on?`已将「${task.target}」标为已斩熟词，后续自动标记跳过。`:`已取消「${task.target}」的斩词标记。`);render();},'btn ghost small-btn'):el('span',''),
       btn('🔊 朗读',speakFeedback,'btn secondary small-btn')
     );
     feedbackBox.append(stickyBar);
+    if(lookalikes.length&&lookAlikeOpen){
+      const laPanel=div('vocab-lookalike-panel');
+      laPanel.append(el('div',`形近词排雷 · 对比「${task.target}」（高亮字母为拼写差异）`,'eyebrow'));
+      for(const item of lookalikes){
+        const row=div('vocab-lookalike-row');
+        const wordSpan=el('span','','vocab-lookalike-word');
+        for(const seg of highlightLookAlikeDiff(task.target,item.word)){
+          wordSpan.append(el('span',seg.text,seg.diff?'vocab-diff-hi':''));
+        }
+        const meta=div('vocab-lookalike-meta');
+        meta.append(wordSpan);
+        if(item.gloss)meta.append(el('span',`≈ ${item.gloss}`,'vocab-lookalike-gloss'));
+        const speakBtn=btn('🔊',()=>speakEnglish(item.word),'btn ghost small-btn vocab-lookalike-speak');
+        speakBtn.setAttribute('aria-label',`朗读 ${item.word}`);
+        row.append(meta,speakBtn);
+        laPanel.append(row);
+      }
+      feedbackBox.append(laPanel);
+    }
     box.append(feedbackBox);
   }
   app.append(box);
