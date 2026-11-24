@@ -12,8 +12,8 @@ import {
 } from '../radio.mjs';
 import { APP_VERSION } from '../core.mjs';
 
-test('19.8.5 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
-  assert.equal(APP_VERSION, '19.8.5');
+test('19.8.6 Walkman channels replace legacy buttons with YouTube Motivational Speeches & Notebook Spoken', () => {
+  assert.equal(APP_VERSION, '19.8.6');
   assert.equal(RADIO_CHANNELS.length, 4);
   const ids = RADIO_CHANNELS.map(c => c.id);
   assert.deepEqual(ids, ['speaking_qa', 'youtube_speeches', 'sentences_listening', 'notebook_spoken']);
@@ -21,7 +21,7 @@ test('19.8.5 Walkman channels replace legacy buttons with YouTube Motivational S
   assert.ok(RADIO_SPEED_PRESETS.some(p => p.rate === 0.8));
 });
 
-test('19.8.5 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
+test('19.8.6 YouTube motivational speeches and Notebook spoken playlists populate with grounded content', () => {
   assert.ok(BUILT_IN_YOUTUBE_SPEECHES.length >= 14);
   assert.ok(BUILT_IN_NOTEBOOK_SPOKEN.length >= 10);
 
@@ -38,7 +38,7 @@ test('19.8.5 YouTube motivational speeches and Notebook spoken playlists populat
   assert.equal(nbTracks.every(t => t.exposureOnly === true), true);
 });
 
-test('19.8.5 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
+test('19.8.6 watchdog timeout scales safely and prevents iOS Safari track-3 deadlocks', () => {
   const shortMs = computeSegmentWatchdogMs('follow through', 0.9);
   const slowLongMs = computeSegmentWatchdogMs('If you make your bed every morning you will have accomplished the first task of the day and it will encourage you to do another task.', 0.8);
   assert.ok(shortMs >= 12000);
@@ -46,7 +46,7 @@ test('19.8.5 watchdog timeout scales safely and prevents iOS Safari track-3 dead
   assert.ok(slowLongMs <= 45000);
 });
 
-test('19.8.5 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
+test('19.8.6 app.js uses persistent unlocked audio element, Gemini TTS priority, prefetch, and watchdog', () => {
   const appCode = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(appCode, /unlockRadioAudio/);
   assert.match(appCode, /navigator\.audioSession/);
@@ -57,7 +57,7 @@ test('19.8.5 app.js uses persistent unlocked audio element, Gemini TTS priority,
 });
 
 
-test('19.8.5 fetchWithTimeoutAndRetry automatically retries transient 503 and succeeds', async () => {
+test('19.8.6 fetchWithTimeoutAndRetry automatically retries transient 503 and succeeds', async () => {
   const { fetchWithTimeoutAndRetry } = await import('../ai-tutor.mjs');
   let calls = 0;
   const mockFetch = async () => {
@@ -70,7 +70,7 @@ test('19.8.5 fetchWithTimeoutAndRetry automatically retries transient 503 and su
   assert.equal(calls, 2);
 });
 
-test('19.8.5 next-gen engine uses debounced draft saves, persistent Reading Gemini audio, dynamic theme-color, and SWR service worker', () => {
+test('19.8.6 next-gen engine uses debounced draft saves, persistent Reading Gemini audio, dynamic theme-color, and SWR service worker', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -86,7 +86,7 @@ test('19.8.5 next-gen engine uses debounced draft saves, persistent Reading Gemi
 });
 
 
-test('19.8.5 audit guards: blob silent unlock, no audio.pause() unlock race, and no backdrop-filter on .site-header', () => {
+test('19.8.6 audit guards: blob silent unlock, no audio.pause() unlock race, and no backdrop-filter on .site-header', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(app, /getSilentWavBlobUrl\(\)/);
@@ -100,7 +100,7 @@ test('19.8.5 audit guards: blob silent unlock, no audio.pause() unlock race, and
   }
 });
 
-test('19.8.5 podcast bundler merges entire YouTube & Notebook channels into 1-RPD episodes', async () => {
+test('19.8.6 podcast bundler merges entire YouTube & Notebook channels into 1-RPD episodes', async () => {
   const { buildRadioPodcastEpisodes } = await import('../radio.mjs');
   const ytTracks = buildRadioPlaylist({ channel: 'youtube_speeches' });
   const ytEpisodes = buildRadioPodcastEpisodes(ytTracks, { channel: 'youtube_speeches', maxChars: 3600 });
@@ -114,7 +114,7 @@ test('19.8.5 podcast bundler merges entire YouTube & Notebook channels into 1-RP
   assert.equal(nbEpisodes.reduce((sum, ep) => sum + ep.trackCount, 0), nbTracks.length);
 });
 
-test('19.8.5 dual-model 429 relay, 4200-char TTS spec, cache key stability, and daily quota counter', async () => {
+test('19.8.6 dual-model 429 relay, 4200-char TTS spec, cache key stability, and daily quota counter', async () => {
   const {
     GEMINI_TTS_DEFAULT_MODEL,
     GEMINI_TTS_FALLBACK_MODEL,
@@ -173,7 +173,7 @@ test('19.8.5 dual-model 429 relay, 4200-char TTS spec, cache key stability, and 
   assert.match(appCode, /next.length>3800/);
 });
 
-test('19.8.5 flagship dual-engine SiliconFlow TTS, audio bookmarks, expanded libraries, and CSP guard', async () => {
+test('19.8.6 flagship dual-engine SiliconFlow TTS, audio bookmarks, expanded libraries, and CSP guard', async () => {
   const {
     SILICONFLOW_TTS_ENDPOINT,
     SILICONFLOW_TTS_VOICES,
@@ -228,9 +228,9 @@ test('19.8.5 flagship dual-engine SiliconFlow TTS, audio bookmarks, expanded lib
   assert.match(appCode, /saveAudioBookmark/);
 });
 
-test('19.8.5 stability fixes: dual-engine single-track, pause bookmark flush, pause-aware watchdog, and clean page/stop teardown', () => {
+test('19.8.6 stability fixes: dual-engine single-track, pause bookmark flush, pause-aware watchdog, and clean page/stop teardown', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-  assert.equal(APP_VERSION, '19.8.5');
+  assert.equal(APP_VERSION, '19.8.6');
   // 1. Single-track prefetch & playback use dual-engine isCloudTtsReady + activeTtsVoiceForKey
   assert.doesNotMatch(appSrc, /function prefetchNextRadioTrack[\s\S]{0,400}isGeminiTtsReady/);
   assert.doesNotMatch(appSrc, /async function playRadioSegment[\s\S]{0,400}isGeminiTtsReady/);
@@ -253,10 +253,10 @@ test('19.8.5 stability fixes: dual-engine single-track, pause bookmark flush, pa
   assert.match(appSrc, /言道修炼殿 18\.2 随身听/);
 });
 
-test('19.8.5 Apple HIG minimal craft: decluttered microcopy, editorial reading rhythm, and tactile CSS polish', () => {
+test('19.8.6 Apple HIG minimal craft: decluttered microcopy, editorial reading rhythm, and tactile CSS polish', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-  assert.equal(APP_VERSION, '19.8.5');
+  assert.equal(APP_VERSION, '19.8.6');
   // Decluttered key copy across Home, Reading, Vocabulary, Settings, More
   assert.doesNotMatch(appSrc, /自由单项加练与明细（日常只需点上方/);
   assert.doesNotMatch(appSrc, /Roediger & Karpicke/);
@@ -264,12 +264,12 @@ test('19.8.5 Apple HIG minimal craft: decluttered microcopy, editorial reading r
   assert.match(appSrc, /自由单项加练与更多入口/);
   assert.match(appSrc, /双击或长按英文词即可标词或 AI 查词。/);
   // Apple HIG minimal craft CSS rules present without breaking site-header backdrop guard
-  assert.match(cssSrc, /v19\.8\.5 Apple HIG Minimal Craft/);
+  assert.match(cssSrc, /v19\.8\.6 Apple HIG Minimal Craft/);
   assert.match(cssSrc, /max-width:\s*65ch/);
   assert.match(cssSrc, /transform:\s*scale\(0\.982\)/);
 });
 
-test('19.8.5 Playwright real-app E2E selector guard: preserves all E2E headings and voice preview button', () => {
+test('19.8.6 Playwright real-app E2E selector guard: preserves all E2E headings and voice preview button', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(appSrc, /试听 Gemini 声音/);
   assert.match(appSrc, /h\('h1','学习设置'\)/);
@@ -279,7 +279,7 @@ test('19.8.5 Playwright real-app E2E selector guard: preserves all E2E headings 
   assert.match(appSrc, /最近一次主动发起JSON备份：/);
 });
 
-test('19.8.5 Pocket Radio includes ~100-minute YouTube motivational speech library and ±5s seek buttons', async () => {
+test('19.8.6 Pocket Radio includes ~100-minute YouTube motivational speech library and ±5s seek buttons', async () => {
   const { buildRadioPodcastEpisodes } = await import('../radio.mjs');
   const ytTracks = buildRadioPlaylist({ channel: 'youtube_speeches' });
   const totalWords = ytTracks.reduce((sum, t) => sum + ((t.text.match(/\b[A-Za-z][A-Za-z'-]*\b/g) || []).length), 0);
@@ -293,7 +293,7 @@ test('19.8.5 Pocket Radio includes ~100-minute YouTube motivational speech libra
   assert.match(appSrc, /aria-label",.*?"前进 5 秒"/);
 });
 
-test('19.8.5 podcast playback clock records 0s on failed synthesis and ~30s for 30s play + 60s pause', () => {
+test('19.8.6 podcast playback clock records 0s on failed synthesis and ~30s for 30s play + 60s pause', () => {
   // Scenario A: waited 10s for synthesis that failed before playback ever started -> 0s & 0 clips
   const failedClock = createRadioPlaybackClock();
   failedClock.onPlaybackPausedOrStopped(10_000);

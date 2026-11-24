@@ -82,7 +82,8 @@ export function validateVocabularyTask(raw, index = 0) {
     }
     optionIds.add(optId);
     optionTexts.add(textKey);
-    options.push({ id: optId, text: optText });
+    const optGloss = cleanVocab(typeof opt === 'object' ? (opt.gloss || opt.gloss_en || opt.microGloss || '') : '');
+    options.push(optGloss ? { id: optId, text: optText, gloss: optGloss } : { id: optId, text: optText });
   });
 
   const rawCorrect = Array.isArray(raw.correct_option_ids)
@@ -132,6 +133,19 @@ export function validateVocabularyTask(raw, index = 0) {
       batchGroup: cleanVocab(raw.batch_group || raw.batchGroup || ''),
       isReviewMistake: Boolean(raw.is_review_mistake || raw.isReviewMistake || /错题|回炉|review_mistake/i.test(String(raw.batch_group || raw.batchGroup || ''))),
       priorMistakeNote: cleanVocab(raw.prior_mistake_note || raw.priorMistakeNote || ''),
+      lookalikes: Array.isArray(raw.lookalikes)
+        ? raw.lookalikes.map((entry) => {
+            if (typeof entry === 'string') return { word: cleanVocab(entry), gloss: '', diffHint: '' };
+            if (!entry || typeof entry !== 'object') return null;
+            const word = cleanVocab(entry.word || entry.target || '');
+            if (!word) return null;
+            return {
+              word,
+              gloss: cleanVocab(entry.gloss || entry.gloss_en || entry.sense_en || ''),
+              diffHint: cleanVocab(entry.diffHint || entry.diff_hint || '')
+            };
+          }).filter(Boolean)
+        : [],
       supportLevel: cleanVocab(raw.support_level || raw.supportLevel || 'ORIGINAL_WORD_AND_EXAMPLE_WITH_NEW_DISTRACTORS'),
       source: {
         id: cleanVocab(sourceObj.id || raw.pack_id || ''),
@@ -467,4 +481,337 @@ export function parseVocabPromptParts(prompt = '') {
   }
 
   return { instruction: '', blocks: [{ kind: 'plain', label: '', text: raw }] };
+}
+
+
+// v19.8.6: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff
+const BUILTIN_CONFUSABLE_GROUPS = [
+  [
+    { word: 'acquaintance', gloss: 'someone you know slightly' },
+    { word: 'apprentice', gloss: 'learner in a skilled trade' }
+  ],
+  [
+    { word: 'prophecy', gloss: 'prediction of the future' },
+    { word: 'hypocrisy', gloss: 'saying one thing, doing another' }
+  ],
+  [
+    { word: 'desolate', gloss: 'empty, bleak & lonely' },
+    { word: 'defective', gloss: 'broken or faulty' },
+    { word: 'dissolve', gloss: 'melt into liquid / end' }
+  ],
+  [
+    { word: 'exempt', gloss: 'free from a rule or duty' },
+    { word: 'excerpt', gloss: 'short part taken from a text' }
+  ],
+  [
+    { word: 'bustle', gloss: 'busy, noisy movement' },
+    { word: 'bristle', gloss: 'stiff hair / react angrily' },
+    { word: 'hustle', gloss: 'push or move hurriedly' }
+  ],
+  [
+    { word: 'staggered', gloss: 'walked unsteadily / shocked' },
+    { word: 'swaggered', gloss: 'walked in a proud, boastful way' }
+  ],
+  [
+    { word: 'strand', gloss: 'thin thread / leave stuck' },
+    { word: 'stride', gloss: 'long, confident step' },
+    { word: 'stranded', gloss: 'stuck with no way to leave' }
+  ],
+  [
+    { word: 'tread', gloss: 'step carefully on something' },
+    { word: 'thread', gloss: 'thin string for sewing' },
+    { word: 'treat', gloss: 'act toward / medical care' }
+  ],
+  [
+    { word: 'emerge', gloss: 'come out into view' },
+    { word: 'immerse', gloss: 'dip deeply into water or study' }
+  ],
+  [
+    { word: 'adapt', gloss: 'adjust to new conditions' },
+    { word: 'adopt', gloss: 'take on as your own' }
+  ],
+  [
+    { word: 'complement', gloss: 'complete or go well with' },
+    { word: 'compliment', gloss: 'polite praise' }
+  ],
+  [
+    { word: 'elicit', gloss: 'draw out a reply or reaction' },
+    { word: 'illicit', gloss: 'illegal or forbidden' }
+  ],
+  [
+    { word: 'eminent', gloss: 'famous and respected' },
+    { word: 'imminent', gloss: 'about to happen very soon' }
+  ],
+  [
+    { word: 'discrete', gloss: 'separate and distinct' },
+    { word: 'discreet', gloss: 'careful and private' }
+  ],
+  [
+    { word: 'stationary', gloss: 'not moving, standing still' },
+    { word: 'stationery', gloss: 'paper, pens & office supplies' }
+  ],
+  [
+    { word: 'principal', gloss: 'main / school head' },
+    { word: 'principle', gloss: 'basic rule or moral belief' }
+  ],
+  [
+    { word: 'affect', gloss: 'influence or change (verb)' },
+    { word: 'effect', gloss: 'result or outcome (noun)' }
+  ],
+  [
+    { word: 'allusion', gloss: 'indirect hint or reference' },
+    { word: 'illusion', gloss: 'false visual trick or belief' }
+  ],
+  [
+    { word: 'censure', gloss: 'formal strong criticism' },
+    { word: 'censor', gloss: 'block or cut sensitive content' }
+  ],
+  [
+    { word: 'dissipate', gloss: 'fade away gradually' },
+    { word: 'participate', gloss: 'take part in an activity' }
+  ],
+  [
+    { word: 'pervade', gloss: 'spread through every part' },
+    { word: 'persuade', gloss: 'convince someone to agree' },
+    { word: 'evade', gloss: 'escape or avoid cleverly' }
+  ],
+  [
+    { word: 'repatriate', gloss: 'send back to home country' },
+    { word: 'perpetuate', gloss: 'keep something going forever' }
+  ],
+  [
+    { word: 'render', gloss: 'cause to become / provide' },
+    { word: 'tender', gloss: 'soft, gentle / formal offer' },
+    { word: 'vendor', gloss: 'person or shop selling goods' }
+  ],
+  [
+    { word: 'rustle', gloss: 'soft dry leaf/paper sound' },
+    { word: 'tussle', gloss: 'short rough struggle' }
+  ],
+  [
+    { word: 'scramble', gloss: 'rush or climb hurriedly' },
+    { word: 'scribble', gloss: 'write quickly and messily' }
+  ],
+  [
+    { word: 'cater', gloss: 'provide food or service for' },
+    { word: 'crater', gloss: 'large bowl-shaped hole' }
+  ],
+  [
+    { word: 'lumber', gloss: 'cut wood / move heavily' },
+    { word: 'slumber', gloss: 'calm, deep sleep' }
+  ],
+  [
+    { word: 'foraging', gloss: 'searching widely for food' },
+    { word: 'forging', gloss: 'shaping metal / faking a copy' }
+  ],
+  [
+    { word: 'incentive', gloss: 'reward that motivates action' },
+    { word: 'inventive', gloss: 'creative and original' }
+  ],
+  [
+    { word: 'induce', gloss: 'cause or persuade to happen' },
+    { word: 'deduce', gloss: 'figure out from clues' },
+    { word: 'reduce', gloss: 'make smaller or less' }
+  ],
+  [
+    { word: 'chronic', gloss: 'lasting a long time' },
+    { word: 'chronicle', gloss: 'written record of events in order' }
+  ],
+  [
+    { word: 'surge', gloss: 'sudden strong rise or wave' },
+    { word: 'purge', gloss: 'remove unwanted things cleanly' }
+  ],
+  [
+    { word: 'stall', gloss: 'stop or delay progress' },
+    { word: 'stroll', gloss: 'walk slowly and casually' }
+  ],
+  [
+    { word: 'warp', gloss: 'bend or twist out of shape' },
+    { word: 'wrap', gloss: 'cover or fold around' }
+  ],
+  [
+    { word: 'dock', gloss: 'platform where ships load' },
+    { word: 'deck', gloss: 'floor of a ship' }
+  ],
+  [
+    { word: 'ferry', gloss: 'boat carrying people across water' },
+    { word: 'fairy', gloss: 'tiny magical storybook creature' },
+    { word: 'fury', gloss: 'wild, intense anger' }
+  ],
+  [
+    { word: 'pier', gloss: 'walkway built out over water' },
+    { word: 'peer', gloss: 'equal in age/status / look closely' }
+  ],
+  [
+    { word: 'juvenile', gloss: 'young, not yet grown-up' },
+    { word: 'jovial', gloss: 'cheerful and friendly' }
+  ],
+  [
+    { word: 'trail', gloss: 'country path / track left behind' },
+    { word: 'trial', gloss: 'court hearing / test run' }
+  ],
+  [
+    { word: 'ware', gloss: 'made goods like pottery' },
+    { word: 'wary', gloss: 'careful and suspicious of danger' }
+  ],
+  [
+    { word: 'gust', gloss: 'sudden brief rush of wind' },
+    { word: 'gist', gloss: 'main point or core idea' }
+  ],
+  [
+    { word: 'portable', gloss: 'easy to carry around' },
+    { word: 'potable', gloss: 'safe to drink' }
+  ],
+  [
+    { word: 'confidential', gloss: 'kept secret and private' },
+    { word: 'confident', gloss: 'sure of your own ability' }
+  ],
+  [
+    { word: 'excessive', gloss: 'too much, beyond normal' },
+    { word: 'exclusive', gloss: 'limited to a select group' }
+  ],
+  [
+    { word: 'antique', gloss: 'valuable old collectible' },
+    { word: 'antic', gloss: 'playful or silly trick' }
+  ],
+  [
+    { word: 'sting', gloss: 'sharp sudden pain or bite' },
+    { word: 'sling', gloss: 'strap for carrying or throwing' }
+  ]
+];
+
+const BUILTIN_GLOSS_BY_WORD = new Map();
+for (const group of BUILTIN_CONFUSABLE_GROUPS) {
+  for (const item of group) {
+    BUILTIN_GLOSS_BY_WORD.set(normVocab(item.word), item.gloss);
+  }
+}
+
+export function compressEnglishGloss(definition = '') {
+  let s = cleanVocab(definition);
+  if (!s) return '';
+  s = s.replace(/^(?:to\s+cause\s+someone\s+or\s+something\s+to\s+|relating\s+to\s+|a\s+person\s+who\s+|a\s+thing\s+that\s+|able\s+to\s+be\s+|intended\s+to\s+be\s+|seriously\s+|to\s+|a\s+|an\s+|the\s+)/i, '');
+  s = s.split(/[;.]/)[0].trim();
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length > 6) s = words.slice(0, 6).join(' ');
+  s = s.replace(/[,:;/-]+$/, '').trim();
+  if (s.length > 38) s = `${s.slice(0, 35).trim()}…`;
+  return s;
+}
+
+export function resolveOptionMicroGloss(opt, task, archiveWords = []) {
+  if (!opt || typeof opt !== 'object') return '';
+  const text = cleanVocab(opt.text || '');
+  if (!text || text.split(/\s+/).length > 4) return '';
+  if (cleanVocab(opt.gloss || '')) return cleanVocab(opt.gloss);
+  const key = normVocab(text);
+  if (BUILTIN_GLOSS_BY_WORD.has(key)) return BUILTIN_GLOSS_BY_WORD.get(key);
+  const arch = Array.isArray(archiveWords) ? archiveWords : [];
+  const hit = arch.find((row) => normVocab(row?.target || row?.word || '') === key);
+  if (hit) {
+    if (cleanVocab(hit.gloss_en || hit.gloss || '')) return cleanVocab(hit.gloss_en || hit.gloss);
+    const compressed = compressEnglishGloss(hit.definition_en || hit.definitionEn || '');
+    if (compressed) return compressed;
+  }
+  if (task && normVocab(task.target || '') === key && cleanVocab(task.targetSense || '')) {
+    return compressEnglishGloss(task.targetSense);
+  }
+  return '';
+}
+
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const dp = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+export function findLookAlikeWords(task, archiveWords = []) {
+  const target = cleanVocab(task?.target || '');
+  const targetKey = normVocab(target);
+  if (!targetKey || targetKey.length < 3) return [];
+  const out = [];
+  const seen = new Set([targetKey]);
+  const pushEntry = (word, gloss = '', diffHint = '', source = 'builtin') => {
+    const w = cleanVocab(word);
+    const k = normVocab(w);
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push({ word: w, gloss: cleanVocab(gloss), diffHint: cleanVocab(diffHint), source });
+  };
+
+  // 1. Pack-curated lookalikes
+  for (const item of (Array.isArray(task?.lookalikes) ? task.lookalikes : [])) {
+    pushEntry(item.word, item.gloss, item.diffHint, 'pack');
+  }
+
+  // 2. Built-in high-value IELTS & learner confusables
+  for (const group of BUILTIN_CONFUSABLE_GROUPS) {
+    if (group.some((item) => normVocab(item.word) === targetKey || (targetKey.length >= 5 && normVocab(item.word).startsWith(targetKey.slice(0, 5)) && Math.abs(item.word.length - targetKey.length) <= 3))) {
+      for (const item of group) {
+        if (normVocab(item.word) !== targetKey) {
+          pushEntry(item.word, item.gloss, '', 'curated');
+        }
+      }
+    }
+  }
+
+  // 3. Dynamic orthographic similarity against current pack archive
+  const arch = Array.isArray(archiveWords) ? archiveWords : [];
+  const scored = [];
+  for (const row of arch) {
+    const w = cleanVocab(row?.target || row?.word || '');
+    const k = normVocab(w);
+    if (!k || seen.has(k) || k.includes(' ') || Math.abs(k.length - targetKey.length) > 3) continue;
+    const dist = editDistance(targetKey, k);
+    const maxLen = Math.max(targetKey.length, k.length);
+    const sim = 1 - dist / maxLen;
+    const sameStart = k.slice(0, 2) === targetKey.slice(0, 2);
+    const sameEnd = k.slice(-2) === targetKey.slice(-2);
+    if ((sim >= 0.5 && (sameStart || sameEnd)) || sim >= 0.62) {
+      scored.push({
+        word: w,
+        gloss: cleanVocab(row.gloss_en || row.gloss || '') || compressEnglishGloss(row.definition_en || row.definitionEn || ''),
+        sim
+      });
+    }
+  }
+  scored.sort((a, b) => b.sim - a.sim);
+  for (const s of scored.slice(0, 3)) {
+    pushEntry(s.word, s.gloss, '', 'archive');
+  }
+  return out.slice(0, 4);
+}
+
+export function highlightLookAlikeDiff(baseWord = '', otherWord = '') {
+  const a = String(baseWord || '');
+  const b = String(otherWord || '');
+  const al = a.toLowerCase();
+  const bl = b.toLowerCase();
+  let prefix = 0;
+  while (prefix < al.length && prefix < bl.length && al[prefix] === bl[prefix]) prefix++;
+  let suffix = 0;
+  while (
+    suffix < al.length - prefix &&
+    suffix < bl.length - prefix &&
+    al[al.length - 1 - suffix] === bl[bl.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+  const segs = [];
+  if (prefix > 0) segs.push({ text: b.slice(0, prefix), diff: false });
+  const midEnd = b.length - suffix;
+  if (midEnd > prefix) segs.push({ text: b.slice(prefix, midEnd), diff: true });
+  if (suffix > 0) segs.push({ text: b.slice(midEnd), diff: false });
+  return segs.length ? segs : [{ text: b, diff: false }];
 }
