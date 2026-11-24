@@ -2954,7 +2954,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.2)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (19.8.3)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -5321,7 +5321,7 @@ function renderSpeechChamber(){
 function renderSpeechTransfer(speech){
  const task=(data.dailyPack?.transferTasks||[]).find(row=>(row.taskRole==='speech_transfer'||row.task_role==='speech_transfer'||(row.tags||[]).some(tag=>String(tag).toLowerCase()==='speech_transfer'))&&(!row.sourceItemIds?.length||row.sourceItemIds.includes(speech.id)||row.source_item_ids?.includes(speech.id)));if(!task)return null;
  const prior=(data.speechTransferAttempts||[]).find(row=>row.taskId===task.id&&row.packId===data.dailyPack?.packId);const box=section('speech-transfer-panel');box.append(h('h3','演讲迁移 · SPEECH TRANSFER'),p('用自己的语言回答新情境问题；不要求背诵原文，也不自动评分。','subtle'),h('h4',task.prompt));const input=textarea(prior?.firstAnswer||'','Your independent answer in English…');input.classList.add('answer-input');
- const submit=()=>{if(!input.value.trim()){notify('请先提交文字回答，或使用录音保存一段独立回答。');return;}const row={id:prior?.id||`speech-transfer:${task.id}:${Date.now()}`,taskId:task.id,packId:data.dailyPack.packId,speechId:speech.id,firstAnswer:input.value.trim(),firstSubmittedAt:prior?.firstSubmittedAt||new Date().toISOString(),promptUsed:Boolean(data.speechTransferHints?.[task.id]),referenceViewed:false,evidenceType:'INDEPENDENT',recordingIds:prior?.recordingIds||[],status:'UNASSESSED'};data.speechTransferAttempts=[...(data.speechTransferAttempts||[]).filter(x=>x.id!==row.id),row];if(save())render();};
+ const submit=()=>{const cur=(data.speechTransferAttempts||[]).find(r=>r.taskId===task.id&&r.packId===data.dailyPack?.packId)||prior;const recIds=cur?.recordingIds||[];if(!input.value.trim()&&!recIds.length){notify('请先输入文字回答，或先录完并保存一段录音。');return;}const row={id:cur?.id||`speech-transfer:${task.id}:${Date.now()}`,taskId:task.id,packId:data.dailyPack.packId,speechId:speech.id,firstAnswer:input.value.trim(),firstSubmittedAt:cur?.firstSubmittedAt||new Date().toISOString(),promptUsed:Boolean(data.speechTransferHints?.[task.id]),referenceViewed:Boolean(cur?.referenceViewed),evidenceType:'INDEPENDENT',recordingIds:recIds,status:input.value.trim()?'UNASSESSED':'VOICE_UNASSESSED'};data.speechTransferAttempts=[...(data.speechTransferAttempts||[]).filter(x=>x.id!==row.id),row];if(save()){notify(row.firstAnswer?'✓ 独立回答已提交！':`✓ 录音回答已提交（${recIds.length} 段）！`);render();}};
  box.append(field('Independent first response',input),btn('显示提示',()=>{data.speechTransferHints??={};data.speechTransferHints[task.id]=true;save();render();},'btn ghost'),btn('提交独立回答',submit,'btn primary'));if(data.speechTransferHints?.[task.id]&&task.hints?.length)box.append(p(`提示：${task.hints[0]}`,'hint'));
  if(!prior)box.append(renderRecordingControls({weaknessId:`speech-transfer:${task.id}`,taskId:task.id,attemptId:`speech-transfer:${task.id}`,role:'original',onSaved:row=>{const current=(data.speechTransferAttempts||[]).find(x=>x.taskId===task.id)||{id:`speech-transfer:${task.id}`,taskId:task.id,packId:data.dailyPack.packId,speechId:speech.id,firstAnswer:'',firstSubmittedAt:new Date().toISOString(),evidenceType:'INDEPENDENT',status:'UNASSESSED'};current.recordingIds=[...new Set([...(current.recordingIds||[]),row.id])];data.speechTransferAttempts=[...(data.speechTransferAttempts||[]).filter(x=>x.id!==current.id),current];save();}}));
  if(prior){box.append(p(`初答状态：${prior.evidenceType||'UNASSESSED'}${prior.recordingIds?.length?' · 已保存录音':''}`,'hint'),btn(prior.referenceViewed?'已显示参考表达':'显示参考表达',()=>{prior.referenceViewed=true;prior.evidenceType='PROMPTED';if(save())render();},'btn ghost'));if(prior.referenceViewed){box.append(p(`参考表达：${task.referenceAnswer||'未提供'}`,'small-block'));const retry=textarea(prior.retryAnswer||'','Answer again without looking at the reference…');box.append(field('Optional no-prompt retry',retry),btn('保存再次独立回答',()=>{prior.retryAnswer=retry.value;prior.retrySubmittedAt=new Date().toISOString();prior.evidenceType='REVISED';if(save())render();},'btn secondary'));}}
@@ -5335,9 +5335,12 @@ function renderReadingRetelling(reading){
    const at=composeReadingRetellingSubmission({reading,packId:data.dailyPack?.packId||null,current:latestRetelling(),answer:draft.value});
    if(!at){notify('请先输入复述，或开始并保存一段录音。');return;}
    data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==at.id),at];
-   if(save())render();
+   if(save()){
+     notify(at.firstAnswer?(at.recordingIds?.length?`✓ 独立复述已提交（文字 + 录音 ${at.recordingIds.length} 段）！`:'✓ 独立复述已提交！'):`✓ 录音复述已提交（${at.recordingIds.length} 段）！`);
+     render();
+   }
  };
- box.append(field('Independent first response',draft),lines(renderDictationAssistButton(draft),btn('提交独立复述',submit,'btn primary'),btn(retellingRefVisible[reading.id]?'▲ 收起原文/提示':'显示原文/提示',()=>{
+ box.append(field('Independent first response',draft),lines(renderDictationAssistButton(draft),btn(last?.firstSubmittedAt?'✓ 更新独立复述':'提交独立复述',submit,'btn primary'),btn(retellingRefVisible[reading.id]?'▲ 收起原文/提示':'显示原文/提示',()=>{
    const willOpen=!retellingRefVisible[reading.id];
    retellingRefVisible[reading.id]=willOpen;
    if(willOpen){
@@ -5348,7 +5351,15 @@ function renderReadingRetelling(reading){
    }
    render();
  },'btn ghost')));
- const attempt=last||{id:`retelling:${reading.id}:draft`,readingId:reading.id,packId:data.dailyPack?.packId||null,recordingIds:[]};box.append(renderRecordingControls({weaknessId:`reading-retelling:${reading.id}`,taskId:reading.id,attemptId:attempt.id,role:'original',onSaved:row=>{const current=(data.readingRetellingAttempts||[]).find(x=>x.id===attempt.id)||attempt;current.recordingIds=[...new Set([...(current.recordingIds||[]),row.id])];data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==current.id),current];save();}}));
+ if(last?.firstSubmittedAt){
+   const parts=[];
+   if(last.firstAnswer)parts.push('文字');
+   if(last.recordingIds?.length)parts.push(`录音 ${last.recordingIds.length} 段`);
+   const receipt=div('submitted-recording-receipt is-attached');
+   receipt.append(p(`✅ 已提交独立复述（${parts.join(' + ')||'已保存'}）· 可点上方「显示原文/提示」对照自检，或继续下一模块。`,'submitted-recording-title'));
+   box.append(receipt);
+ }
+ const attempt=last||{id:`retelling:${reading.id}:draft`,readingId:reading.id,packId:data.dailyPack?.packId||null,recordingIds:[]};box.append(renderRecordingControls({weaknessId:`reading-retelling:${reading.id}`,taskId:reading.id,attemptId:attempt.id,role:'original',onSaved:row=>{const current=(data.readingRetellingAttempts||[]).find(x=>x.id===attempt.id)||attempt;current.recordingIds=[...new Set([...(current.recordingIds||[]),row.id])];data.readingRetellingAttempts=[...(data.readingRetellingAttempts||[]).filter(x=>x.id!==current.id),current];save();render();}}));
  if(last?.firstAnswer){box.append(renderDiscourseDiagnosticCard(last.firstAnswer,{referenceText:reading.text}));}
  if(last?.firstAnswer){box.append(renderAiReplyWidget('🤖 AI 导师纯英文点评复述',()=>askAiCritiqueOutput({prompt:`Retell the article: ${reading.title}`,userAnswer:last.firstAnswer,referenceAnswer:reading.text.slice(0,800)})));}
  if(last?.referenceViewed && retellingRefVisible[reading.id]){
