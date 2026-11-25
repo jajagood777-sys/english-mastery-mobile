@@ -484,7 +484,7 @@ export function parseVocabPromptParts(prompt = '') {
 }
 
 
-// v20.0.2: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff
+// v20.0.3: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff
 const BUILTIN_CONFUSABLE_GROUPS = [
   [
     { word: 'acquaintance', gloss: 'someone you know slightly' },

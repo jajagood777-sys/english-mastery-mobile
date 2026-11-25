@@ -7,7 +7,7 @@ import {
   buildAutoSyncedSegments
 } from '../radio.mjs';
 
-test('v20.0.2: stripSpeakingPromptInstructions removes IELTS retake prefix & Speak N-M seconds instructions', () => {
+test('v20.0.3: stripSpeakingPromptInstructions removes IELTS retake prefix & Speak N-M seconds instructions', () => {
   const raw = "ORIGINAL IELTS Part 2 Retake: Describe a time when you discovered that a popular claim or advice online was unreliable. Speak 75–100 seconds (focus on fixing: uncountable 'do some research', 'spread' not 'prestige', past tense 'drank', and 'ubiquitous' pronunciation).";
   const cleaned = stripSpeakingPromptInstructions(raw);
   assert.equal(cleaned, 'Describe a time when you discovered that a popular claim or advice online was unreliable.');
@@ -15,7 +15,7 @@ test('v20.0.2: stripSpeakingPromptInstructions removes IELTS retake prefix & Spe
   assert.ok(!cleaned.includes('ORIGINAL IELTS'));
 });
 
-test('v20.0.2: buildPackSpeakingQaEpisodes produces only 1 clean Q segment without fake Q2 instruction line', () => {
+test('v20.0.3: buildPackSpeakingQaEpisodes produces only 1 clean Q segment without fake Q2 instruction line', () => {
   const eps = buildPackSpeakingQaEpisodes([
     {
       id: '20261123-T01',
@@ -31,7 +31,7 @@ test('v20.0.2: buildPackSpeakingQaEpisodes produces only 1 clean Q segment witho
   assert.ok(!eps[0].cleanText.includes('Speak 75'));
 });
 
-test('v20.0.2: app.js routes offline Notebook ZIPs cleanly, enables single-mode subtitles, and keeps PR#129 fixes', () => {
+test('v20.0.3: app.js routes offline Notebook ZIPs cleanly, enables single-mode subtitles, and keeps PR#129 fixes', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('let zenFocusMode = false;'));
   assert.ok(appSrc.includes('function toggleZenFocusMode()'));
