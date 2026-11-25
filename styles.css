@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.0.4 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.0.5 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -1783,7 +1783,7 @@ details[open] > summary::after {
   }
 }
 
-/* v20.0.4 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
+/* v20.0.5 Progressive Disclosure, One-Hand Thumb Zone (#19) & Accessibility (#21) */
 .v19-continuity-card, .v19-more-tools, .v19-weekly-card { margin-top: 14px; }
 .v19-disclosure { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border, rgba(0,0,0,0.08)); }
 .v19-disclosure summary { cursor: pointer; padding: 6px 0; user-select: none; }
@@ -1792,7 +1792,7 @@ details[open] > summary::after {
 .v19-one-hand .btn, .v19-one-hand .radio-play-btn, .v19-one-hand .radio-seek-btn { min-height: 52px; min-width: 52px; }
 
 /* ==========================================================================
-   v20.0.4 Contemporary Oriental Study (当代东方书房) Design System
+   v20.0.5 Contemporary Oriental Study (当代东方书房) Design System
    Warm natural-light paper · Near-ink typography · Deep Jade primary action
    Hairline hierarchy · Zero glass clutter · Restrained seal brand detail
    ========================================================================== */
@@ -2031,13 +2031,13 @@ html[data-theme="night"] .site-header {
   .radio-seek-btn { width: 48px; min-width: 48px; font-size: 11.5px !important; }
 }
 
-/* v20.0.4 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
+/* v20.0.5 iPhone visualViewport Keyboard Guard (WebKit Bug 217754) */
 html.v19-keyboard-open .mobile-nav { display: none !important; }
 html.v19-keyboard-open .reading-toolbar { position: static; margin-top: 12px; }
 html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 
 /* ==========================================================================
-   v20.0.4 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
+   v20.0.5 Live Synced Scrolling Subtitle Teleprompter (Pocket Radio Q&A)
    ========================================================================== */
 .radio-subtitle-panel {
   margin-top: 12px;
@@ -2139,7 +2139,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
-/* v20.0.4 Commute One-Hand 44x44 CSS px touch target guarantee */
+/* v20.0.5 Commute One-Hand 44x44 CSS px touch target guarantee */
 .radio-transport-row .radio-icon-btn,
 .radio-transport-row .radio-seek-btn,
 .radio-transport-row .radio-play-btn {
@@ -2148,7 +2148,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
+   v20.0.5 iPhone Pocket Radio Mobile Viewport Lock, Episode Strip & Actions
    ========================================================================== */
 .lexicon-drawer-panel,
 .switch-dialog {
@@ -2280,7 +2280,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
+   v20.0.5 Music-Player Playlist & Q&A Question Picker (MusicFree / AntennaPod)
    ========================================================================== */
 .radio-view-tabs {
   display: grid;
@@ -2442,7 +2442,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Cross-Episode Question Bank & Random Mock Examiner Bar
+   v20.0.5 Cross-Episode Question Bank & Random Mock Examiner Bar
    ========================================================================== */
 .radio-q-toolbar {
   display: flex;
@@ -2473,7 +2473,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Batch 1: Unclear Mark Undo Toast, Interruption Resume & Mirror Mode
+   v20.0.5 Batch 1: Unclear Mark Undo Toast, Interruption Resume & Mirror Mode
    ========================================================================== */
 .radio-unclear-banner,
 .radio-interrupt-banner,
@@ -2512,7 +2512,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Batch 2: Home Env/Deferred Card, Minimal Diff, Reading Flash & Compare
+   v20.0.5 Batch 2: Home Env/Deferred Card, Minimal Diff, Reading Flash & Compare
    ========================================================================== */
 .home-env-bar,
 .home-deferred-card,
@@ -2582,7 +2582,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Compact Vocab Feedback & Zero-Scroll Sticky Next Bar
+   v20.0.5 Compact Vocab Feedback & Zero-Scroll Sticky Next Bar
    ========================================================================== */
 .vocab-feedback-top-bar {
   display: flex;
@@ -2616,7 +2616,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Commute Quiz Flow: Fast-Flow Toggle, 15-Item Batch & Delayed Retry
+   v20.0.5 Commute Quiz Flow: Fast-Flow Toggle, 15-Item Batch & Delayed Retry
    ========================================================================== */
 .vocab-commute-bar {
   display: flex;
@@ -2644,7 +2644,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 }
 
 /* ==========================================================================
-   v20.0.4 Vocabulary Instruction Separation & Speaking Recording Receipt
+   v20.0.5 Vocabulary Instruction Separation & Speaking Recording Receipt
    ========================================================================== */
 .vocab-prompt-instruction {
   display: flex;
@@ -2761,7 +2761,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
   margin-top: 4px;
 }
 
-/* v20.0.4: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff */
+/* v20.0.5: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff */
 .vocab-option-main{display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:1;min-width:0;text-align:left;}
 .vocab-option-gloss{font-size:12.5px;line-height:1.38;color:var(--ink-soft,#5a6660);font-weight:400;letter-spacing:0;white-space:normal;overflow:visible;word-break:break-word;}
 .vocab-option-btn.is-correct .vocab-option-gloss{color:#1d5c45;}
@@ -2775,19 +2775,37 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 .vocab-lookalike-gloss{font-size:12px;color:var(--ink-soft,#5a6660);}
 .vocab-lookalike-speak{padding:4px 8px !important;min-height:28px !important;flex-shrink:0;}
 
-/* v20.0.4: iPhone 14 Pro Max Bottom Thumb Zone, Bump-Safe Targets, Undo Pill & SLA Overlays */
+/* v20.0.5: iPhone 14 Pro Max Bottom Thumb Zone, Bump-Safe Targets, Undo Pill & SLA Overlays */
 .v20-commute-bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;align-items:center;}
 .vocab-option-btn{min-height:52px;padding-top:12px;padding-bottom:12px;}
 .vocab-sticky-next-bar{padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));}
 .hypercorrection-banner{margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(217,119,6,0.12);border:1px solid rgba(217,119,6,0.35);color:#92400e;}
 .floating-undo-pill{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:#1e2a24;color:#faf8f4;box-shadow:0 8px 24px rgba(0,0,0,0.22);max-width:92vw;}
 .floating-undo-pill .tiny{color:#e6ece8;margin:0;}
-.weak-form-word{opacity:0.65;font-size:0.92em;}
-.thought-slash{color:#0f5d46;font-weight:700;margin:0 4px;}
-body.pure-book-mode mark,body.pure-book-mode .reading-highlight{background:transparent !important;border-bottom:1px dotted rgba(24,78,61,0.35);}
-body.sentence-focus-mode #reading-article p{line-height:1.85;font-size:18px;letter-spacing:0.01em;}
+/* v20.0.5: Functional Reading Modes (Pure Book, Sentence Focus, Weak-Form Prosody) */
+.reading-mode-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;margin:8px 0 12px;border-radius:12px;background:rgba(15,93,70,0.07);border:1px solid rgba(15,93,70,0.18);}
+.reading-mode-banner .tiny{margin:0;color:#144d3b;font-weight:600;}
+.reading-prosody-legend{background:rgba(29,78,216,0.06);border-color:rgba(29,78,216,0.18);}
+.reading-prosody-legend .tiny{color:#1e3a8a;}
+.reading-focus-bar{position:sticky;top:8px;z-index:20;backdrop-filter:blur(8px);background:rgba(248,251,249,0.95);box-shadow:0 4px 14px rgba(15,45,34,0.08);}
+.weak-form-word{color:#5e6c64;font-size:0.94em;font-weight:400;}
+.weak-form-ipa{font-size:0.68em;color:#0f5d46;opacity:0.85;margin-left:1px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;user-select:none;}
+.link-arc{color:#b45309;font-weight:700;margin:0 1px;font-size:0.95em;user-select:none;}
+.thought-slash{color:#0f5d46;font-weight:800;margin:0 3px;user-select:none;}
+.reading-sentence-span{display:inline;border-radius:6px;padding:2px 4px;transition:opacity 0.18s ease,background-color 0.18s ease;cursor:pointer;}
+.reading-sentence-span.is-focused-sentence{opacity:1 !important;background:rgba(15,93,70,0.11);box-shadow:inset 3px 0 0 #0f5d46;padding-left:8px;color:#111c17;}
+.reading-sentence-span.is-dimmed-sentence{opacity:0.28;}
+.reading-sentence-span.is-dimmed-sentence:hover{opacity:0.65;}
+body.pure-book-mode .journey-flow-ribbon,
+body.pure-book-mode .daily-journey-card,
+body.pure-book-mode .reading-scroll-bar,
+body.pure-book-mode .reading-meta-line{display:none !important;}
+body.pure-book-mode #reading-article{background:#fbf7ee !important;border:1px solid #e6dcc8 !important;border-radius:16px;padding:22px 20px !important;font-family:Georgia,"Times New Roman","Songti SC",serif;box-shadow:0 6px 24px rgba(68,52,26,0.08);}
+body.pure-book-mode #reading-article p.reading-paragraph{line-height:1.95;font-size:18px;color:#27221b;margin-bottom:1.15em;}
+body.pure-book-mode mark,body.pure-book-mode .reading-highlight,body.pure-book-mode strong.story-target-word{background:transparent !important;color:inherit !important;font-weight:400 !important;border-bottom:1px dotted rgba(24,78,61,0.32);}
+body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;font-size:18px;letter-spacing:0.01em;}
 
-/* v20.0.4: Speech Chamber Compact Player & Synced Scrolling Subtitles */
+/* v20.0.5: Speech Chamber Compact Player & Synced Scrolling Subtitles */
 .speech-compact-player{display:flex;flex-direction:column;gap:8px;padding:12px 14px;}
 .speech-time-pill{font-variant-numeric:tabular-nums;white-space:nowrap;min-width:74px;}
 .speech-transport-row{display:grid;grid-template-columns:64px minmax(0,1fr) 64px;gap:8px;align-items:center;}
@@ -2796,3 +2814,6 @@ body.sentence-focus-mode #reading-article p{line-height:1.85;font-size:18px;lett
 .speech-status-line{margin:0 !important;}
 .speech-subtitle-panel{margin-top:10px;}
 .speech-subtitle-list{max-height:360px !important;}
+
+.speech-plan-banner{flex-direction:column;align-items:flex-start;gap:6px;}
+.speech-anchor-chips{display:flex;flex-wrap:wrap;gap:6px;}
