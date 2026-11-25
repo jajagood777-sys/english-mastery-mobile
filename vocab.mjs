@@ -484,7 +484,7 @@ export function parseVocabPromptParts(prompt = '') {
 }
 
 
-// v20.0.1: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff
+// v20.0.2: Post-answer Known-Word Micro-Gloss & Optional Look-Alike Diff
 const BUILTIN_CONFUSABLE_GROUPS = [
   [
     { word: 'acquaintance', gloss: 'someone you know slightly' },
@@ -690,12 +690,15 @@ for (const group of BUILTIN_CONFUSABLE_GROUPS) {
 export function compressEnglishGloss(definition = '') {
   let s = cleanVocab(definition);
   if (!s) return '';
-  s = s.replace(/^(?:to\s+cause\s+someone\s+or\s+something\s+to\s+|relating\s+to\s+|a\s+person\s+who\s+|a\s+thing\s+that\s+|able\s+to\s+be\s+|intended\s+to\s+be\s+|seriously\s+|to\s+|a\s+|an\s+|the\s+)/i, '');
+  s = s.replace(/^(?:to\s+cause\s+someone\s+or\s+something\s+to\s+|relating\s+to\s+|a\s+person\s+who\s+|a\s+thing\s+that\s+|able\s+to\s+be\s+|intended\s+to\s+be\s+|to\s+|a\s+|an\s+|the\s+)/i, '');
   s = s.split(/[;.]/)[0].trim();
   const words = s.split(/\s+/).filter(Boolean);
-  if (words.length > 6) s = words.slice(0, 6).join(' ');
+  if (words.length > 12) s = words.slice(0, 12).join(' ');
+  // Strip any dangling conjunction/preposition/article at the end so gloss always reads completely
+  while (/\s+(?:or|and|of|to|with|in|on|for|by|as|at|the|a|an|that|which|who)$/i.test(s)) {
+    s = s.replace(/\s+(?:or|and|of|to|with|in|on|for|by|as|at|the|a|an|that|which|who)$/i, '').trim();
+  }
   s = s.replace(/[,:;/-]+$/, '').trim();
-  if (s.length > 38) s = `${s.slice(0, 35).trim()}…`;
   return s;
 }
 

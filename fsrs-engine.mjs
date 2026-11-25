@@ -1,4 +1,4 @@
-// YanDao v20.0.1 — Pure Client-Side FSRS-6 DSR Memory & Scheduling Engine (Zero Dependencies)
+// YanDao v20.0.2 — Pure Client-Side FSRS-6 DSR Memory & Scheduling Engine (Zero Dependencies)
 
 export const FSRS_DEFAULTS = {
   desiredRetention: 0.90,

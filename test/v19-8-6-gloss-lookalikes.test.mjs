@@ -9,19 +9,20 @@ import {
   compressEnglishGloss
 } from '../vocab.mjs';
 
-test('v20.0.1 resolveOptionMicroGloss returns concise L2 gloss from option.gloss, builtin, or archive (never for full definition options)', () => {
+test('v20.0.2 resolveOptionMicroGloss returns concise L2 gloss from option.gloss, builtin, or archive (never for full definition options)', () => {
   const archive = [
     { id: 'W1', target: 'driftwood', definition_en: 'Pieces of wood floating on the sea or washed onto the shore.', example: 'Workers cleared driftwood.' }
   ];
   assert.equal(resolveOptionMicroGloss({ id: 'A', text: 'juvenile', gloss: 'young · not grown-up' }, {}, archive), 'young · not grown-up');
   assert.equal(resolveOptionMicroGloss({ id: 'B', text: 'staggered' }, {}, archive), 'walked unsteadily / shocked');
-  assert.equal(resolveOptionMicroGloss({ id: 'C', text: 'driftwood' }, {}, archive), 'Pieces of wood floating on the');
+  assert.equal(resolveOptionMicroGloss({ id: 'C', text: 'driftwood' }, {}, archive), 'Pieces of wood floating on the sea or washed onto the shore');
   // Definition-recognition options (>4 words) must not get redundant micro-gloss
   assert.equal(resolveOptionMicroGloss({ id: 'D', text: 'To cause someone or something to be in a particular condition' }, {}, archive), '');
-  assert.ok(compressEnglishGloss('Relating to young people or animals not yet fully grown.').length <= 38);
+  assert.equal(compressEnglishGloss('To repair something that is broken or damaged.'), 'repair something that is broken or damaged');
+  assert.equal(/\b(?:or|and|the)$/.test(compressEnglishGloss('To pull or twist something suddenly and')), false);
 });
 
-test('v20.0.1 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypocrisy, pack lookalikes, and archive similarity', () => {
+test('v20.0.2 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypocrisy, pack lookalikes, and archive similarity', () => {
   const la1 = findLookAlikeWords({ target: 'acquaintance', lookalikes: [] }, []);
   assert.ok(la1.some((x) => x.word === 'apprentice'), 'should surface apprentice for acquaintance');
 
@@ -36,13 +37,13 @@ test('v20.0.1 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypo
   assert.equal(la3[0].gloss, 'guarded room');
 });
 
-test('v20.0.1 highlightLookAlikeDiff isolates differing core letters cleanly', () => {
+test('v20.0.2 highlightLookAlikeDiff isolates differing core letters cleanly', () => {
   const segs = highlightLookAlikeDiff('acquaintance', 'apprentice');
   assert.equal(segs.map((s) => s.text).join(''), 'apprentice');
   assert.ok(segs.some((s) => s.diff), 'should mark differing segments');
 });
 
-test('v20.0.1 normalizeVocabularyPractice preserves opt.gloss and task.lookalikes, and app.js gates both behind post-answer prior', () => {
+test('v20.0.2 normalizeVocabularyPractice preserves opt.gloss and task.lookalikes, and app.js gates both behind post-answer prior', () => {
   const res = normalizeVocabularyPractice([
     {
       id: 'V1',
