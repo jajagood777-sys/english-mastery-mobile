@@ -29,7 +29,7 @@ import {
   buildConfusePairDuel
 } from '../sla-enhancers.mjs';
 
-test('v20.0.1 FSRS-6 DSR engine schedules reviews, enforces CMRR floor, protects pretesting, and handles leeches & 3-day criterion', () => {
+test('v20.0.2 FSRS-6 DSR engine schedules reviews, enforces CMRR floor, protects pretesting, and handles leeches & 3-day criterion', () => {
   assert.equal(clampDesiredRetention(0.65), 0.80);
   assert.equal(clampDesiredRetention(0.99), 0.93);
   assert.equal(mapBehaviorToFsrsRating({ correct: false }), 1);
@@ -60,7 +60,7 @@ test('v20.0.1 FSRS-6 DSR engine schedules reviews, enforces CMRR floor, protects
   assert.equal(selectDifficultyTierByStability(45).tier, 3);
 });
 
-test('v20.0.1 backlog rescue, Smart Fuzz, Disperse Siblings, Anti-Clustering burying, and Interleaving work deterministically', () => {
+test('v20.0.2 backlog rescue, Smart Fuzz, Disperse Siblings, Anti-Clustering burying, and Interleaving work deterministically', () => {
   const now = Date.UTC(2026, 10, 24);
   const rescue = sortByDescendingRetrievability([
     { id: 'a', s: 2, lastReviewMs: now - 10 * 86400000 },
@@ -89,7 +89,7 @@ test('v20.0.1 backlog rescue, Smart Fuzz, Disperse Siblings, Anti-Clustering bur
   assert.equal(computeStabilityDistribution({ x: { s: 2 }, y: { s: 12 }, z: { s: 45 }, w: { s: 120 } }).permanent, 1);
 });
 
-test('v20.0.1 SLA enhancers cover Hypercorrection, 95-98% coverage, 1T check, weak forms, pause/PTR, VAD trim, chips & Socratic AI', () => {
+test('v20.0.2 SLA enhancers cover Hypercorrection, 95-98% coverage, 1T check, weak forms, pause/PTR, VAD trim, chips & Socratic AI', () => {
   assert.equal(isHypercorrectionError({ rtMs: 900, correct: false }), true);
   assert.equal(isHypercorrectionError({ rtMs: 900, correct: true }), false);
 
@@ -121,7 +121,7 @@ test('v20.0.1 SLA enhancers cover Hypercorrection, 95-98% coverage, 1T check, we
   assert.equal(buildConfusePairDuel('prophecy', 'hypocrisy', ['A'], ['B']).rounds.length, 2);
 });
 
-test('v20.0.1 sw.js precaches new modules with Safari HTTP 206 Range handler and app.js declares all state variables', () => {
+test('v20.0.2 sw.js precaches new modules with Safari HTTP 206 Range handler and app.js declares all state variables', () => {
   const swSrc = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(swSrc.includes('./fsrs-engine.mjs'));
   assert.ok(swSrc.includes('./sla-enhancers.mjs'));
@@ -141,9 +141,9 @@ test('v20.0.1 sw.js precaches new modules with Safari HTTP 206 Range handler and
 import { migrateBackupPayload } from '../core.mjs';
 import { computeStateProgressScore } from '../state-mirror.mjs';
 
-test('v20.0.1 migrateBackupPayload preserves fsrsState and masteredVocabWords across IndexedDB/backup restore', () => {
+test('v20.0.2 migrateBackupPayload preserves fsrsState and masteredVocabWords across IndexedDB/backup restore', () => {
   const payload = {
-    version: '20.0.1',
+    version: '20.0.2',
     items: [],
     attempts: [],
     sessions: [],

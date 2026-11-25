@@ -10,8 +10,8 @@ import {
   replayFsrsShadowHistory
 } from '../core.mjs';
 
-test('v20.0.1 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
-  assert.equal(APP_VERSION, '20.0.1');
+test('v20.0.2 Blind Grading Audit: accepts UK/US variants & curly quotes while rejecting meaning-changing errors', () => {
+  assert.equal(APP_VERSION, '20.0.2');
   // Accepted UK/US variants (preserves original user text verbatim)
   const uk1 = compareAnswer('colour', 'color');
   assert.equal(uk1.status, 'correct');
@@ -36,7 +36,7 @@ test('v20.0.1 Blind Grading Audit: accepts UK/US variants & curly quotes while r
   assert.equal(compareAnswer('borrow', 'lend').status, 'incorrect');
 });
 
-test('v20.0.1 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
+test('v20.0.2 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite newer saved learning state', () => {
   const mem = new Map();
   const storage = {
     getItem: k => (mem.has(k) ? mem.get(k) : null),
@@ -53,7 +53,7 @@ test('v20.0.1 Cross-Tab Stale-Write Guard: older tab revision cannot overwrite n
   assert.equal(JSON.parse(mem.get('store')).attempts.length, 2);
 });
 
-test('v20.0.1 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
+test('v20.0.2 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusion', () => {
   // 2026-11-21 23:59:59.500+08:00 to 2026-11-22 00:00:00.500+08:00 (1000ms split across Beijing midnight)
   const start = Date.parse('2026-11-21T23:59:59.500+08:00');
   const end = Date.parse('2026-11-22T00:00:00.500+08:00');
@@ -72,7 +72,7 @@ test('v20.0.1 Cross-Midnight Asia/Shanghai Continuation & Unstamped FSRS Exclusi
   assert.equal(shadow.trackedCards, 0);
 });
 
-test('v20.0.1 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
+test('v20.0.2 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport keyboard-open & SW non-destructive update', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('e.isComposing'), 'IME composition Enter guard required');
@@ -81,7 +81,7 @@ test('v20.0.1 iPhone 14 Pro Max Guards: IME composition Enter, visualViewport ke
   assert.ok(cssSrc.includes('html.v19-keyboard-open .mobile-nav'), 'Keyboard-open bottom nav hide rule required');
 });
 
-test('v20.0.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single audio owner, structured decode/autoplay recovery, and ArrayBuffer IndexedDB cache', () => {
+test('v20.0.2 Pocket Radio iOS Safari & Double-Voice Regression Guard: single audio owner, structured decode/autoplay recovery, and ArrayBuffer IndexedDB cache', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const aiSrc = fs.readFileSync(new URL('../ai-tutor.mjs', import.meta.url), 'utf8');
 
@@ -102,7 +102,7 @@ test('v20.0.1 Pocket Radio iOS Safari & Double-Voice Regression Guard: single au
   assert.ok(appSrc.includes('if(document.hidden){radioAudioUnlocked=false;}'), 'visibilitychange(hidden) must reset radioAudioUnlocked for iOS');
 });
 
-test('v20.0.1 Offline Radio Pack ZIP & Seamless Preload Guard: offline-first af_heart playback, ArrayBuffer clip storage, pure audio ZIP import & next-episode preload', () => {
+test('v20.0.2 Offline Radio Pack ZIP & Seamless Preload Guard: offline-first af_heart playback, ArrayBuffer clip storage, pure audio ZIP import & next-episode preload', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const scSrc = fs.readFileSync(new URL('../speech-clips.mjs', import.meta.url), 'utf8');
   assert.ok(scSrc.includes('export async function hasLocalSpeechClip'), 'speech-clips.mjs must export hasLocalSpeechClip');
