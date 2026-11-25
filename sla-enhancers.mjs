@@ -1,4 +1,4 @@
-// YanDao v20.0.3 — Cross-Module Evidence-Based SLA Enhancers (Reading, Listening, Prosody, Speaking, Writing, AI)
+// YanDao v20.0.4 — Cross-Module Evidence-Based SLA Enhancers (Reading, Listening, Prosody, Speaking, Writing, AI)
 
 export const WEAK_FORM_MAP = {
   to: '/tə/', for: '/fə/', of: '/əv/', and: '/ən/', the: '/ðə/',

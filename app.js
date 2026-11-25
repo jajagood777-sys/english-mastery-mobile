@@ -2972,7 +2972,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.0.3)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.0.4)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -5369,7 +5369,7 @@ function renderSpeechChamber(){
   app.append(spBar);
  stopActiveAudio();
  app.append(el('div','言道演讲 · SPEECH CHAMBER','eyebrow'),h('h1','英语演讲与影子跟读'),
-   p('听读 → 影子跟读 → 隐藏文本脱稿。','lead'));
+   p('听读同步字幕 → 点句跳转 / 单句循环跟读 → 遮罩脱稿。','lead'));
  const speech=currentSpeech();
  if(!speech){const empty=section();empty.append(h('h2','尚无演讲稿'),p('先从知识宝库导入含 speeches 的每日学习 ZIP；原有 R02 包无需替换。','subtle'),btn('打开学习包导入',()=>setPage('library'),'btn primary'));app.append(empty);return;}
  selectedSpeechId=speech.id;
@@ -5380,35 +5380,139 @@ function renderSpeechChamber(){
  if(pool.length>1){const select=el('select','','select');for(const item of pool){const opt=el('option',item.title);opt.value=item.id;select.append(opt);}select.value=speech.id;
  select.addEventListener('change',()=>{pauseJourneySpeech();selectedSpeechId=select.value;render();});box.append(field('选择演讲',select));}
  box.append(h('h2',speech.title),p(`来源：${speech.authorOrSpeaker||speech.sourceType||'用户稿件'} · ${speech.sourceId}`,'tiny'));
- const text=div('speech-script');text.textContent=speech.scriptEn;text.style.whiteSpace='pre-wrap';text.style.lineHeight='1.85';text.style.fontSize='1.05rem';
- const toggle=btn('隐藏演讲稿，尝试脱稿',()=>{text.hidden=!text.hidden;toggle.textContent=text.hidden?'显示演讲稿':'隐藏演讲稿，尝试脱稿';},'btn secondary');
- const playerPanel=section('audio-study-controls');playerPanel.append(el('div','真实整篇音频 · af_heart','eyebrow'));
- const status=p('正在检查本机的整篇音频……','tiny');
- const audio=el('audio');audio.preload='metadata';audio.controls=true;audio.setAttribute('aria-label','英语演讲完整音频');
+
+ // Compact single-screen player (Pocket Radio style) + hidden native <audio>
+ const playerPanel=section('audio-study-controls speech-compact-player');
+ const audio=el('audio');audio.preload='metadata';audio.controls=false;audio.style.display='none';audio.setAttribute('aria-label','英语演讲完整音频');
  activeAudio=audio;
- const back=btn('后退 5 秒',()=>{const at=clampSpeechSeek(audio.currentTime,-5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary',true);
- const play=btn('播放',()=>{if(audio.paused)audio.play().catch(()=>{status.textContent='请先点击音频播放器的播放键。';});else audio.pause();},'btn primary',true);
- const forward=btn('前进 5 秒',()=>{const at=clampSpeechSeek(audio.currentTime,5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary',true);
- const seek=el('input','','input');seek.type='range';seek.min='0';seek.max='1';seek.step='.1';seek.value='0';seek.disabled=true;seek.setAttribute('aria-label','演讲音频进度');
- const time=p('0:00 / --:--','tiny');
- const rate=el('select','','select');for(const speed of [.75,1,1.25]){const option=el('option',speed+'×');option.value=String(speed);rate.append(option);}rate.value='1';rate.setAttribute('aria-label','演讲音频播放速度');rate.addEventListener('change',()=>{audio.playbackRate=Number(rate.value);});
+ const seek=el('input','','audio-scrubber-range');seek.type='range';seek.min='0';seek.max='1';seek.step='.1';seek.value='0';seek.disabled=true;seek.setAttribute('aria-label','演讲音频进度');
+ const time=el('span','0:00 / --:--','tiny speech-time-pill');
+ const status=p('正在检查本机的整篇音频……','tiny speech-status-line');
+
+ const back=btn('-5s',()=>{const at=clampSpeechSeek(audio.currentTime,-5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary radio-seek-btn',true);
+ const play=btn('▶ 播放',()=>{if(audio.paused)audio.play().catch(()=>{status.textContent='请再点一次播放键启动音频。';});else audio.pause();},'btn primary radio-play-btn',true);
+ const forward=btn('+5s',()=>{const at=clampSpeechSeek(audio.currentTime,5,audio.duration);if(at!==null)audio.currentTime=at;},'btn secondary radio-seek-btn',true);
+
+ const rate=el('select','','select speech-rate-select');for(const speed of [.75,.9,1,1.15,1.25]){const option=el('option',speed+'×');option.value=String(speed);rate.append(option);}rate.value='1';rate.setAttribute('aria-label','演讲音频播放速度');rate.addEventListener('change',()=>{audio.playbackRate=Number(rate.value);});
  let a=null,b=null,loop=false;
- const btnA=btn('设 A',()=>{if(Number.isFinite(audio.duration)){a=audio.currentTime;loop=false;status.textContent='已设置循环起点 A';}},'btn ghost');
- const btnB=btn('设 B',()=>{if(isValidAudioLoop(a,audio.currentTime,audio.duration)){b=audio.currentTime;status.textContent='已设置循环终点 B';}else status.textContent='需要先设置A，再设置更晚的B。';},'btn ghost');
- const btnLoop=btn('A–B 循环',()=>{loop=!loop;if(!isValidAudioLoop(a,b,audio.duration)){loop=false;status.textContent='请先设置有效A/B。';return;}btnLoop.textContent=loop?'停止 A–B 循环':'A–B 循环';if(loop){audio.currentTime=a;audio.play().catch(()=>status.textContent='请点击播放键启动循环。');}},'btn ghost');
+ let segLoop=false,segLoopIdx=-1,masked=false,userScrolled=false,lastActiveIdx=-1;
+ let speechSegments=buildAutoSyncedSegments({title:speech.title,text:speech.scriptEn},0);
+
+ const btnSegLoop=btn('🔁 单句循环',()=>{
+   segLoop=!segLoop;
+   if(segLoop){
+     loop=false;btnLoop.textContent='A–B';
+     const curIdx=Math.max(0,findActiveSegmentIndex(speechSegments,audio.currentTime||0));
+     segLoopIdx=curIdx;
+     btnSegLoop.className='btn primary small-btn';
+     btnSegLoop.textContent=`🔁 单句循环 #${curIdx+1}`;
+     status.textContent=`正在循环第 ${curIdx+1} 句；点任意字幕句可切换循环句。`;
+   }else{
+     segLoopIdx=-1;
+     btnSegLoop.className='btn ghost small-btn';
+     btnSegLoop.textContent='🔁 单句循环';
+     status.textContent='已关闭单句循环。';
+   }
+   refreshSubtitleHighlights();
+ },'btn ghost small-btn');
+ const btnA=btn('设 A',()=>{if(Number.isFinite(audio.duration)){a=audio.currentTime;loop=false;status.textContent=`已设起点 A (${audioTime(a)})`;}} ,'btn ghost small-btn');
+ const btnB=btn('设 B',()=>{if(isValidAudioLoop(a,audio.currentTime,audio.duration)){b=audio.currentTime;status.textContent=`已设终点 B (${audioTime(b)})`;}else status.textContent='需先设 A，再设更晚的 B。';},'btn ghost small-btn');
+ const btnLoop=btn('A–B',()=>{loop=!loop;if(!isValidAudioLoop(a,b,audio.duration)){loop=false;status.textContent='请先设置有效 A/B。';return;}if(loop){segLoop=false;segLoopIdx=-1;btnSegLoop.className='btn ghost small-btn';btnSegLoop.textContent='🔁 单句循环';}btnLoop.textContent=loop?'停 A–B':'A–B';if(loop){audio.currentTime=a;audio.play().catch(()=>status.textContent='请点播放键启动循环。');}},'btn ghost small-btn');
+
+ const scrubberRow=div('audio-scrubber-row');scrubberRow.append(time,seek);
+ const transportRow=div('speech-transport-row');transportRow.append(back,play,forward);
+ const toolsRow=div('speech-tools-row');toolsRow.append(rate,btnSegLoop,btnA,btnB,btnLoop);
+ playerPanel.append(audio,scrubberRow,transportRow,toolsRow,status);
+
+ // Live Synced Scrolling Subtitle Teleprompter (adapted from Pocket Radio)
+ const subPanel=section('radio-subtitle-panel speech-subtitle-panel');
+ const subToolbar=div('radio-sub-toolbar');
+ const toggle=btn('🙈 遮罩脱稿',()=>{
+   masked=!masked;
+   toggle.textContent=masked?'👁️ 显示演讲稿':'🙈 遮罩脱稿';
+   toggle.className=masked?'btn primary small-btn':'btn secondary small-btn';
+   subList.querySelectorAll('.radio-sub-line').forEach(elRow=>elRow.classList.toggle('is-masked',masked));
+ },'btn secondary small-btn');
+ subToolbar.append(el('span','📜 同步滚动字幕 · 点任意句跳转跟读','tiny'),toggle);
+ const subList=div('radio-subtitle-list speech-subtitle-list');
+ const recenterBtn=btn('🎯 回到当前句',()=>{
+   userScrolled=false;recenterBtn.hidden=true;
+   const activeEl=subList.querySelector('.radio-sub-line.is-active');
+   if(activeEl)activeEl.scrollIntoView({block:'center',behavior:'smooth'});
+ },'btn primary small-btn radio-sub-recenter-btn');
+ recenterBtn.hidden=true;
+ let programmaticScroll=false;
+ subList.addEventListener('scroll',()=>{if(!programmaticScroll){userScrolled=true;recenterBtn.hidden=false;}},{passive:true});
+
+ const rowEls=[];
+ const renderSubtitleRows=()=>{
+   subList.replaceChildren();rowEls.length=0;
+   if(!speechSegments.length){
+     const fallback=div('speech-script');fallback.textContent=speech.scriptEn;subList.append(fallback);return;
+   }
+   speechSegments.forEach((seg,idx)=>{
+     const rowBtn=el('button','','radio-sub-line'+(masked?' is-masked':''));
+     rowBtn.type='button';
+     const meta=div('radio-sub-line-meta');
+     meta.append(el('span',`第 ${idx+1} 句`,'radio-sub-role-badge'),el('span',audioTime(seg.startSec),'radio-sub-time'));
+     rowBtn.append(meta,el('div',seg.text,'radio-sub-text'));
+     rowBtn.addEventListener('click',()=>{
+       if(!Number.isFinite(audio.duration)||audio.duration<=0){notify('音频正在加载，请稍候。');return;}
+       audio.currentTime=Math.max(0,Math.min(audio.duration-0.05,seg.startSec));
+       if(segLoop){segLoopIdx=idx;btnSegLoop.textContent=`🔁 单句循环 #${idx+1}`;}
+       userScrolled=false;recenterBtn.hidden=true;
+       if(audio.paused)audio.play().catch(()=>{});
+       refreshSubtitleHighlights(idx);
+     });
+     rowEls.push(rowBtn);
+     subList.append(rowBtn);
+   });
+ };
+ const refreshSubtitleHighlights=(forcedIdx=null)=>{
+   if(!rowEls.length)return;
+   const idx=forcedIdx!==null?forcedIdx:findActiveSegmentIndex(speechSegments,audio.currentTime||0);
+   rowEls.forEach((rowBtn,i)=>{
+     rowBtn.classList.toggle('is-active',i===idx);
+     rowBtn.classList.toggle('is-looping',segLoop&&i===segLoopIdx);
+   });
+   if(idx>=0&&idx!==lastActiveIdx){
+     lastActiveIdx=idx;
+     if(!userScrolled&&rowEls[idx]){
+       programmaticScroll=true;
+       rowEls[idx].scrollIntoView({block:'center',behavior:'smooth'});
+       setTimeout(()=>{programmaticScroll=false;},350);
+     }
+   }
+ };
+ renderSubtitleRows();
+ subPanel.append(subToolbar,subList,recenterBtn);
+
  const sync=()=>{const duration=audio.duration,ok=Number.isFinite(duration)&&duration>0;
   back.disabled=!ok;forward.disabled=!ok;seek.disabled=!ok;seek.max=String(ok?duration:1);seek.value=String(Math.min(ok?duration:0,audio.currentTime||0));
-  time.textContent=`${audioTime(audio.currentTime)} / ${audioTime(duration)}`;play.textContent=audio.paused?'播放':'暂停';};
- audio.addEventListener('loadedmetadata',sync);
+  time.textContent=`${audioTime(audio.currentTime)} / ${audioTime(duration)}`;play.textContent=audio.paused?'▶ 播放':'⏸ 暂停';};
+ audio.addEventListener('loadedmetadata',()=>{
+  if(Number.isFinite(audio.duration)&&audio.duration>0){
+    speechSegments=rescaleSyncedSegments(speechSegments,audio.duration);
+    renderSubtitleRows();
+  }
+  sync();refreshSubtitleHighlights();
+ });
  audio.addEventListener('timeupdate',()=>{if(activeAudio!==audio)return;sync();accrueJourneySpeech();if(j?.speechRunning&&Date.now()-(window.__speechLastSaveAt||0)>15000){window.__speechLastSaveAt=Date.now();save();}
-  if(loop&&isValidAudioLoop(a,b,audio.duration)&&audio.currentTime>=b-.02)audio.currentTime=a;});
+  if(segLoop&&segLoopIdx>=0&&speechSegments[segLoopIdx]){
+    const targetSeg=speechSegments[segLoopIdx];
+    if(audio.currentTime>=targetSeg.endSec-0.05)audio.currentTime=targetSeg.startSec;
+  }else if(loop&&isValidAudioLoop(a,b,audio.duration)&&audio.currentTime>=b-.02){
+    audio.currentTime=a;
+  }
+  refreshSubtitleHighlights();
+ });
  audio.addEventListener('play',()=>{if(j){j.speechRunning=true;j.speechLastTick=Date.now();}sync();});
  audio.addEventListener('pause',()=>{pauseJourneySpeech();sync();});
  audio.addEventListener('ended',()=>{pauseJourneySpeech();sync();status.textContent='播放结束。听完并不等于已完成跟读或背诵。';});
  audio.addEventListener('error',()=>{pauseJourneySpeech();status.textContent='音频解码或加载失败；请检查原 ZIP 与 MP3 完整性。';});
- seek.addEventListener('input',()=>{const at=clampSpeechSeek(Number(seek.value),0,audio.duration);if(at!==null)audio.currentTime=at;});
- playerPanel.append(audio,seek,time,lines(back,play,forward),lines(rate,btnA,btnB,btnLoop),status);
- box.append(playerPanel,lines(toggle),text);
+ seek.addEventListener('input',()=>{const at=clampSpeechSeek(Number(seek.value),0,audio.duration);if(at!==null){audio.currentTime=at;refreshSubtitleHighlights();}});
+
+ box.append(playerPanel,subPanel);
  const progressKey=speechProgressKey(speech);
  const flags=data.speechProgress?.[progressKey]||{};
  const shadow=btn(flags.shadowed?'已自报跟读':'我已尝试影子跟读',()=>{data.speechProgress??={};data.speechProgress[progressKey]={...data.speechProgress[progressKey],shadowed:true};if(save())shadow.textContent='已自报跟读';},'btn secondary');
@@ -5425,7 +5529,7 @@ function renderSpeechChamber(){
   if(!blob){status.textContent='本机没有该演讲的完整 MP3；请在下份私人 ZIP 中加入 speeches 音频。';return;}
   if(activeAudio!==audio||!audio.isConnected)return;
   speechObjectUrl=URL.createObjectURL(blob);audio.src=speechObjectUrl;audio.load();play.disabled=false;
-  status.textContent='真实整篇音频已就绪；手动点击播放以兼容 iPhone Safari。';
+  status.textContent='真实整篇音频已就绪 · 点击任意字幕句即可跳转跟读。';
  }catch(error){if(activeAudio===audio)status.textContent='演讲音频不可用：'+error.message;}})();
 }
 function renderSpeechTransfer(speech){
