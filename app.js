@@ -48,6 +48,7 @@ import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGrit
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
 import {COMPLEX_FRAME_TYPES,COMPLEX_STAGE_META,COMPLEX_IMITATION_TOPICS,extractLearnedVocabPool,buildLinkedComplexDrill,buildAiComplexSentencePrompt,parseAiComplexSentenceResponse} from './complex-imitation.mjs';
+import {HARVEST_TRIAGE_TIERS,buildHarvestCard,summarizeHarvestProgress,filterMarksForTomorrowPack} from './reading-harvest.mjs';
 
 const STORE='central-english-mastery.v2';
 const LEGACY_STORE='english-mastery-v1';
@@ -356,6 +357,9 @@ let complexDrillIdx = 0;
 let complexStage = 'imitate';
 let complexCustomDrill = null;
 let complexAiBusy = false;
+let readingHarvestActiveMarkId = null;
+let readingHarvestRevealed = false;
+let readingHarvestForceShow = false;
 function isSilentCommuteOn(){return Boolean(data?.settings?.silentCommuteMode);}
 function toggleSilentCommute(){data.settings=data.settings||{};data.settings.silentCommuteMode=!data.settings.silentCommuteMode;if(data.settings.silentCommuteMode){stopSpeech();stopActiveAudio();stopLocalAudio();}save();notify(data.settings.silentCommuteMode?'🚇 已开启通勤静音模式（停止自动外放，保留音标锚点）':'🔊 已关闭通勤静音模式');render();}
 function showFloatingUndoPill(label,onUndo){if(vocabUndoTimer){clearTimeout(vocabUndoTimer);vocabUndoTimer=null;}document.getElementById('yd-floating-undo')?.remove();const bar=div('floating-undo-pill');bar.id='yd-floating-undo';bar.append(el('span',label,'tiny'),btn('撤回',()=>{if(vocabUndoTimer){clearTimeout(vocabUndoTimer);vocabUndoTimer=null;}bar.remove();onUndo();},'btn primary small-btn'));document.body.append(bar);vocabUndoTimer=setTimeout(()=>{vocabUndoTimer=null;bar.remove();},3500);}
@@ -3020,7 +3024,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.1.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.2.0)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -6067,6 +6071,169 @@ function renderReadingRetelling(reading){
  }
  return box;
 }
+
+function applyReadingMarkHarvest(reading, mark, { tier, recalled }) {
+  const now = new Date().toISOString();
+  let savedItemId = mark.savedItemId || null;
+  let savedStatus = mark.savedStatus || 'UNSAVED';
+  if (tier === 'promote') {
+    const incoming = [{
+      id: readingCardId({ readingId: reading.id, kind: 'word', target: mark.wordText, context: mark.originalSentence, source: reading.title }),
+      kind: 'word',
+      contentType: 'Words',
+      target: mark.wordText,
+      originalText: mark.wordText,
+      example: mark.originalSentence,
+      context: mark.originalSentence,
+      readingId: reading.id,
+      paragraphIndex: mark.paragraphIndex,
+      source: reading.title,
+      sourceTitle: reading.title,
+      group: 'Reading',
+      tags: ['Reading Materials', 'HarvestPromoted'],
+      learningStage: 'new',
+      createdAt: now
+    }];
+    const merged = mergeItems(data.items, incoming);
+    data.items = merged.items;
+    savedItemId = incoming[0].id;
+    savedStatus = 'SAVED';
+  }
+  data.readingMarks = (data.readingMarks || []).map(row =>
+    row.id === mark.id
+      ? {
+          ...row,
+          harvestTier: tier,
+          harvestRecalled: typeof recalled === 'boolean' ? recalled : row.harvestRecalled,
+          harvestedAt: now,
+          savedStatus,
+          savedItemId
+        }
+      : row
+  );
+  readingHarvestRevealed = false;
+  readingHarvestActiveMarkId = null;
+  if (save()) {
+    const labelMap = { promote: '🔥 已收割为明日必考词并入库', passive: '👁️ 已记为仅混眼熟（不塞明日考题）', drop: '🗑️ 已略过，不进明日学习包' };
+    notify(`${mark.wordText}：${labelMap[tier] || '已处理'}`);
+    render();
+  }
+}
+
+function renderReadingWordHarvestBridge(reading, marks) {
+  if (!Array.isArray(marks) || !marks.length) return null;
+  const summary = summarizeHarvestProgress(marks);
+  const box = section('reading-harvest-bridge');
+  box.id = 'yd-reading-harvest-bridge';
+
+  const headRow = div('journey-flow-top');
+  headRow.append(
+    el('span', '🌾 读后生词收割台 · WORD HARVEST BRIDGE', 'eyebrow'),
+    el('span', `已收割 ${summary.harvested}/${summary.total} · 🔥必考 ${summary.promoted} · 👁️眼熟 ${summary.passive} · 🗑️略过 ${summary.dropped}`, 'tiny')
+  );
+  box.append(
+    headRow,
+    h('h3', summary.completed && !readingHarvestForceShow ? '本篇生词已收割完毕' : '完读 60 秒快闪巩固与分流'),
+    p('只做 1 次原句语境提取 + 听音绑定，再分流进明日词包，防止生词堆积与隔夜遗忘。', 'tiny subtle')
+  );
+
+  const pendingMarks = marks.filter(m => !['promote', 'passive', 'drop'].includes(m.harvestTier));
+  let activeMark = marks.find(m => m.id === readingHarvestActiveMarkId) || pendingMarks[0] || null;
+
+  if (!activeMark || (summary.completed && !readingHarvestForceShow)) {
+    const chips = div('harvest-summary-chips');
+    for (const m of marks) {
+      const icon = m.harvestTier === 'promote' ? '🔥' : m.harvestTier === 'passive' ? '👁️' : '🗑️';
+      const chip = el('button', `${icon} ${m.wordText}`, `badge harvest-chip is-${m.harvestTier || 'pending'}`);
+      chip.type = 'button';
+      chip.title = '点击重新巩固或调整分流';
+      chip.addEventListener('click', () => {
+        readingHarvestActiveMarkId = m.id;
+        readingHarvestRevealed = false;
+        readingHarvestForceShow = true;
+        render();
+      });
+      chips.append(chip);
+    }
+    box.append(chips);
+    return box;
+  }
+
+  const card = buildHarvestCard(activeMark, {
+    archive: data.dailyPack?.originalWordArchive || [],
+    vocabPractice: data.dailyPack?.vocabularyPractice || [],
+    items: data.items || []
+  });
+
+  const stageCard = div('harvest-active-card');
+  const posIdx = marks.findIndex(m => m.id === activeMark.id) + 1;
+  stageCard.append(el('div', `第 ${posIdx} / ${marks.length} 词 · 原句挖空瞬时回忆`, 'tiny subtle'));
+
+  if (!readingHarvestRevealed) {
+    stageCard.append(
+      p(card.clozedSentence, 'harvest-cloze-sentence'),
+      lines(
+        btn('👁️ 揭晓原词与读音', () => {
+          readingHarvestRevealed = true;
+          const segs = [card.word, card.originalSentence].filter(Boolean);
+          void speakNaturalOrDevice(card.originalSentence || card.word, segs, { silentMissing: true });
+          render();
+        }, 'btn primary small-btn'),
+        btn('🔊 先听原句提示', () => {
+          void speakNaturalOrDevice(card.originalSentence || card.word, [card.originalSentence || card.word], { silentMissing: true });
+        }, 'btn ghost small-btn')
+      )
+    );
+  } else {
+    const wordRow = div('journey-flow-top');
+    wordRow.append(
+      h('h4', card.word),
+      lines(
+        btn('🔊 读词+原句', () => {
+          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+        }, 'btn secondary small-btn'),
+        btn('🔍 AI 查词', () => openAiLexiconDrawer(card.word), 'btn ghost small-btn')
+      )
+    );
+    stageCard.append(wordRow);
+    if (card.senseEn) stageCard.append(p(`释义：${card.senseEn}`, 'subtle'));
+    if (card.originalSentence) stageCard.append(p(`原句：${card.originalSentence}`, 'hint'));
+
+    // Self-check recall toggle (honest retrieval record)
+    const recallRow = div('harvest-recall-row');
+    recallRow.append(
+      el('span', '刚才看着挖空原句想起来了吗？', 'tiny'),
+      btn(activeMark.harvestRecalled === true ? '✓ 已记：想起来了' : '✓ 想起来了', () => {
+        activeMark.harvestRecalled = true;
+        save();
+        render();
+      }, activeMark.harvestRecalled === true ? 'btn secondary small-btn' : 'btn ghost small-btn'),
+      btn(activeMark.harvestRecalled === false ? '✗ 已记：没想起' : '✗ 没想起', () => {
+        activeMark.harvestRecalled = false;
+        save();
+        render();
+      }, activeMark.harvestRecalled === false ? 'btn secondary small-btn' : 'btn ghost small-btn')
+    );
+    stageCard.append(recallRow);
+
+    // 3-way Triage Bar
+    const triageRow = div('harvest-triage-bar');
+    for (const t of HARVEST_TRIAGE_TIERS) {
+      const cls = t.id === 'promote' ? 'btn primary small-btn' : t.id === 'passive' ? 'btn secondary small-btn' : 'btn ghost small-btn';
+      const b = btn(t.label, () => {
+        readingHarvestForceShow = false;
+        applyReadingMarkHarvest(reading, activeMark, { tier: t.id, recalled: activeMark.harvestRecalled });
+      }, cls);
+      b.title = t.desc;
+      triageRow.append(b);
+    }
+    stageCard.append(triageRow);
+  }
+
+  box.append(stageCard);
+  return box;
+}
+
 function renderReading(){
   const curRead=data.dailyPack?.readings?.[0];
   const knownSet=new Set([...(Array.isArray(data.masteredVocabWords)?data.masteredVocabWords:Object.keys(data.masteredVocabWords||{})),...Object.keys(data.fsrsState||{}),...(data.items||[]).filter(x=>x.kind==='word'&&x.status==='K').map(x=>x.target)]);
@@ -6129,7 +6296,7 @@ paraNodes.forEach(node=>article.append(node));if(readingQuestionReturnState&&rea
 const primaryDock=div('reading-dock-primary');
 const markBtn=btn(pending?`🔖 标词(${pending})`:'🔖 标词',()=>toggleReadingMark(reading,paragraphs),'btn secondary small-btn');
 const aiBtn=makeAiLookupTriggerButton('btn secondary small-btn');aiBtn.textContent='🔍 AI查词';
-primaryDock.append(speechControls(reading.text,splitSpeechSegments(reading.text),{useGemini:true,iconOnly:true}),aiBtn,markBtn);
+const harvestPendingCount=summarizeHarvestProgress(marks).pending;const harvestJumpBtn=marks.length?btn(harvestPendingCount?`🌾 收割(${harvestPendingCount})`:'🌾 已收割',()=>{document.getElementById('yd-reading-harvest-bridge')?.scrollIntoView({behavior:'smooth',block:'center'});},harvestPendingCount?'btn primary small-btn':'btn ghost small-btn'):el('span','');primaryDock.append(speechControls(reading.text,splitSpeechSegments(reading.text),{useGemini:true,iconOnly:true}),aiBtn,markBtn,harvestJumpBtn);
 const moreTools=el('details','','reading-more-tools');
 moreTools.append(el('summary',pending?`更多工具 · 待存 ${pending} 词`:'更多阅读工具（盲听 / 拆解长难句 / 存卡片）'));
 const moreGrid=div('reading-more-grid');
@@ -6141,7 +6308,7 @@ moreGrid.append(
   renderAiReplyWidget('🤖 AI 拆解长难句',()=>askAiExplainSentence({sentence:window.getSelection?.()?.toString().trim()||selectedText||reading.text.slice(0,260),context:selectedParagraphText||reading.text.slice(0,500)}))
 );
 moreTools.append(moreGrid);
-if(geminiAudioEl||readingAudioStatus)toolbar.append(buildAudioScrubberBar('reading',geminiAudioEl,readingAudioStatus));toolbar.append(primaryDock,moreTools);list.append(article,toolbar);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
+if(geminiAudioEl||readingAudioStatus)toolbar.append(buildAudioScrubberBar('reading',geminiAudioEl,readingAudioStatus));toolbar.append(primaryDock,moreTools);list.append(article,toolbar);const harvestBridge=renderReadingWordHarvestBridge(reading,marks);if(harvestBridge)list.append(harvestBridge);if(readingJourney&&readingJourney.readingRecallQueue?.length)list.append(renderReadingRecall(readingJourney,reading));const check=renderReadingCheck(reading);if(check)list.append(check);list.append(renderReadingRetelling(reading));app.append(list);}
 function trendSummary(days){const endDay=dateKeyInTimeZone(new Date());const startDay=dateKeyInTimeZone(new Date(Date.now()-(Math.max(1,days)-1)*86400000));const sessions=data.sessions.filter(x=>{const day=dateKeyInTimeZone(x.endedAt);return day&&day>=startDay&&day<=endDay;});const time=summarizeSessionTime(data.sessions,startDay,endDay);return {minutes:Math.round(time.knownMs/60000),unallocatedMs:time.unknownMs,sessions:sessions.length,attempts:sessions.reduce((sum,x)=>sum+Number(x.count||0),0)};}
 /** Non-destructive local audit: IndexedDB recording metadata and StorageManager are read only. */
 function dataSafetyPanel(){

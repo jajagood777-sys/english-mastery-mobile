@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '20.1.1';
+export const APP_VERSION = '20.2.0';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -586,7 +586,7 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
     if(!mark.readingId||!normalizedWord||!String(mark.originalSentence||'').trim()) continue;
     const id=readingMarkId({...mark,normalizedWord});
     const prior=byId.get(id);
-    const next={...mark,id,normalizedWord,savedStatus:mark.savedStatus==='SAVED'||prior?.savedStatus==='SAVED'?'SAVED':'UNSAVED',savedItemId:mark.savedItemId||prior?.savedItemId||null};
+    const next={...mark,id,normalizedWord,savedStatus:mark.savedStatus==='SAVED'||prior?.savedStatus==='SAVED'?'SAVED':'UNSAVED',savedItemId:mark.savedItemId||prior?.savedItemId||null,harvestTier:mark.harvestTier||prior?.harvestTier||null,harvestRecalled:typeof mark.harvestRecalled==='boolean'?mark.harvestRecalled:(typeof prior?.harvestRecalled==='boolean'?prior.harvestRecalled:null),harvestedAt:mark.harvestedAt||prior?.harvestedAt||null};
     if(prior){Object.assign(prior,next);}else{byId.set(id,next);out.push(next);}
   }
   return out;

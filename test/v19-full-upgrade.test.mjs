@@ -61,8 +61,8 @@ import {
   runPreExportHealthCheck
 } from '../continuity-os.mjs';
 
-test('v20.1.1 #1/#2/#3/#4/#6: transfer triple with anti-leak, error taxonomy, disputes, tiered hints, unannounced transfer', () => {
-  assert.equal(APP_VERSION, '20.1.1');
+test('v20.2.0 #1/#2/#3/#4/#6: transfer triple with anti-leak, error taxonomy, disputes, tiered hints, unannounced transfer', () => {
+  assert.equal(APP_VERSION, '20.2.0');
 
   // #1 Anti-leak + 3-stage transfer
   const leaked = redactTransferLeaks('Please lend me your umbrella.', 'lend', false);
@@ -108,7 +108,7 @@ test('v20.1.1 #1/#2/#3/#4/#6: transfer triple with anti-leak, error taxonomy, di
   assert.equal(revealed.spontaneousHitCount, 1);
 });
 
-test('v20.1.1 #7–#16/#34–#37: reading, listening, phonics, speaking ASR edit invalidation, repair, info-gap, speech recall, real-life tasks', () => {
+test('v20.2.0 #7–#16/#34–#37: reading, listening, phonics, speaking ASR edit invalidation, repair, info-gap, speech recall, real-life tasks', () => {
   // #7 Reading evidence
   assert.equal(compareReadingEvidence({ answerCorrect: false, selectedSentence: 'The city cut fares.', referenceSentence: 'The city cut fares.' }).diagnosis, 'right_evidence_wrong_interpretation');
 
@@ -162,7 +162,7 @@ test('v20.1.1 #7–#16/#34–#37: reading, listening, phonics, speaking ASR edit
   assert.equal(crit.needsPlaybackCheckCount, 1);
 });
 
-test('v20.1.1 #17–#27/#31–#33/#38–#42: continuity, confidence, blind retest, fatigue, version hash, learner scripts (#40) & perf budget (#29)', () => {
+test('v20.2.0 #17–#27/#31–#33/#38–#42: continuity, confidence, blind retest, fatigue, version hash, learner scripts (#40) & perf budget (#29)', () => {
   // #31 Confidence diagnostics
   const c1 = recordConfidenceTag({ attemptId: 'a1', itemId: 'w1', confidence: 'guess', correct: true });
   const c2 = recordConfidenceTag({ attemptId: 'a2', itemId: 'w2', confidence: 'certain', correct: false });
@@ -231,7 +231,7 @@ test('v20.1.1 #17–#27/#31–#33/#38–#42: continuity, confidence, blind retes
   assert.ok(swText.includes('./continuity-os.mjs'));
 });
 
-test('v20.1.1 Contemporary Oriental Study visual language: warm paper, near-ink, deep jade, 320px guard & 5-state buttons', () => {
+test('v20.2.0 Contemporary Oriental Study visual language: warm paper, near-ink, deep jade, 320px guard & 5-state buttons', () => {
   const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.ok(css.includes('Contemporary Oriental Study'));
   assert.ok(css.includes('--study-paper: #f7f5f0'));
