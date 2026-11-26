@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { annotateConnectedSpeechAndWeakForms } from '../sla-enhancers.mjs';
 
-test('v20.3.0 reading modes are wired into app.js and styles.css', () => {
+test('v20.3.1 reading modes are wired into app.js and styles.css', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
@@ -12,8 +12,8 @@ test('v20.3.0 reading modes are wired into app.js and styles.css', () => {
   assert.match(app, /function renderEnhancedReadingParagraph\(/);
   assert.match(app, /annotateConnectedSpeechAndWeakForms\(plain\)/);
   assert.match(app, /reading-focus-bar/);
-  assert.match(app, /reading-prosody-legend/);
-  assert.match(app, /pure-book-banner/);
+  assert.match(app, /reading-focus-bar/);
+  assert.match(app, /reading-mode-compact-strip/);
   assert.match(app, /function extractSpeechAnchorKeywords\(/);
   assert.match(app, /speech-plan-banner/);
 
@@ -24,7 +24,7 @@ test('v20.3.0 reading modes are wired into app.js and styles.css', () => {
   assert.match(css, /body\.pure-book-mode #reading-article/);
 });
 
-test('v20.3.0 weak-form prosody helper annotates weak forms, links, and pauses', () => {
+test('v20.3.1 weak-form prosody helper annotates weak forms, links, and pauses', () => {
   const tokens = annotateConnectedSpeechAndWeakForms('We went to an old house, and for a moment we stood still.');
   assert.ok(tokens.some(t => t.weak && t.weakIpa));
   assert.ok(tokens.some(t => t.linkNext));

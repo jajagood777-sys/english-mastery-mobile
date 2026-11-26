@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('v20.3.0 Speech Chamber uses compact player, synced scrolling subtitles, tap-to-seek, and single-sentence loop', () => {
+test('v20.3.1 Speech Chamber uses compact player, synced scrolling subtitles, tap-to-seek, and single-sentence loop', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(app, /speech-compact-player/);

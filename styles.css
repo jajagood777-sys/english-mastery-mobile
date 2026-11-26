@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3063,4 +3063,44 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   background: var(--card, #fffdf9);
   font-size: 0.98rem;
   line-height: 1.6;
+}
+
+/* === v20.3.1 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+.reading-mode-compact-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 4px 0 8px;
+  border-radius: 10px;
+  background: rgba(15, 93, 70, 0.06);
+  font-size: 12px;
+}
+.reading-focus-bar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px !important;
+  margin: 6px 0 10px !important;
+}
+.reading-focus-bar .small-btn {
+  min-height: 34px !important;
+  padding: 4px 10px !important;
+}
+.weak-form-ipa {
+  font-size: 0.72em;
+  color: #0f5d46;
+  opacity: 0.88;
+  margin: 0 2px 0 1px;
+}
+.link-arc {
+  color: #b45309;
+  font-weight: 700;
+  margin: 0 3px 0 1px;
+  font-size: 0.85em;
+  vertical-align: 1px;
+  opacity: 0.78;
 }
