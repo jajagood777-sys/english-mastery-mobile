@@ -624,6 +624,21 @@ function seekAudioElement(audioEl, deltaSeconds) {
   syncAudioScrubbers();
 }
 
+function syncReadingSentenceToAudio(elA) {
+  if (!readingSentenceFocusMode || page !== 'reading' || !elA || !Number.isFinite(elA.duration) || elA.duration <= 0) return;
+  const spans = [...document.querySelectorAll('#reading-article .reading-sentence-span')];
+  if (!spans.length) return;
+  const ratio = Math.max(0, Math.min(0.9999, (elA.currentTime || 0) / elA.duration));
+  const targetIdx = Math.min(spans.length - 1, Math.floor(ratio * spans.length));
+  if (targetIdx === readingFocusSentenceIdx) return;
+  readingFocusSentenceIdx = targetIdx;
+  spans.forEach((sp, i) => {
+    sp.classList.toggle('is-focused-sentence', i === targetIdx);
+    sp.classList.toggle('is-dimmed-sentence', i !== targetIdx);
+  });
+  const counter = document.querySelector('.reading-focus-bar .focus-counter-pill');
+  if (counter) counter.textContent = `🎯 ${targetIdx + 1}/${spans.length}`;
+}
 function syncAudioScrubbers() {
   if (typeof document === 'undefined') return;
   document.querySelectorAll('.audio-scrubber-bar').forEach(bar => {
@@ -3034,7 +3049,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.1)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3433,7 +3448,7 @@ function activeTtsVoiceForKey(cfg){return cfg?.ttsEngine==='siliconflow'&&isSili
 async function evictGeminiAudioCache(cacheKey){if(!cacheKey)return;const oldUrl=geminiAudioCache.get(cacheKey);if(oldUrl)try{URL.revokeObjectURL(oldUrl);}catch{}geminiAudioCache.delete(cacheKey);try{await deletePersistentTtsAudio(cacheKey);}catch{}}
 async function fetchGeminiAudioEntry(chunkText,cfg,{bypassCache=false}={}){const voiceTag=activeTtsVoiceForKey(cfg);const cacheKey=makeTtsCacheKey(chunkText,voiceTag);if(bypassCache){await evictGeminiAudioCache(cacheKey);}else{if(geminiAudioCache.has(cacheKey))return {url:geminiAudioCache.get(cacheKey),fromCache:true,modelUsed:'memory',cacheKey};const persisted=await readPersistentTtsAudio(cacheKey);if(persisted?.blob&&Number(persisted.blob.size||0)>=64){const url=URL.createObjectURL(persisted.blob);geminiAudioCache.set(cacheKey,url);return {url,fromCache:true,modelUsed:persisted.modelUsed||'indexeddb',cacheKey};}}const result=await synthesizeCloudSpeech(chunkText,cfg);recordTtsApiCall(result.modelUsed);const blob=new Blob([result.bytes],{type:result.mimeType||'audio/wav'});writePersistentTtsAudio(cacheKey,{blob,bytes:result.bytes,mimeType:result.mimeType||'audio/wav',modelUsed:result.modelUsed||''}).catch(()=>{});const url=URL.createObjectURL(blob);if(geminiAudioCache.size>=60){const oldestKey=geminiAudioCache.keys().next().value;const oldestUrl=geminiAudioCache.get(oldestKey);if(oldestUrl)try{URL.revokeObjectURL(oldestUrl);}catch{}geminiAudioCache.delete(oldestKey);}geminiAudioCache.set(cacheKey,url);return {url,fromCache:false,modelUsed:result.modelUsed||'',cacheKey};}
 async function fetchGeminiAudioUrl(chunkText,cfg){const entry=await fetchGeminiAudioEntry(chunkText,cfg);return entry.url;}
-async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isCloudTtsReady(cfg)){if(!silentFallback)notify('尚未配置云端语音 API Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{const firstKey=makeTtsCacheKey(chunks[0],activeTtsVoiceForKey(cfg));const firstCached=geminiAudioCache.has(firstKey)||await hasPersistentTtsAudio(firstKey);readingAudioStatus=firstCached?'💾 本地永久缓存 · 0消耗':'⏳ 首次合成整篇约需 5–12 秒，完成后永久缓存…';notify(firstCached?'🔊 秒开本机缓存的 Gemini 语音…':'⏳ 正在一次性合成整篇语音（约 5–12 秒），完成后将永久缓存在本机。');if(page==='reading')render();let nextPromise=fetchGeminiAudioEntry(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const entry=await nextPromise;if(token!==geminiPlaybackToken||!entry?.url)return false;const usage=getDailyTtsUsage();readingAudioStatus=entry.fromCache?'💾 本地永久缓存 · 本次 0 消耗':`✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;if(i+1<chunks.length)nextPromise=fetchGeminiAudioEntry(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;let lastReadBm=0;const readBmId='reading:'+(selectedReadingId||firstKey);if(i===0)activeReadingBookmarkId=readBmId;const readSavedPos=i===0?loadAudioBookmark(readBmId):0;elA.ontimeupdate=()=>{syncAudioScrubbers();if(i===0&&Date.now()-lastReadBm>3000){lastReadBm=Date.now();saveAudioBookmark(readBmId,elA.currentTime,elA.duration);}};elA.onloadedmetadata=()=>{if(readSavedPos>3&&Number.isFinite(elA.duration)&&readSavedPos<elA.duration-5){try{elA.currentTime=readSavedPos;}catch{}notify(`🎧 已从 ${fmtAudioClock(readSavedPos)} 续播`);}syncAudioScrubbers();};elA.src=entry.url;elA.playbackRate=rate;geminiAudioEl=elA;registerMediaSession({title:'阅读文章朗读',artist:'言道修炼殿 18.0 云端语音',album:data.dailyPack?.title||'Reading Chamber',onPlay:()=>resumeSpeech(),onPause:()=>pauseSpeech()});try{if(typeof navigator!=='undefined'&&navigator.mediaSession?.setActionHandler){navigator.mediaSession.setActionHandler('seekbackward',()=>seekAudioElement(elA,-15));navigator.mediaSession.setActionHandler('seekforward',()=>seekAudioElement(elA,15));}}catch{}elA.onplay=()=>{syncReadingPlayButtons();if(page==='reading')render();};elA.onpause=()=>{syncReadingPlayButtons();syncAudioScrubbers();};elA.onended=()=>{if(i===0)clearAudioBookmark(readBmId);if(geminiAudioEl===elA){geminiAudioEl=null;activeReadingBookmarkId='';}syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;readingAudioStatus='';stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
+async function speakWithGeminiOrFallback(text,{segments=null,silentFallback=false}={}){const clean=String(text||'').replace(/\s+/g,' ').trim();if(!clean)return false;const cfg=loadAiConfig();if(!isCloudTtsReady(cfg)){if(!silentFallback)notify('尚未配置云端语音 API Key，已使用本地朗读。');return speakNaturalOrDevice(clean,segments);}stopSpeech();unlockReadingGeminiAudio();const token=++geminiPlaybackToken;const chunks=geminiSpeechChunks(clean);if(!chunks.length)return false;try{const firstKey=makeTtsCacheKey(chunks[0],activeTtsVoiceForKey(cfg));const firstCached=geminiAudioCache.has(firstKey)||await hasPersistentTtsAudio(firstKey);readingAudioStatus=firstCached?'💾 本地永久缓存 · 0消耗':'⏳ 首次合成整篇约需 5–12 秒，完成后永久缓存…';notify(firstCached?'🔊 秒开本机缓存的 Gemini 语音…':'⏳ 正在一次性合成整篇语音（约 5–12 秒），完成后将永久缓存在本机。');if(page==='reading')render();let nextPromise=fetchGeminiAudioEntry(chunks[0],cfg);const audio=ensureReadingGeminiAudio();for(let i=0;i<chunks.length;i++){if(token!==geminiPlaybackToken)return false;const entry=await nextPromise;if(token!==geminiPlaybackToken||!entry?.url)return false;const usage=getDailyTtsUsage();readingAudioStatus=entry.fromCache?'💾 本地永久缓存 · 本次 0 消耗':`✨ 已永久缓存 · 今日已请求 ${usage.count} 次`;if(i+1<chunks.length)nextPromise=fetchGeminiAudioEntry(chunks[i+1],cfg).catch(()=>null);await new Promise((resolve,reject)=>{const rate=Math.max(0.75,Math.min(1.25,Number(data.settings.speechRate)||1));const startOn=(elA,allowFresh)=>{elA.onplay=null;elA.onpause=null;elA.onended=null;elA.onerror=null;let lastReadBm=0;const readBmId='reading:'+(selectedReadingId||firstKey);if(i===0)activeReadingBookmarkId=readBmId;const readSavedPos=i===0?loadAudioBookmark(readBmId):0;elA.ontimeupdate=()=>{syncAudioScrubbers();syncReadingSentenceToAudio(elA);if(i===0&&Date.now()-lastReadBm>3000){lastReadBm=Date.now();saveAudioBookmark(readBmId,elA.currentTime,elA.duration);}};elA.onloadedmetadata=()=>{if(readSavedPos>3&&Number.isFinite(elA.duration)&&readSavedPos<elA.duration-5){try{elA.currentTime=readSavedPos;}catch{}notify(`🎧 已从 ${fmtAudioClock(readSavedPos)} 续播`);}syncAudioScrubbers();};elA.src=entry.url;elA.playbackRate=rate;geminiAudioEl=elA;registerMediaSession({title:'阅读文章朗读',artist:'言道修炼殿 18.0 云端语音',album:data.dailyPack?.title||'Reading Chamber',onPlay:()=>resumeSpeech(),onPause:()=>pauseSpeech()});try{if(typeof navigator!=='undefined'&&navigator.mediaSession?.setActionHandler){navigator.mediaSession.setActionHandler('seekbackward',()=>seekAudioElement(elA,-15));navigator.mediaSession.setActionHandler('seekforward',()=>seekAudioElement(elA,15));}}catch{}elA.onplay=()=>{syncReadingPlayButtons();if(page==='reading')render();};elA.onpause=()=>{syncReadingPlayButtons();syncAudioScrubbers();};elA.onended=()=>{if(i===0)clearAudioBookmark(readBmId);if(geminiAudioEl===elA){geminiAudioEl=null;activeReadingBookmarkId='';}syncReadingPlayButtons();resolve();};elA.onerror=()=>{if(allowFresh){startOn(new Audio(),false);}else reject(Error('音频解码或播放失败'));};elA.play().catch(err=>{if(allowFresh){startOn(new Audio(),false);}else reject(err);});};startOn(audio,true);});}return true;}catch(error){if(token!==geminiPlaybackToken)return false;readingAudioStatus='';stopGeminiAudio();if(!silentFallback)notify(`Gemini 语音暂不可用，已切换本地朗读：${String(error?.message||error).slice(0,55)}`);return speakNaturalOrDevice(clean,segments,{silentMissing:true});}}
 function speakEnglish(text,voiceOverride=null,segments=null){return void speakNaturalOrDevice(text,segments);}
 function pauseSpeech(){if(geminiAudioEl&&!geminiAudioEl.paused){if(activeReadingBookmarkId&&Number.isFinite(geminiAudioEl.currentTime))saveAudioBookmark(activeReadingBookmarkId,geminiAudioEl.currentTime,geminiAudioEl.duration);try{geminiAudioEl.pause();}catch{}}naturalSpeechPlayer?.pause();if('speechSynthesis'in window){speechPaused=true;window.speechSynthesis.pause();}syncReadingPlayButtons();}
 function resumeSpeech(){if(geminiAudioEl&&geminiAudioEl.paused){geminiAudioEl.play().then(()=>syncReadingPlayButtons()).catch(()=>{});return;}naturalSpeechPlayer?.resume();if('speechSynthesis'in window){speechPaused=false;window.speechSynthesis.resume();if(!window.speechSynthesis.speaking&&speechQueueIndex<speechQueue.length)playSpeechChunk();}syncReadingPlayButtons();}
@@ -4450,9 +4465,8 @@ function renderListeningStudio(item,{compact=false,onSourceViewed=null}={}){
   const stepMeta = LISTENING_DECODE_STEPS.find(s => s.id === curStep) || LISTENING_DECODE_STEPS[0];
   decodeBox.append(el('div', '🎧 三步语音解码循环 · CONNECTED-SPEECH DECODING', 'eyebrow'), stepBtns, p(stepMeta.hint, 'tiny subtle'));
   if (curStep === 'weakform') {
-    const wf = annotateConnectedSpeechAndWeakForms(item.text || '');
     const wfView = div('reading-prosody-line listening-weakform-box');
-    wfView.textContent = wf.annotated || item.text || '';
+    appendProsodyPlainSegment(wfView, item.text || '');
     decodeBox.append(wfView);
   } else if (curStep === 'shadow') {
     text.hidden = false;
@@ -4859,12 +4873,12 @@ function appendProsodyPlainSegment(box,plain){
   const tokens=annotateConnectedSpeechAndWeakForms(plain);
   if(!tokens.length){if(plain)box.append(document.createTextNode(plain));return;}
   tokens.forEach((info,idx)=>{
-    if(idx>0&&!tokens[idx-1].linkNext){box.append(document.createTextNode(' '));}
+    if(idx>0){box.append(document.createTextNode(' '));}
     if(info.weak){
       const wrap=el('span','','weak-form-word');
       wrap.append(document.createTextNode(info.token));
       if(info.weakIpa){
-        const ipa=el('sub',info.weakIpa,'weak-form-ipa');
+        const ipa=el('sub',` ${info.weakIpa}`,'weak-form-ipa');
         ipa.setAttribute('aria-hidden','true');
         wrap.append(ipa);
       }
@@ -4934,7 +4948,7 @@ function renderEnhancedReadingParagraph(text,marks,sentenceTracker){
         readingFocusSentenceIdx=globalIdx;
         render();
       });
-      renderSeg(span,sent);
+      if(readingProsodyMode&&!isFocused){appendStoryRichText(span,sent);}else{renderSeg(span,sent);}
       box.append(span);
       if(sIdx<sentences.length-1)box.append(document.createTextNode(' '));
     });
@@ -6469,26 +6483,24 @@ paragraphs.forEach((para,index)=>{
   if(readingFlashParagraphIndex===index)node.classList.add('is-reading-return-flash');
   paraNodes.push(node);
 });
-if(readingPureBookMode){
-  const pureBar=div('reading-mode-banner pure-book-banner');
-  pureBar.append(el('span','📖 纯净纸书模式：已隐藏流程条与高亮干扰','tiny'),btn('退出纸书',()=>{readingPureBookMode=false;document.body.classList.remove('pure-book-mode');render();},'btn ghost small-btn'));
-  article.append(pureBar);
-}
-if(readingProsodyMode){
-  const prosodyLegend=div('reading-mode-banner reading-prosody-legend');
-  prosodyLegend.append(el('span','🎵 弱读韵律：浅色下标 = 功能词弱读（如 to→tə） · ‿ = 辅元连读 · / = 意群停顿','tiny'));
-  article.append(prosodyLegend);
+if(readingPureBookMode||readingProsodyMode){
+  const modeStrip=div('reading-mode-compact-strip');
+  if(readingPureBookMode){
+    modeStrip.append(el('span','📖 纸书','tiny'),btn('退出',()=>{readingPureBookMode=false;document.body.classList.remove('pure-book-mode');render();},'btn ghost small-btn'));
+  }
+  if(readingProsodyMode){
+    modeStrip.append(el('span','🎵 弱读下标 · ‿连读 · /停顿','tiny'));
+  }
+  article.append(modeStrip);
 }
 if(readingSentenceFocusMode&&sentenceTracker.list.length>0){
   const focusBar=div('reading-mode-banner reading-focus-bar');
   const curSentText=sentenceTracker.list[sentenceTracker.activeIdx]||'';
   focusBar.append(
-    el('span',`🎯 逐句聚焦 · 第 ${sentenceTracker.activeIdx+1} / ${sentenceTracker.list.length} 句`,'tiny'),
-    lines(
-      btn('◀ 上一句',()=>{readingFocusSentenceIdx=Math.max(0,readingFocusSentenceIdx-1);render();},'btn ghost small-btn',sentenceTracker.activeIdx<=0),
-      btn('🔊 朗读本句',()=>{if(curSentText)speakText(curSentText);},'btn secondary small-btn'),
-      btn('下一句 ▶',()=>{readingFocusSentenceIdx=Math.min(sentenceTracker.list.length-1,readingFocusSentenceIdx+1);render();},'btn primary small-btn',sentenceTracker.activeIdx>=sentenceTracker.list.length-1)
-    )
+    el('span',`🎯 ${sentenceTracker.activeIdx+1}/${sentenceTracker.list.length}`,'tiny focus-counter-pill'),
+    btn('◀',()=>{readingFocusSentenceIdx=Math.max(0,readingFocusSentenceIdx-1);render();},'btn ghost small-btn',sentenceTracker.activeIdx<=0),
+    btn('🔊 朗读本句',()=>{if(curSentText)void speakNaturalOrDevice(curSentText,[curSentText],{silentMissing:true});},'btn secondary small-btn'),
+    btn('▶',()=>{readingFocusSentenceIdx=Math.min(sentenceTracker.list.length-1,readingFocusSentenceIdx+1);render();},'btn primary small-btn',sentenceTracker.activeIdx>=sentenceTracker.list.length-1)
   );
   article.append(focusBar);
 }
