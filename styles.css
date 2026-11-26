@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.2.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3009,4 +3009,58 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
 }
 .harvest-chip.is-drop {
   opacity: 0.65;
+}
+
+/* === v20.3.0 Full-Pipeline Mastery Upgrades === */
+.pacing-mode-bar,
+.opening-warmup-card,
+.closing-exit-ticket-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.04), rgba(255, 255, 255, 0.94));
+  display: grid;
+  gap: 8px;
+}
+.mission-words-bar {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.05);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  display: grid;
+  gap: 6px;
+}
+.mission-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mission-word-chip {
+  cursor: pointer;
+  border: 1px solid rgba(28, 25, 23, 0.16);
+  background: var(--card, #fffdf9);
+  font-weight: 600;
+}
+.mission-word-chip.is-activated {
+  background: rgba(15, 118, 110, 0.16);
+  border-color: #0f766e;
+  color: #0f766e;
+}
+.listening-decode-strip {
+  margin: 8px 0 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.045);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  display: grid;
+  gap: 8px;
+}
+.listening-weakform-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--card, #fffdf9);
+  font-size: 0.98rem;
+  line-height: 1.6;
 }
