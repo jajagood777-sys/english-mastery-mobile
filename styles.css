@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.1.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.1.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -2917,4 +2917,39 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   flex-wrap: wrap;
   gap: 8px;
   margin: 10px 0 12px;
+}
+
+/* === v20.1.1 Clickable Example Replay & Quick-Lookup Lexicon Drawer === */
+.vocab-example-play-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  line-height: 1.5;
+}
+.vocab-example-play-btn:active {
+  background: rgba(15, 118, 110, 0.14);
+}
+.lexicon-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0 8px;
+}
+.lexicon-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.lexicon-input-row input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
