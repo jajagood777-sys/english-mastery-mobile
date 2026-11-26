@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.2 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.3 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.3.2 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.3.3 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
