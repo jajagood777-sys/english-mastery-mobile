@@ -14,8 +14,8 @@ import {
   AI_PROVIDERS,
 } from '../ai-tutor.mjs';
 
-test('20.0.5 APP_VERSION and microLessons normalization handle YouTube/etymology packs cleanly', () => {
-  assert.equal(APP_VERSION, '20.0.5');
+test('20.1.0 APP_VERSION and microLessons normalization handle YouTube/etymology packs cleanly', () => {
+  assert.equal(APP_VERSION, '20.1.0');
   const pack = recordsFromLearningPack({
     pack_id: 'PACK-1520-TEST',
     title: 'All-in-One Micro + Story Pack',
@@ -36,7 +36,7 @@ test('20.0.5 APP_VERSION and microLessons normalization handle YouTube/etymology
   assert.equal(normalizeMicroLessons(null).length, 0);
 });
 
-test('20.0.5 normalizeTransferAttempt and mergeTransferAttempts preserve aiCritique', () => {
+test('20.1.0 normalizeTransferAttempt and mergeTransferAttempts preserve aiCritique', () => {
   const a1 = normalizeTransferAttempt({
     id: 'ta-1',
     taskId: 't-grammar-1',
@@ -49,7 +49,7 @@ test('20.0.5 normalizeTransferAttempt and mergeTransferAttempts preserve aiCriti
   assert.equal(merged[0].aiCritique, 'Use past tense: went.');
 });
 
-test('20.0.5 askAiCheckGrammar and askAiSpeakingDemoCoach format Gemini requests cleanly', async () => {
+test('20.1.0 askAiCheckGrammar and askAiSpeakingDemoCoach format Gemini requests cleanly', async () => {
   const cfg = { provider: AI_PROVIDERS.GOOGLE_AI_STUDIO, apiKey: 'test-key', model: 'gemini-2.5-flash' };
   const calls = [];
   const mockFetch = async (url, init) => {
@@ -63,15 +63,15 @@ test('20.0.5 askAiCheckGrammar and askAiSpeakingDemoCoach format Gemini requests
   assert.equal(calls.length, 2);
 });
 
-test('20.0.5 app.js includes story bold-word chips, AI drawer modes, and micro-lessons card', () => {
+test('20.1.0 app.js includes story bold-word chips, AI drawer modes, and micro-lessons card', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(appSrc, /story-target-word/);
   assert.match(appSrc, /renderMicroLessonsCard/);
   assert.match(appSrc, /askAiCheckGrammar/);
   assert.match(appSrc, /askAiSpeakingDemoCoach/);
-  assert.match(appSrc, /20\.0\.5/);
+  assert.match(appSrc, /20\.1\.0/);
 });
-test('20.0.5 storyText, battleReportMarkdown aiCritique, central feedback, and microLessonProgress survive round-trip', async () => {
+test('20.1.0 storyText, battleReportMarkdown aiCritique, central feedback, and microLessonProgress survive round-trip', async () => {
   const {
     normalizeStoryPractice,
     buildBattleReport,

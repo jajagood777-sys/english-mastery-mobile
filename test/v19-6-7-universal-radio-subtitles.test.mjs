@@ -9,7 +9,7 @@ import {
   BUILT_IN_YOUTUBE_SPEECHES
 } from '../radio.mjs';
 
-test('v20.0.5: buildAutoSyncedSegments splits learning pack speaking Q&A into sentence-level Q/A segments', () => {
+test('v20.1.0: buildAutoSyncedSegments splits learning pack speaking Q&A into sentence-level Q/A segments', () => {
   const eps = buildPackSpeakingQaEpisodes([
     {
       id: 'spk-1',
@@ -27,7 +27,7 @@ test('v20.0.5: buildAutoSyncedSegments splits learning pack speaking Q&A into se
   assert.ok(segs.every(s => s.autoTimed === true && s.endSec > s.startSec));
 });
 
-test('v20.0.5: buildAutoSyncedSegments generates synced subtitles for YouTube speeches, sentences, and Notebook channels', () => {
+test('v20.1.0: buildAutoSyncedSegments generates synced subtitles for YouTube speeches, sentences, and Notebook channels', () => {
   const ytEps = buildRadioPodcastEpisodes(BUILT_IN_YOUTUBE_SPEECHES.slice(0, 3), { channel: 'youtube_speeches' });
   assert.ok(ytEps.length >= 1);
   const segs = buildAutoSyncedSegments(ytEps[0]);
@@ -39,7 +39,7 @@ test('v20.0.5: buildAutoSyncedSegments generates synced subtitles for YouTube sp
   }
 });
 
-test('v20.0.5: buildAutoSyncedSegments ignores raw audio stub text without transcript', () => {
+test('v20.1.0: buildAutoSyncedSegments ignores raw audio stub text without transcript', () => {
   const rawEp = {
     id: 'raw:1',
     isOriginalAudio: true,
@@ -48,7 +48,7 @@ test('v20.0.5: buildAutoSyncedSegments ignores raw audio stub text without trans
   assert.deepEqual(buildAutoSyncedSegments(rawEp), []);
 });
 
-test('v20.0.5: rescaleSyncedSegments proportionally calibrates timestamps to real audio.duration', () => {
+test('v20.1.0: rescaleSyncedSegments proportionally calibrates timestamps to real audio.duration', () => {
   const segs = buildAutoSyncedSegments({
     fromLearningPack: true,
     questionPrompt: 'Do you enjoy reading?',
@@ -61,7 +61,7 @@ test('v20.0.5: rescaleSyncedSegments proportionally calibrates timestamps to rea
   assert.ok(rescaled[1].startSec > segs[1].startSec);
 });
 
-test('v20.0.5: app.js wires universal synced subtitles across all playback modes and rescales on loadedmetadata', () => {
+test('v20.1.0: app.js wires universal synced subtitles across all playback modes and rescales on loadedmetadata', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.ok(appSrc.includes('buildAutoSyncedSegments'));
   assert.ok(appSrc.includes('rescaleSyncedSegments'));

@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.0.5 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.1.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -2817,3 +2817,104 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
 
 .speech-plan-banner{flex-direction:column;align-items:flex-start;gap:6px;}
 .speech-anchor-chips{display:flex;flex-wrap:wrap;gap:6px;}
+
+/* === v20.1.0 Complex Sentence Imitation Lab === */
+.complex-imitation-lab {
+  border: 1.5px solid rgba(15, 118, 110, 0.28);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.045), rgba(255, 255, 255, 0.92));
+}
+.complex-lab-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.complex-lab-controls .select {
+  flex: 1 1 130px;
+  min-height: 38px;
+}
+.complex-word-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 8px 0 10px;
+}
+.complex-word-chip {
+  cursor: pointer;
+  border: 1px solid rgba(15, 118, 110, 0.3);
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--ink);
+  font-weight: 600;
+}
+.complex-stage-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+.complex-display-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--card, #fffdf9);
+  border: 1px solid rgba(28, 25, 23, 0.1);
+  margin: 8px 0 12px;
+}
+.complex-frame-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.1);
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.complex-sentence-text {
+  font-size: 1.1rem;
+  line-height: 1.65;
+  font-weight: 500;
+  color: var(--ink, #1c1917);
+  margin-bottom: 8px;
+}
+.complex-thought-slash {
+  color: #0f766e;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.complex-frame-trigger {
+  background: rgba(217, 119, 6, 0.14);
+  color: #92400e;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.complex-slot-blank {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 2px;
+  border-radius: 6px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  font-weight: 600;
+}
+.complex-swap-prompt {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  margin: 4px 0 8px;
+}
+.complex-swap-template {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(28, 25, 23, 0.05);
+  margin-bottom: 6px;
+}
+.complex-ab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
