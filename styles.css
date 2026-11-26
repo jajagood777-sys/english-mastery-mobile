@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.2 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -2793,7 +2793,7 @@ html.v19-keyboard-open .site-wrap { padding-bottom: 16px; }
 .link-arc{color:#b45309;font-weight:700;margin:0 1px;font-size:0.95em;user-select:none;}
 .thought-slash{color:#0f5d46;font-weight:800;margin:0 3px;user-select:none;}
 .reading-sentence-span{display:inline;border-radius:6px;padding:2px 4px;transition:opacity 0.18s ease,background-color 0.18s ease;cursor:pointer;}
-.reading-sentence-span.is-focused-sentence{opacity:1 !important;background:rgba(15,93,70,0.11);box-shadow:inset 3px 0 0 #0f5d46;padding-left:8px;color:#111c17;}
+.reading-sentence-span.is-focused-sentence{opacity:1 !important;background:rgba(15,93,70,0.11);border-radius:6px;padding:1px 5px;-webkit-box-decoration-break:clone;box-decoration-break:clone;color:#111c17;}
 .reading-sentence-span.is-dimmed-sentence{opacity:0.28;}
 .reading-sentence-span.is-dimmed-sentence:hover{opacity:0.65;}
 body.pure-book-mode .journey-flow-ribbon,
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.3.1 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.3.2 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
