@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.1.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.2.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -2952,4 +2952,61 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
 .lexicon-input-row input {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* === v20.2.0 Post-Reading Word Harvest Bridge === */
+.reading-harvest-bridge {
+  border: 1.5px solid rgba(15, 118, 110, 0.3);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.05), rgba(255, 255, 255, 0.94));
+}
+.harvest-active-card {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--card, #fffdf9);
+  border: 1px solid rgba(28, 25, 23, 0.1);
+  display: grid;
+  gap: 10px;
+}
+.harvest-cloze-sentence {
+  font-size: 1.06rem;
+  line-height: 1.65;
+  font-weight: 500;
+  color: var(--ink, #1c1917);
+  margin: 0;
+}
+.harvest-recall-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(28, 25, 23, 0.12);
+}
+.harvest-triage-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+.harvest-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.harvest-chip {
+  cursor: pointer;
+  border: 1px solid rgba(28, 25, 23, 0.14);
+}
+.harvest-chip.is-promote {
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+.harvest-chip.is-passive {
+  background: rgba(15, 118, 110, 0.1);
+  border-color: rgba(15, 118, 110, 0.25);
+}
+.harvest-chip.is-drop {
+  opacity: 0.65;
 }
