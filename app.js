@@ -3049,7 +3049,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.2)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.3)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4287,6 +4287,7 @@ function resumeJourneyReading(){
 function readingRecallQueueFor(article){
   const attempted=new Set((data.dailyJourney?.readingRecallAttempts||[]).map(row=>row.markId));const seen=new Set();const rows=[];
   for(const mark of (data.readingMarks||[]).filter(row=>row.readingId===article.id)){
+    if(['promote','passive','drop'].includes(mark.harvestTier))continue;
     const markId=String(mark.id||'');const word=String(mark.wordText||mark.normalizedWord||'').trim();if(!markId||!word||attempted.has(markId)||seen.has(markId))continue;seen.add(markId);
     const source=String(mark.originalSentence||'').trim();const escaped=word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const prompt=source?source.replace(new RegExp(escaped,'i'),'_____'):'';
     rows.push({markId,readingId:article.id,word,prompt:prompt||`Use the marked word “${word}” in the original sentence.`,originalSentence:source,sourceTitle:article.title||mark.sourceTitle||'',packId:mark.packId||article.packId||null});
@@ -4843,7 +4844,19 @@ function readingParagraphs(text){return String(text||'').split(/\n\s*\n|\n/).map
 function selectionOffsetInParagraph(paragraph,selection){try{if(!selection?.rangeCount)return 0;const range=selection.getRangeAt(0);const before=range.cloneRange();before.selectNodeContents(paragraph);before.setEnd(range.startContainer,range.startOffset);return Math.max(0,before.toString().length);}catch{return 0;}}
 function currentReadingSelection(reading,paragraphs){const selection=window.getSelection?.();const text=(selectedText||selection?.toString()||'').trim();if(!text)return null;const paragraphIndex=selectedParagraphIndex;const paragraphText=selectedParagraphText||paragraphs[paragraphIndex]||'';const paragraph=document.querySelector(`.reading-paragraph[data-paragraph-index="${paragraphIndex}"]`);const position=selection&&paragraph?selectionOffsetInParagraph(paragraph,selection):Math.max(0,paragraphText.indexOf(text));const contextInfo=readingSelectionContext(paragraphText,text,{paragraphIndex,startHint:position});if(!contextInfo)return null;return {text,paragraphIndex,position,contextInfo};}
 function appendStoryRichText(box,segment){const re=/\*\*([^*\n]{1,60})\*\*/g;let last=0,match;while((match=re.exec(segment))!==null){if(match.index>last)box.append(document.createTextNode(segment.slice(last,match.index)));const strong=el('strong',match[1],'story-target-word');strong.title='点击用 AI 词典查看并朗读';strong.addEventListener('click',e=>{e.stopPropagation();openAiLexiconDrawer(match[1]);});box.append(strong);last=match.index+match[0].length;}if(last<segment.length)box.append(document.createTextNode(segment.slice(last)));}
-function renderMarkedParagraph(text,marks){const box=p('', 'reading-paragraph');let cursor=0;const ordered=(marks||[]).filter(mark=>Number.isFinite(Number(mark.position))&&Number(mark.position)>=0).sort((a,b)=>Number(a.position)-Number(b.position));for(const mark of ordered){const start=Number(mark.position),word=String(mark.wordText||'').trim();if(!word||start<cursor||text.slice(start,start+word.length).toLowerCase()!==word.toLowerCase())continue;appendStoryRichText(box,text.slice(cursor,start));const token=el('mark',word,'reading-mark');token.title='已标记生词；再次双击可取消';box.append(token);cursor=start+word.length;}appendStoryRichText(box,text.slice(cursor));return box;}
+function resolveMarkStartInText(text,word,hintPos,cursor=0){
+  const w=String(word||'').trim();if(!w)return -1;const lowText=String(text||'').toLowerCase(),lowW=w.toLowerCase();
+  if(Number.isFinite(hintPos)&&hintPos>=cursor&&lowText.slice(hintPos,hintPos+w.length)===lowW)return hintPos;
+  let best=-1,bestDist=1e9,idx=lowText.indexOf(lowW,cursor);
+  while(idx!==-1){
+    const before=idx>0?lowText[idx-1]:' ',after=idx+w.length<lowText.length?lowText[idx+w.length]:' ';
+    if(!/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after)){const dist=Number.isFinite(hintPos)?Math.abs(idx-hintPos):0;if(dist<bestDist){best=idx;bestDist=dist;}}
+    idx=lowText.indexOf(lowW,idx+1);
+  }
+  return best;
+}
+function appendMarkedReadingSegment(box,text,marks,renderFn){let cursor=0;const ordered=(marks||[]).filter(mark=>String(mark?.wordText||'').trim()).sort((a,b)=>(Number(a.position)||0)-(Number(b.position)||0));for(const mark of ordered){const word=String(mark.wordText||'').trim(),start=resolveMarkStartInText(text,word,Number(mark.position),cursor);if(start<cursor)continue;renderFn(box,text.slice(cursor,start));const token=el('mark',text.slice(start,start+word.length),'reading-mark');token.title='已标记生词；再次双击可取消';box.append(token);cursor=start+word.length;}renderFn(box,text.slice(cursor));return box;}
+function renderMarkedParagraph(text,marks){const box=p('', 'reading-paragraph');return appendMarkedReadingSegment(box,text,marks,appendStoryRichText);}
 function splitReadingSentences(para){
   const raw=String(para||'').trim();
   if(!raw)return [];
@@ -4935,9 +4948,14 @@ function renderEnhancedReadingParagraph(text,marks,sentenceTracker){
   };
   if(readingSentenceFocusMode){
     const sentences=splitReadingSentences(text);
+    let sentOffset=0;
     sentences.forEach((sent,sIdx)=>{
+      const rawIdx=text.indexOf(sent,sentOffset);
+      const sentStart=rawIdx>=0?rawIdx:sentOffset;
+      sentOffset=sentStart+sent.length;
       const globalIdx=sentenceTracker.list.length;
-      sentenceTracker.list.push(sent.replace(/\*\*([^*\n]{1,80})\*\*/g,'$1'));
+      const cleanSent=sent.replace(/\*\*([^*\n]{1,80})\*\*/g,'$1');
+      sentenceTracker.list.push(cleanSent);
       if(Array.isArray(sentenceTracker.rawList))sentenceTracker.rawList.push(sent);
       const span=el('span','','reading-sentence-span');
       span.dataset.sentenceIndex=String(globalIdx);
@@ -4950,25 +4968,19 @@ function renderEnhancedReadingParagraph(text,marks,sentenceTracker){
         readingFocusSentenceIdx=globalIdx;
         render();
       });
-      if(readingProsodyMode&&!isFocused){appendStoryRichText(span,sent);}else{renderSeg(span,sent);}
+      const sentSegFn=(readingProsodyMode&&!isFocused)?appendStoryRichText:renderSeg;
+      const sentMarks=(marks||[]).filter(m=>{
+        const os=String(m?.originalSentence||'').trim();
+        if(os&&(cleanSent.includes(os)||os.includes(cleanSent)))return true;
+        return resolveMarkStartInText(sent,m?.wordText,Number(m?.position)-sentStart,0)>=0;
+      }).map(m=>({...m,position:Math.max(0,(Number(m.position)||0)-sentStart)}));
+      appendMarkedReadingSegment(span,sent,sentMarks,sentSegFn);
       box.append(span);
       if(sIdx<sentences.length-1)box.append(document.createTextNode(' '));
     });
     return box;
   }
-  let cursor=0;
-  const ordered=(marks||[]).filter(mark=>Number.isFinite(Number(mark.position))&&Number(mark.position)>=0).sort((a,b)=>Number(a.position)-Number(b.position));
-  for(const mark of ordered){
-    const start=Number(mark.position),word=String(mark.wordText||'').trim();
-    if(!word||start<cursor||text.slice(start,start+word.length).toLowerCase()!==word.toLowerCase())continue;
-    renderSeg(box,text.slice(cursor,start));
-    const token=el('mark',word,'reading-mark');
-    token.title='已标记生词；再次双击可取消';
-    box.append(token);
-    cursor=start+word.length;
-  }
-  renderSeg(box,text.slice(cursor));
-  return box;
+  return appendMarkedReadingSegment(box,text,marks,renderSeg);
 }
 function toggleReadingMark(reading,paragraphs){const selected=currentReadingSelection(reading,paragraphs);if(!selected){notify('请先双击或长按选中一个英文词语，再点击标记。');return;}const isSentence=/[.!?]$/.test(selected.text)||selected.text.split(/\s+/).length>7;if(isSentence||selected.contextInfo.crossSentence){notify('生词标记请使用同一句中的英文单词或短语；整句仍可用“保存选中文本为卡片”。');return;}const mark={id:readingMarkId({readingId:reading.id,normalizedWord:normalized(selected.text),paragraphIndex:selected.paragraphIndex,position:selected.position}),readingId:reading.id,sourceTitle:reading.title,source:reading.source||'本机导入',paragraphIndex:selected.paragraphIndex,wordText:selected.text,normalizedWord:normalized(selected.text),originalSentence:selected.contextInfo.context,position:selected.position,markedAt:new Date().toISOString(),savedStatus:'UNSAVED',savedItemId:null,packId:reading.packId||data.dailyPack?.packId||null};const existing=(data.readingMarks||[]).find(item=>item.id===mark.id);data.readingMarks=existing?(data.readingMarks||[]).filter(item=>item.id!==mark.id):mergeReadingMarks(data.readingMarks||[],[mark]);if(save())render();}
 function saveMarkedReadingWords(reading){const pending=(data.readingMarks||[]).filter(mark=>mark.readingId===reading.id&&mark.savedStatus!=='SAVED');if(!pending.length){notify('当前文章没有待保存的生词标记。');return;}const incoming=pending.map(mark=>({id:readingCardId({readingId:reading.id,kind:'word',target:mark.wordText,context:mark.originalSentence,source:reading.title}),kind:'word',contentType:'Words',target:mark.wordText,originalText:mark.wordText,example:mark.originalSentence,context:mark.originalSentence,readingId:reading.id,paragraphIndex:mark.paragraphIndex,source:reading.title,sourceTitle:reading.title,group:'Reading',tags:['Reading Materials'],learningStage:'new',createdAt:new Date().toISOString()}));const merged=mergeItems(data.items,incoming);data.items=merged.items;const byWord=new Map(incoming.map(item=>[item.id,item.id]));data.readingMarks=(data.readingMarks||[]).map(mark=>{const itemId=readingCardId({readingId:reading.id,kind:'word',target:mark.wordText,context:mark.originalSentence,source:reading.title});return mark.readingId===reading.id&&mark.savedStatus!=='SAVED'&&byWord.has(itemId)?{...mark,savedStatus:'SAVED',savedItemId:itemId}:mark;});if(!save())return;notify(`已保存 ${merged.added} 个新生词，${merged.skipped} 个已存在；原有 K/V/N 保持不变。`);render();}

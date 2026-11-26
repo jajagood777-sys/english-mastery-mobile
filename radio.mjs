@@ -1824,7 +1824,7 @@ export function buildRadioPlaylist({
 
   // 1b. Reading saved/marked words (surface N/V or saved reading words as audio flashcards in sentences_listening & weak_sniper)
   for (const mk of (Array.isArray(readingMarks) ? readingMarks : [])) {
-    if (!mk) continue;
+    if (!mk || mk.harvestTier === 'drop') continue;
     const w = cleanRad(mk.wordText || mk.normalizedWord || mk.word || '');
     const sent = cleanRad(mk.originalSentence || mk.original_sentence || '');
     if (!w || !sent) continue;

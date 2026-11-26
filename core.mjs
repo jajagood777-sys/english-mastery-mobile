@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '20.3.2';
+export const APP_VERSION = '20.3.3';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -736,6 +736,9 @@ export function collectReadingMarkEvidence(marks = [], readings = [], items = []
       savedStatus:mark.savedStatus==='SAVED'?'SAVED':'UNSAVED',
       savedItemId:mark.savedItemId?String(mark.savedItemId):null,
       status:card&&['K','V','N'].includes(card.status)?card.status:'UNTESTED',
+      harvestTier:['promote','passive','drop'].includes(mark.harvestTier)?mark.harvestTier:null,
+      harvestRecalled:typeof mark.harvestRecalled==='boolean'?mark.harvestRecalled:null,
+      harvestedAt:mark.harvestedAt?String(mark.harvestedAt).trim():null,
       packId:String(mark.packId||card?.packId||''),
       markedAt:String(mark.markedAt||'').trim()
     });
@@ -1068,7 +1071,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
     unmeasured,
     reading_vocabulary_evidence:{
       count:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.length:0,
-      items:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.map(mark=>({mark_id:mark.markId||mark.id||null,word:mark.wordText||mark.normalizedWord||'',reading_id:mark.readingId||null,source_title:mark.sourceTitle||'',original_sentence:mark.originalSentence||'',saved_status:mark.savedStatus||'UNSAVED',status:mark.status||'UNTESTED',pack_id:mark.packId||null})):[]
+      items:Array.isArray(report?.reading_analysis?.marks)?report.reading_analysis.marks.map(mark=>({mark_id:mark.markId||mark.id||null,word:mark.wordText||mark.normalizedWord||'',reading_id:mark.readingId||null,source_title:mark.sourceTitle||'',original_sentence:mark.originalSentence||'',saved_status:mark.savedStatus||'UNSAVED',status:mark.status||'UNTESTED',harvest_tier:mark.harvestTier||mark.harvest_tier||null,harvest_recalled:typeof mark.harvestRecalled==='boolean'?mark.harvestRecalled:(typeof mark.harvest_recalled==='boolean'?mark.harvest_recalled:null),harvested_at:mark.harvestedAt||mark.harvested_at||null,pack_id:mark.packId||null})):[]
     },
     reading_recall_evidence:{count:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall.length:0,items:Array.isArray(report?.reading_analysis?.immediate_recall)?report.reading_analysis.immediate_recall:[]},
     reading_passage_metrics:Array.isArray(report?.reading_analysis?.passage_metrics)?report.reading_analysis.passage_metrics:[],
@@ -1436,7 +1439,7 @@ export function battleReportMarkdown(report) {
     `## Practice details`, ``, `| 项目 | 类型 | 评价 | 初答 | 检查 | 重练 | 复习 |`, `|---|---|---|---|---|---|---|`,
     ...(report.attempts || []).map(a => `| ${(a.target||a.item_id||'').replaceAll('|','\\|')} | ${a.module||a.content_type} | ${a.rating} | ${(a.user_answer||'').replaceAll('|','\\|').replaceAll('\n',' ')} | ${a.initial_check?.status||''} | ${a.retried_after_error?'是':'否'} | ${a.suggested_review_date||''} |`),
     ``, `## 本次阅读标记生词`, ``, `本次阅读标记生词：${report.reading_analysis?.mark_count||0}条`,
-    ...(report.reading_analysis?.marks||[]).map(mark=>`- ${inline(mark.wordText||mark.normalizedWord||'未记录')} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'仅标记未保存'} · K/V/N：${inline(mark.status||'UNTESTED')} · ${inline(mark.sourceTitle||'未记录')} · ${inline(mark.originalSentence||'')}`),
+    ...(report.reading_analysis?.marks||[]).map(mark=>`- ${inline(mark.wordText||mark.normalizedWord||'未记录')} · ${mark.savedStatus==='SAVED'?'已保存为卡片':'仅标记未保存'} · K/V/N：${inline(mark.status||'UNTESTED')}${mark.harvestTier?` · 收割分流：${mark.harvestTier==='promote'?'🔥明日必考':mark.harvestTier==='passive'?'👁️仅混眼熟':'🗑️略过'}${typeof mark.harvestRecalled==='boolean'?`（挖空回忆：${mark.harvestRecalled?'想起来':'未想起'}）`:''}`:''} · ${inline(mark.sourceTitle||'未记录')} · ${inline(mark.originalSentence||'')}`),
     ``, `## 阅读标记即时回忆`, ``, `实际参加即时回忆：${(report.reading_analysis?.immediate_recall||[]).length}条`,
     ...(report.reading_analysis?.immediate_recall||[]).map(row=>`- ${inline(row.word||row.mark_id||'未记录')} · ${inline(row.status||'UNTESTED')} · 原答：${inline(row.user_answer||'')} · 来源：${inline(row.source_title||'未记录')}`),
     ...(readingExamLines.length?[``, `## IELTS reading source`, ``, ...readingExamLines]:[]),
