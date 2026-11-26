@@ -2955,8 +2955,45 @@ let aiDictReplyText = '';
 let aiDictAutoRunQuery = '';
 let aiDictRequestSerial = 0;
 function invalidateAiDictRequest() { aiDictRequestSerial++; }
+let lastCapturedSelectionText = '';
+function captureCurrentSelectionText() {
+  try {
+    const raw = (typeof window !== 'undefined' && window.getSelection ? String(window.getSelection().toString() || '') : '').replace(/\s+/g, ' ').trim();
+    if (raw && raw.length <= 120) {
+      lastCapturedSelectionText = raw;
+      return raw;
+    }
+  } catch {}
+  return lastCapturedSelectionText || '';
+}
+function getCurrentContextLookupWords() {
+  const words = [];
+  const seen = new Set();
+  const push = (w) => {
+    const clean = String(w || '').trim().replace(/^[^A-Za-z]+|[^A-Za-z\-'\s]+$/g, '').trim();
+    if (!clean || clean.length < 2 || clean.length > 32 || !/^[A-Za-z][A-Za-z\s'-]*$/.test(clean)) return;
+    const k = clean.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    words.push(clean);
+  };
+  if (page === 'vocabulary' && data?.dailyJourney && data?.dailyPack?.vocabularyPractice?.length) {
+    const tasks = data.dailyPack.vocabularyPractice;
+    const idx = Math.min(tasks.length - 1, Math.max(0, Number(data.dailyJourney.vocabularyIndex) || 0));
+    const t = tasks[idx];
+    if (t) {
+      if (t.target) push(t.target);
+      for (const opt of (t.options || [])) {
+        if (opt?.text && String(opt.text).split(/\s+/).length <= 3) push(opt.text);
+      }
+    }
+  }
+  if (selectedText) push(selectedText);
+  return words.slice(0, 6);
+}
 function openAiLexiconDrawer(explicitText = "") {
   const picked = String(explicitText || captureCurrentSelectionText() || selectedText || "").trim();
+  lastCapturedSelectionText = "";
   if (picked) {
     if (picked !== lexiconQuery) aiDictReplyText = "";
     lexiconQuery = picked;
@@ -2977,10 +3014,13 @@ function makeAiLookupTriggerButton(className = "btn ghost small-btn") {
 function renderOfflineLexiconDrawer() {
   if (!lexiconDrawerOpen) return el("span", "");
   const overlay = div("lexicon-drawer-backdrop");
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }
+  });
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.1.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.1.1)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3100,7 +3140,26 @@ function renderOfflineLexiconDrawer() {
     });
   };
   input.addEventListener("input", () => updateList(input.value));
-  panel.append(head, input, actionRow, aiOut, listBox);
+  const quickWords = getCurrentContextLookupWords();
+  const quickStrip = div("lexicon-quick-chips");
+  if (quickWords.length) {
+    quickStrip.append(el("span", "当前题词（点一下直接查）：", "tiny"));
+    for (const qw of quickWords) {
+      const chip = el("button", qw, "badge complex-word-chip");
+      chip.type = "button";
+      chip.addEventListener("click", () => {
+        input.value = qw;
+        lexiconQuery = qw;
+        aiDictReplyText = "";
+        updateList(qw);
+        void runAiLookup();
+      });
+      quickStrip.append(chip);
+    }
+  }
+  const inputRow = div("lexicon-input-row");
+  inputRow.append(input, btn("清空", () => { input.value = ""; lexiconQuery = ""; aiDictReplyText = ""; renderAiOut(); updateList(""); input.focus(); }, "btn ghost small-btn"));
+  panel.append(head, quickWords.length ? quickStrip : el("span", ""), inputRow, actionRow, aiOut, listBox);
   updateList(lexiconQuery);
   overlay.append(panel);
   return overlay;
@@ -3253,12 +3312,12 @@ function toggleVocabMastered(word = '') {
 function isVocabAutoPronounceOn() {
   return data?.settings?.vocabAutoPronounce !== false;
 }
-function triggerVocabAutoPronounce(key, text, audioUrl = "") {
+function triggerVocabAutoPronounce(key, text, audioUrl = "", segments = null) {
   if (!isVocabAutoPronounceOn() || !key || !text || lastAutoPlayedKey === key) return;
   lastAutoPlayedKey = key;
   setTimeout(() => {
     if (audioUrl) playReferenceAudio(audioUrl, text);
-    else speakNaturalOrDevice(text, null, { silentMissing: true });
+    else speakNaturalOrDevice(text, Array.isArray(segments) && segments.length ? segments : null, { silentMissing: true });
   }, 70);
 }
 function triggerAutoPlayIfEnabled(key, text, audioUrl = "") {
@@ -4947,8 +5006,16 @@ function renderVocabularyStage(){
         save();render();
       });
     }
-    if(hideTargetNow&&task.target&&isVocabAutoPronounceOn()){
-      triggerVocabAutoPronounce(`vocab-reveal:${task.id}`,task.target,task.audioUrl);
+    if(!skipped&&isVocabAutoPronounceOn()){
+      const cdtlForSpeak=buildCdtlCard(task,optionId,data.dailyPack?.originalWordArchive||[]);
+      const exampleToSpeak=String(cdtlForSpeak?.correct?.exampleEn||task.archivedExample||'').trim();
+      if(hideTargetNow&&task.target&&exampleToSpeak){
+        triggerVocabAutoPronounce(`vocab-reveal-ex:${task.id}`,exampleToSpeak,'',[task.target,exampleToSpeak]);
+      }else if(exampleToSpeak){
+        triggerVocabAutoPronounce(`vocab-ex:${task.id}`,exampleToSpeak,'',[exampleToSpeak]);
+      }else if(hideTargetNow&&task.target){
+        triggerVocabAutoPronounce(`vocab-reveal:${task.id}`,task.target,task.audioUrl);
+      }
     }
     if(!attempt.correct&&!task.isDelayedRetry&&!j.vocabularyDelayedQueue.some(x=>x?.task?.originalTaskId===task.id)){
       const retryWrapped=scheduleInSessionDelayedRetry([task],0,task,{delayGap:1}).find(x=>x&&x.isDelayedRetry);
@@ -5078,7 +5145,13 @@ function renderVocabularyStage(){
     if(prior.correct){
       // Compact, zero-repetition card when user got it right
       if(cleanSense)feedbackBox.append(p(`释义：${cleanSense}`,'subtle'));
-      if(cleanExample)feedbackBox.append(p(`例句：${cleanExample}`,'hint'));
+      if(cleanExample){
+        const exBtn=el('button',`🔊 例句：${cleanExample}`,'hint vocab-example-play-btn');
+        exBtn.type='button';
+        exBtn.title='点击重听例句';
+        exBtn.addEventListener('click',()=>speakNaturalOrDevice(cleanExample,[cleanExample],{silentMissing:true}));
+        feedbackBox.append(exBtn);
+      }
       if(!cleanSense&&!cleanExample&&task.explanationEn)feedbackBox.append(p(task.explanationEn,'small-block'));
     }else{
       if(!prior.skipped)feedbackBox.append(renderGritQuoteBanner('error',j.vocabularyIndex));
@@ -5126,6 +5199,7 @@ function renderVocabularyStage(){
       btn(nextLabel,advanceNext,'btn primary vocab-next-btn'),
       vocabFastAdvanceTimer?btn('⏸ 停下看',()=>{clearVocabFastAdvance();render();},'btn ghost small-btn'):el('span',''),
       task.target?btn('🔊 读词',()=>speakEnglish(task.target),'btn ghost small-btn'):el('span',''),
+      task.target?btn('🔍 查词',()=>{clearVocabFastAdvance();openAiLexiconDrawer(task.target);},'btn ghost small-btn'):el('span',''),
       lookalikes.length?btn(`${lookAlikeOpen?'收起形近词':'🔍 形近词'} (${lookalikes.length})`,()=>{clearVocabFastAdvance();vocabLookAlikeOpenId=lookAlikeOpen?null:task.id;render();},`btn ghost small-btn${!prior.correct&&!lookAlikeOpen?' is-lookalike-alert':''}`):el('span',''),
       task.target?btn(isVocabMastered(task.target)?'取消斩词':'✓ 斩词',()=>{const on=toggleVocabMastered(task.target);save();if(on)showFloatingUndoPill(`已斩熟词「${task.target}」`,()=>{toggleVocabMastered(task.target);save();render();});else notify(`已取消「${task.target}」的斩词标记。`);render();},'btn ghost small-btn'):el('span',''),
       btn('🔊 朗读',speakFeedback,'btn secondary small-btn')
