@@ -47,7 +47,7 @@ import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,RADIO_PLAYBACK_MODES,normalizeRadioPl
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
-import {COMPLEX_FRAME_TYPES,COMPLEX_STAGE_META,COMPLEX_IMITATION_TOPICS,extractLearnedVocabPool,buildLinkedComplexDrill,buildAiComplexSentencePrompt,parseAiComplexSentenceResponse} from './complex-imitation.mjs';
+import {COMPLEX_FRAME_TYPES,COMPLEX_STAGE_META,COMPLEX_IMITATION_TOPICS,extractLearnedVocabPool,buildLinkedComplexDrill,buildAiComplexSentencePrompt,parseAiComplexSentenceResponse,listDrillsByFrame,buildComplexSwapCritiquePrompt} from './complex-imitation.mjs';
 import {HARVEST_TRIAGE_TIERS,buildHarvestCard,summarizeHarvestProgress,filterMarksForTomorrowPack,splitSentenceWithHighlight,buildHarvestQuizOptions,buildHarvestAiGlossPrompt,parseHarvestAiGlossResponse} from './reading-harvest.mjs';
 import {SESSION_PACING_MODES,LISTENING_DECODE_STEPS,selectTodayMissionWords,detectActivatedMissionWords,buildOpeningWarmupQueue,buildClosingExitTicket,clampShadowRepCount} from './pipeline-mastery.mjs';
 
@@ -385,6 +385,10 @@ let complexDrillIdx = 0;
 let complexStage = 'imitate';
 let complexCustomDrill = null;
 let complexAiBusy = false;
+let complexFrameFilter = 'all';
+let complexSwapDraft = '';
+let complexSwapFeedback = '';
+let complexSwapBusy = false;
 let readingHarvestActiveMarkId = null;
 let readingHarvestRevealed = false;
 let readingHarvestForceShow = false;
@@ -3129,7 +3133,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.7)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.0)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3633,6 +3637,7 @@ function render(){if(typeof document!=='undefined'&&document.body&&page!=='readi
     if(page==='library')return renderLibrary();
     if(page==='reading')return renderReading();
     if(page==='speech')return renderSpeechChamber();
+if(page==='complexLab')return renderComplexImitationPage();
     if(page==='readingVocabulary')return renderReadingVocabulary();
     if(page==='storyPractice')return renderPaperStoryPractice();
     if(page==='vocabulary')return renderVocabularyStage();
@@ -4102,8 +4107,8 @@ function renderHome(){
   modeDrawer.append(modeSummary);
   const head=div('section-head');head.append(h('h2','选择学习方式'),el('span','英语内容保持英文','tiny'));modeDrawer.append(head);
   const modes=div('feature-grid');
-  for(const [name,english,description,mode,icon] of [['炼词','Words & Phrases','词汇、词块和主动回忆。','words','Aa'],['炼句','Sentences','句子填空或整句回忆。','sentences','“ ”'],['阅读','Reading','阅读英文材料，保存有价值的表达。','reading','文'],['听力','Listening','先听再写，使用浏览器朗读。','sentences','◖'],['演讲','Speech Chamber','整篇听读、影子跟读、隐藏原稿。','speech','🎙']]){
-    const b=el('button','','mode-card feature-card');b.append(el('div',icon,'mode-icon'),h('strong',name),el('span',english,'mode-english'),el('span',description));b.addEventListener('click',()=>mode==='speech'?setPage('speech'):mode==='reading'?setPage('reading'):startSession(mode==='sentences'?'sentences':'words',name==='听力'?{scope:'listening',sentenceStyle:'listening'}:{sentenceStyle:'cloze'}));modes.append(b);
+  for(const [name,english,description,mode,icon] of [['炼词','Words & Phrases','词汇、词块和主动回忆。','words','Aa'],['炼句','Sentences','句子填空或整句回忆。','sentences','“ ”'],['阅读','Reading','阅读英文材料，保存有价值的表达。','reading','文'],['听力','Listening','先听再写，使用浏览器朗读。','sentences','◖'],['演讲','Speech Chamber','整篇听读、影子跟读、隐藏原稿。','speech','🎙'],['复杂句仿说','Complex Imitation','独立专练：8 大高分口语骨架、3 阶脱稿与 AI 句型升级。','complexLab','🧩']]){
+    const b=el('button','','mode-card feature-card');b.append(el('div',icon,'mode-icon'),h('strong',name),el('span',english,'mode-english'),el('span',description));b.addEventListener('click',()=>mode==='speech'?setPage('speech'):mode==='complexLab'?setPage('complexLab'):mode==='reading'?setPage('reading'):startSession(mode==='sentences'?'sentences':'words',name==='听力'?{scope:'listening',sentenceStyle:'listening'}:{sentenceStyle:'cloze'}));modes.append(b);
   }
   const commute=el('button','','mode-card feature-card');commute.append(el('div','⚡','mode-icon'),h('strong','5分钟通勤微冲刺'),el('span','Commute Sprint','mode-english'),el('span','碎片时间速刷 5 个最紧迫词 + 2 句，完整写入战报。'));commute.addEventListener('click',()=>{const q=buildCommuteSprintQueue(data.items||[]);if(!q.length){notify('当前没有可冲刺的词句卡片。');return;}startSession('mixed',{scope:'commute',queue:q,dueGoal:5});});modes.append(commute);
   const difficult=el('button','','mode-card feature-card');difficult.append(el('div','!','mode-icon'),h('strong','困难词专项'),el('span','Weak Items','mode-english'),el('span','集中处理多次模糊或答错的卡片。'));difficult.addEventListener('click',()=>startSession('words',{scope:'difficult'}));modes.append(difficult);modeDrawer.append(modes);app.append(modeDrawer);
@@ -4466,7 +4471,7 @@ function rebuildJourneyReport(){
 }
 function transferTaskLabel(type){return ({speaking:'口语训练',writing:'写作训练',grammar:'语法练习',reading_to_speaking:'阅读复述',exit_ticket:'Exit Ticket｜课末独立验收',general_transfer:'综合输出'})[type]||'综合输出';}
 function dailyTaskProgress(task){return transferTaskProgressState({...task,packId:data.dailyPack?.packId},[...(data.transferAttempts||[]),...(data.dailyJourney?.transferAttempts||[])]);}
-function renderDailyOverview(){if(!data.dailyPack)return null;const pack=data.dailyPack,items=todayPackItems(),readings=journeyReadings(),questionProgress=readingQuestionProgress(readings,data.readingChecks||[]),questions=questionProgress.total,tasks=Array.isArray(pack.transferTasks)?pack.transferTasks:[];const vocabTasks=journeyVocabularyTasks();const vocabAttempts=[...(data.vocabularyAttempts||[]),...(data.dailyJourney?.vocabularyAttempts||[])].filter(r=>!r.packId||r.packId===pack.packId);const vocabSummary=summarizeVocabularyPractice(vocabTasks,vocabAttempts);const modules=[...(vocabTasks.length?[{key:'vocabulary',label:'触控词汇（110题）',count:vocabTasks.length,done:vocabSummary.answered,skipped:vocabSummary.skipped,unassessed:0,action:()=>startDailyJourney()}]:[]),{key:'words',label:'词汇训练',count:items.filter(item=>item.kind==='word').length,done:items.filter(item=>item.kind==='word'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('words',{scope:'today'})},{key:'sentences',label:'语法与句子',count:items.filter(item=>item.kind==='sentence'&&item.module!=='listening').length,done:items.filter(item=>item.kind==='sentence'&&item.module!=='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today'})},{key:'reading',label:'阅读',count:readings.length,done:data.dailyJourney?.readingDoneIds?.length||0,action:()=>setPage('reading')},{key:'comprehension',label:'阅读理解',count:questions,done:questionProgress.answered,skipped:questionProgress.skipped,unassessed:questionProgress.unassessed,action:()=>setPage('reading')},{key:'listening',label:'听力听写',count:items.filter(item=>item.module==='listening').length,done:items.filter(item=>item.module==='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today-listening',sentenceStyle:'listening'})}];for(const type of ['speaking','writing','grammar','exit_ticket','general_transfer']){const selected=type==='speaking'?tasks.filter(task=>task.taskType==='speaking'||task.taskType==='reading_to_speaking'):tasks.filter(task=>task.taskType===type);if(selected.length)modules.push({key:type,label:transferTaskLabel(type),count:selected.length,done:selected.filter(task=>['COMPLETED','UNASSESSED'].includes(dailyTaskProgress(task))).length,skipped:selected.filter(task=>dailyTaskProgress(task)==='SKIPPED').length,unassessed:selected.filter(task=>dailyTaskProgress(task)==='UNASSESSED').length,action:()=>startDailyTransferTask(selected[0])});}if(journeySpeeches().length)modules.push({key:'speech',label:'英语演讲跟读',count:journeySpeeches().length,done:data.dailyJourney?.speechDoneIds?.length||0,action:()=>setPage('speech')});const activeModules=modules.filter(m=>m.count>0);const totalDone=activeModules.reduce((a,m)=>a+Math.min(m.done,m.count),0);const totalAll=activeModules.reduce((a,m)=>a+m.count,0);const box=section('daily-overview');const head=div('daily-overview-head');head.append(el('div','今日学习目录 · DAILY OVERVIEW','eyebrow'),h('h2',pack.title||'今日学习包'));const list=div('daily-module-list');activeModules.forEach(module=>{const row=el('button','','daily-module-row');const pct=Math.min(100,Math.round((module.done/Math.max(1,module.count))*100));const isDone=module.done>=module.count;const left=div('daily-module-left');const bar=div('daily-module-bar');const barFill=div('daily-module-bar-fill');barFill.style.width=`${pct}%`;bar.append(barFill);left.append(el('span',module.label,'daily-module-name'),bar);const right=div('daily-module-right');right.append(el('span',`${module.done}/${module.count}`,`daily-module-ratio${isDone?' is-done':''}`),el('span',isDone?'✓':'›','daily-module-chevron'));row.append(left,right);row.addEventListener('click',module.action);list.append(row);});const reviewCount=items.filter(item=>item.practiceRole==='review').length+tasks.filter(task=>task.practiceRole==='review').length;const newCount=items.filter(item=>item.practiceRole!=='review').length+tasks.filter(task=>task.practiceRole!=='review').length;box.append(head,list,p(`总进度 ${totalDone}/${totalAll} · 今日新学 ${newCount} · 回炉 ${reviewCount}`,'tiny'));return box;}
+function renderDailyOverview(){if(!data.dailyPack)return null;const pack=data.dailyPack,items=todayPackItems(),readings=journeyReadings(),questionProgress=readingQuestionProgress(readings,data.readingChecks||[]),questions=questionProgress.total,tasks=Array.isArray(pack.transferTasks)?pack.transferTasks:[];const vocabTasks=journeyVocabularyTasks();const vocabAttempts=[...(data.vocabularyAttempts||[]),...(data.dailyJourney?.vocabularyAttempts||[])].filter(r=>!r.packId||r.packId===pack.packId);const vocabSummary=summarizeVocabularyPractice(vocabTasks,vocabAttempts);const modules=[...(vocabTasks.length?[{key:'vocabulary',label:'触控词汇（110题）',count:vocabTasks.length,done:vocabSummary.answered,skipped:vocabSummary.skipped,unassessed:0,action:()=>startDailyJourney()}]:[]),{key:'words',label:'词汇训练',count:items.filter(item=>item.kind==='word').length,done:items.filter(item=>item.kind==='word'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('words',{scope:'today'})},{key:'sentences',label:'语法与句子',count:items.filter(item=>item.kind==='sentence'&&item.module!=='listening').length,done:items.filter(item=>item.kind==='sentence'&&item.module!=='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today'})},{key:'reading',label:'阅读',count:readings.length,done:data.dailyJourney?.readingDoneIds?.length||0,action:()=>setPage('reading')},{key:'comprehension',label:'阅读理解',count:questions,done:questionProgress.answered,skipped:questionProgress.skipped,unassessed:questionProgress.unassessed,action:()=>setPage('reading')},{key:'listening',label:'听力听写',count:items.filter(item=>item.module==='listening').length,done:items.filter(item=>item.module==='listening'&&data.attempts.some(attempt=>attempt.itemId===item.id)).length,action:()=>startSession('sentences',{scope:'today-listening',sentenceStyle:'listening'})}];for(const type of ['speaking','writing','grammar','exit_ticket','general_transfer']){const selected=type==='speaking'?tasks.filter(task=>task.taskType==='speaking'||task.taskType==='reading_to_speaking'):tasks.filter(task=>task.taskType===type);if(selected.length)modules.push({key:type,label:transferTaskLabel(type),count:selected.length,done:selected.filter(task=>['COMPLETED','UNASSESSED'].includes(dailyTaskProgress(task))).length,skipped:selected.filter(task=>dailyTaskProgress(task)==='SKIPPED').length,unassessed:selected.filter(task=>dailyTaskProgress(task)==='UNASSESSED').length,action:()=>startDailyTransferTask(selected[0])});}if(journeySpeeches().length)modules.push({key:'speech',label:'英语演讲跟读',count:journeySpeeches().length,done:data.dailyJourney?.speechDoneIds?.length||0,action:()=>setPage('speech')});modules.push({key:'complexLab',label:'🧩 复杂句仿说工坊',count:3,done:Math.min(3,(data.complexLabProgress?.todayDate===todayKey()?Number(data.complexLabProgress?.todayCount||0):0)),action:()=>setPage('complexLab')});const activeModules=modules.filter(m=>m.count>0);const totalDone=activeModules.reduce((a,m)=>a+Math.min(m.done,m.count),0);const totalAll=activeModules.reduce((a,m)=>a+m.count,0);const box=section('daily-overview');const head=div('daily-overview-head');head.append(el('div','今日学习目录 · DAILY OVERVIEW','eyebrow'),h('h2',pack.title||'今日学习包'));const list=div('daily-module-list');activeModules.forEach(module=>{const row=el('button','','daily-module-row');const pct=Math.min(100,Math.round((module.done/Math.max(1,module.count))*100));const isDone=module.done>=module.count;const left=div('daily-module-left');const bar=div('daily-module-bar');const barFill=div('daily-module-bar-fill');barFill.style.width=`${pct}%`;bar.append(barFill);left.append(el('span',module.label,'daily-module-name'),bar);const right=div('daily-module-right');right.append(el('span',`${module.done}/${module.count}`,`daily-module-ratio${isDone?' is-done':''}`),el('span',isDone?'✓':'›','daily-module-chevron'));row.append(left,right);row.addEventListener('click',module.action);list.append(row);});const reviewCount=items.filter(item=>item.practiceRole==='review').length+tasks.filter(task=>task.practiceRole==='review').length;const newCount=items.filter(item=>item.practiceRole!=='review').length+tasks.filter(task=>task.practiceRole!=='review').length;box.append(head,list,p(`总进度 ${totalDone}/${totalAll} · 今日新学 ${newCount} · 回炉 ${reviewCount}`,'tiny'));return box;}
 function startDailyTransferTask(task){const source=normalizeSourceMeta(task);const weakness=makeWeakness({id:`weakness:transfer:${task.id}`,...source,targetExpression:task.targetExpression||'',skillType:task.skillType||'Transfer / Application',taskType:task.taskType||'general_transfer',evidenceType:'pack_transfer',retrievalStatus:'UNTESTED',taskType:task.taskType||task.task_type||'general_transfer',contexts:task.contexts});startWeaknessTransfer(weakness);}
 
 function journeyPanel(){
@@ -5965,51 +5970,132 @@ function renderComplexHighlightedText(text, triggers = [], stage = 'imitate') {
   return wrap;
 }
 
-function renderComplexImitationLab() {
+function getComplexLabTodayCount() {
+  const p = data.complexLabProgress;
+  if (!p || p.todayDate !== todayKey()) return 0;
+  return Number(p.todayCount || 0);
+}
+
+function markComplexDrillMastered(drillId) {
+  const today = todayKey();
+  const prev = data.complexLabProgress || { doneIds: [], todayDate: today, todayCount: 0 };
+  const doneIds = Array.isArray(prev.doneIds) ? [...prev.doneIds] : [];
+  const already = doneIds.includes(drillId);
+  if (!already) doneIds.push(drillId);
+  const todayCount = (prev.todayDate === today ? Number(prev.todayCount || 0) : 0) + (already ? 0 : 1);
+  data.complexLabProgress = { doneIds: doneIds.slice(-120), todayDate: today, todayCount };
+  save();
+  notify(already ? '这句已经在已练熟列表里啦，可点「换一句」继续冲刺！' : `✓ 已记入今日练熟（今日累计 ${todayCount} 句）！`);
+}
+
+function renderComplexImitationPage() {
+  stopActiveAudio();
+  const topBar = div('v20-commute-bar');
+  topBar.append(
+    btn('← 返回首页', () => setPage('home'), 'btn ghost small-btn'),
+    btn('🎙 回演讲室', () => setPage('speech'), 'btn ghost small-btn'),
+    el('span', `今日已练熟 ${getComplexLabTodayCount()} 句`, 'badge')
+  );
+  app.append(
+    topBar,
+    el('div', '独立专练 · COMPLEX IMITATION LAB 2.0', 'eyebrow'),
+    h('h1', '口语复杂句仿说工坊'),
+    p('按 8 大雅思 Band 7.5+ 口语骨架专项打磨：先听慢→常速连播 → 骨架脱稿 → 换入你的已学词造句并让 AI 秒评升级。', 'lead'),
+    renderComplexImitationLab({ standalone: true })
+  );
+}
+
+function renderComplexImitationLab({ standalone = false } = {}) {
   const learnedPool = extractLearnedVocabPool(data, 24);
+  const frameFilteredDrills = listDrillsByFrame(complexFrameFilter, complexTopicId);
+  let activeTopicId = complexTopicId;
+  let activeDrillIdx = complexDrillIdx;
+  if (complexFrameFilter !== 'all' && frameFilteredDrills.length && !complexCustomDrill) {
+    const picked = frameFilteredDrills[complexDrillIdx % frameFilteredDrills.length];
+    activeTopicId = picked.topicId;
+    const topicObj = COMPLEX_IMITATION_TOPICS.find(t => t.id === picked.topicId);
+    const localIdx = topicObj ? topicObj.drills.findIndex(d => d.id === picked.id) : 0;
+    activeDrillIdx = Math.max(0, localIdx);
+  }
   const linked = buildLinkedComplexDrill({
-    topicId: complexTopicId,
-    drillIndex: complexDrillIdx,
+    topicId: activeTopicId,
+    drillIndex: activeDrillIdx,
     learnedWords: learnedPool,
     customDrill: complexCustomDrill
   });
   const { topic, drill, frame, drillIndex, totalInTopic, linkedWords, stage3Prompt } = linked;
+  const totalPoolCount = complexFrameFilter !== 'all' ? Math.max(1, frameFilteredDrills.length) : totalInTopic;
+  const displayIdx = complexFrameFilter !== 'all' ? (complexDrillIdx % totalPoolCount) : drillIndex;
   const stageMeta = COMPLEX_STAGE_META.find(s => s.id === complexStage) || COMPLEX_STAGE_META[0];
   const weaknessId = `complex-imitation:${drill.id}`;
+  const isDone = Array.isArray(data.complexLabProgress?.doneIds) && data.complexLabProgress.doneIds.includes(drill.id);
 
   const card = section('complex-imitation-lab');
-  card.append(
+  const headTop = div('journey-flow-top');
+  headTop.append(
     el('div', '🧩 口语复杂句仿说工坊 · COMPLEX IMITATION LAB', 'eyebrow'),
+    standalone
+      ? el('span', isDone ? '✓ 本句已练熟' : `今日已练熟 ${getComplexLabTodayCount()} 句`, 'tiny')
+      : btn('↗ 独立大屏专练', () => setPage('complexLab'), 'btn ghost small-btn')
+  );
+  card.append(
+    headTop,
     h('h2', `${topic.label} · ${frame.label}`),
     p(frame.tip, 'tiny')
   );
 
-  // Top controls: topic select + next sentence + AI custom generator
+  // Top controls: topic select + 8-frame direct filter + next sentence + AI custom generator
   const ctrlRow = div('complex-lab-controls');
   const topicSel = el('select', '', 'select');
   topicSel.setAttribute('aria-label', '选择题材');
-  for (const t of COMPLEX_IMITATION_TOPICS) {
-    const opt = el('option', t.label);
-    opt.value = t.id;
+  for (const tp of COMPLEX_IMITATION_TOPICS) {
+    const opt = el('option', tp.label);
+    opt.value = tp.id;
     topicSel.append(opt);
   }
   topicSel.value = topic.id;
   topicSel.addEventListener('change', () => {
     complexTopicId = topicSel.value;
+    complexFrameFilter = 'all';
     complexDrillIdx = 0;
     complexCustomDrill = null;
     complexStage = 'imitate';
+    complexSwapDraft = '';
+    complexSwapFeedback = '';
     render();
   });
 
-  const nextBtn = btn(`换一句 (${drillIndex + 1}/${totalInTopic})`, () => {
-    complexDrillIdx = (complexDrillIdx + 1) % totalInTopic;
+  const frameSel = el('select', '', 'select');
+  frameSel.setAttribute('aria-label', '按口语骨架筛选');
+  const allOpt = el('option', '全部 8 大骨架');
+  allOpt.value = 'all';
+  frameSel.append(allOpt);
+  for (const fr of COMPLEX_FRAME_TYPES) {
+    const opt = el('option', fr.label);
+    opt.value = fr.id;
+    frameSel.append(opt);
+  }
+  frameSel.value = complexFrameFilter;
+  frameSel.addEventListener('change', () => {
+    complexFrameFilter = frameSel.value;
+    complexDrillIdx = 0;
     complexCustomDrill = null;
     complexStage = 'imitate';
+    complexSwapDraft = '';
+    complexSwapFeedback = '';
+    render();
+  });
+
+  const nextBtn = btn(`换一句 (${displayIdx + 1}/${totalPoolCount})`, () => {
+    complexCustomDrill = null;
+    complexDrillIdx = (complexDrillIdx + 1) % totalPoolCount;
+    complexStage = 'imitate';
+    complexSwapDraft = '';
+    complexSwapFeedback = '';
     render();
   }, 'btn secondary small-btn');
 
-  const aiBtn = btn(complexAiBusy ? '⏳ 生成中…' : '✨ AI 现造一句', async () => {
+  const aiBtn = btn(complexAiBusy ? '✨ AI 造句中…' : '✨ AI 现造一句', async () => {
     if (complexAiBusy) return;
     const cfg = loadAiConfig();
     if (!isAiTutorReady(cfg)) {
@@ -6019,13 +6105,17 @@ function renderComplexImitationLab() {
     complexAiBusy = true;
     render();
     try {
-      const nextFrame = COMPLEX_FRAME_TYPES[(complexDrillIdx + Math.floor(Math.random() * COMPLEX_FRAME_TYPES.length)) % COMPLEX_FRAME_TYPES.length];
-      const prompt = buildAiComplexSentencePrompt({ topicLabel: topic.label, frame: nextFrame, learnedWords: linkedWords });
-      const reply = await askAiFreeTutor({ question: prompt, context: `Topic: ${topic.label}; Target frame: ${nextFrame.pattern}` });
-      const parsed = parseAiComplexSentenceResponse(reply, { topicId: topic.id, frameId: nextFrame.id, linkedWords });
+      const targetFrame = complexFrameFilter !== 'all'
+        ? (COMPLEX_FRAME_TYPES.find(f => f.id === complexFrameFilter) || COMPLEX_FRAME_TYPES[0])
+        : COMPLEX_FRAME_TYPES[(complexDrillIdx + Math.floor(Math.random() * COMPLEX_FRAME_TYPES.length)) % COMPLEX_FRAME_TYPES.length];
+      const prompt = buildAiComplexSentencePrompt({ topicLabel: topic.label, frame: targetFrame, learnedWords: linkedWords });
+      const reply = await askAiFreeTutor({ question: prompt, context: `Topic: ${topic.label}; Target frame: ${targetFrame.pattern}` });
+      const parsed = parseAiComplexSentenceResponse(reply, { topicId: topic.id, frameId: targetFrame.id, linkedWords });
       if (parsed) {
         complexCustomDrill = parsed;
         complexStage = 'imitate';
+        complexSwapDraft = '';
+        complexSwapFeedback = '';
         notify('✨ 已结合你的已学词生成新口语复杂句！');
       } else {
         notify('AI 返回格式异常，已保留当前例句。');
@@ -6038,17 +6128,24 @@ function renderComplexImitationLab() {
     }
   }, 'btn ghost small-btn', complexAiBusy);
 
-  ctrlRow.append(topicSel, nextBtn, aiBtn);
+  ctrlRow.append(topicSel, frameSel, nextBtn, aiBtn);
   card.append(ctrlRow);
 
-  // Learned-word linkage chips
+  // Learned-word linkage chips (in Stage 3, tapping inserts word into draft; otherwise opens lexicon)
   const wordRow = div('complex-word-chips');
-  wordRow.append(el('span', learnedPool.length ? '已学词联动：' : '本句锚点词：', 'tiny'));
+  wordRow.append(el('span', complexStage === 'swap' ? '点词直接塞进造句框：' : (learnedPool.length ? '已学词联动：' : '本句锚点词：'), 'tiny'));
   for (const lw of linkedWords) {
     const chip = el('button', `${lw.word}${lw.inModel ? ' ✓' : ''}`, 'badge complex-word-chip');
     chip.type = 'button';
-    chip.title = lw.cue ? `${lw.source} · ${lw.cue}（点击查词）` : `${lw.source}（点击查词）`;
-    chip.addEventListener('click', () => openAiLexiconDrawer(lw.word));
+    chip.title = complexStage === 'swap' ? `点击把 ${lw.word} 插入造句框` : (lw.cue ? `${lw.source} · ${lw.cue}（点击查词）` : `${lw.source}（点击查词）`);
+    chip.addEventListener('click', () => {
+      if (complexStage === 'swap') {
+        complexSwapDraft = complexSwapDraft ? `${complexSwapDraft.trim()} ${lw.word}` : lw.word;
+        render();
+      } else {
+        openAiLexiconDrawer(lw.word);
+      }
+    });
     wordRow.append(chip);
   }
   card.append(wordRow);
@@ -6076,15 +6173,60 @@ function renderComplexImitationLab() {
       p(stage3Prompt, 'complex-swap-prompt'),
       el('div', drill.swapTemplate || frame.pattern, 'complex-swap-template')
     );
+    const swapBox = div('complex-swap-builder');
+    const swapInput = el('textarea', '', 'textarea complex-swap-input');
+    swapInput.rows = 2;
+    swapInput.placeholder = '照着上面骨架，把上方已学词换进去，写一句你自己的口语表达…';
+    swapInput.value = complexSwapDraft;
+    swapInput.addEventListener('input', () => { complexSwapDraft = swapInput.value; });
+    const swapBtns = lines(
+      btn(complexSwapBusy ? '✨ 点评中…' : '✨ AI 秒评升级', async () => {
+        const mine = complexSwapDraft.trim();
+        if (!mine) return notify('先写一句你用这个骨架造的话，再点 AI 点评。');
+        const cfg = loadAiConfig();
+        if (!isAiTutorReady(cfg)) return notify('请先在设置里配置 AI Key，即可解锁 Band 7.5 实时点评升级。');
+        complexSwapBusy = true;
+        render();
+        try {
+          const prompt = buildComplexSwapCritiquePrompt({
+            userSentence: mine,
+            frame,
+            targetWords: linkedWords.map(w => w.word)
+          });
+          complexSwapFeedback = await askAiFreeTutor({ question: prompt, context: mine });
+        } catch (err) {
+          notify(`AI 点评失败：${String(err?.message || err).slice(0, 45)}`);
+        } finally {
+          complexSwapBusy = false;
+          render();
+        }
+      }, 'btn primary small-btn', complexSwapBusy),
+      btn('🔊 听我造的句', () => {
+        if (!complexSwapDraft.trim()) return notify('先在输入框写一句话哦。');
+        void speakComplexModel(complexSwapDraft.trim(), 1.0);
+      }, 'btn secondary small-btn')
+    );
+    swapBox.append(swapInput, swapBtns);
+    if (complexSwapFeedback) {
+      const fb = div('complex-swap-feedback');
+      fb.textContent = complexSwapFeedback;
+      swapBox.append(fb);
+    }
+    displayBox.append(swapBox);
   }
   displayBox.append(p(stageMeta.hint, 'tiny'));
   card.append(displayBox);
 
-  // Audio & 1-Tap A/B Compare Bar
+  // Audio & 1-Tap A/B Compare + Slow->Normal Loop + Mastered Bar
   const abBar = div('complex-ab-bar');
   abBar.append(
     btn('▶ 听示范 1.0×', () => { void speakComplexModel(drill.sentence, 1.0); }, 'btn primary small-btn'),
     btn('🐢 慢速 0.85×', () => { void speakComplexModel(drill.sentence, 0.85); }, 'btn secondary small-btn'),
+    btn('🔁 慢→常速连听', async () => {
+      await speakComplexModel(drill.sentence, 0.85);
+      await new Promise(r => setTimeout(r, 450));
+      await speakComplexModel(drill.sentence, 1.0);
+    }, 'btn secondary small-btn'),
     btn('🔁 A/B 对比（示范→我）', async () => {
       try {
         const rows = await listRecordings({ weaknessId, taskId: drill.id });
@@ -6100,7 +6242,11 @@ function renderComplexImitationLab() {
       } catch (err) {
         notify(`A/B 对比暂不可用：${String(err?.message || err).slice(0, 40)}`);
       }
-    }, 'btn ghost small-btn')
+    }, 'btn ghost small-btn'),
+    btn(isDone ? '✓ 已练熟' : '✓ 标记练熟', () => {
+      markComplexDrillMastered(drill.id);
+      render();
+    }, isDone ? 'btn secondary small-btn' : 'btn ghost small-btn')
   );
   card.append(abBar);
 
@@ -6412,7 +6558,7 @@ function renderSpeechChamber(){
  const deliver=btn(flags.delivered?'已自报脱稿':'我已尝试脱稿演讲',()=>{data.speechProgress??={};data.speechProgress[progressKey]={...data.speechProgress[progressKey],delivered:true};if(save())deliver.textContent='已自报脱稿';},'btn secondary');
  const transfer=renderSpeechTransfer(speech);if(transfer)box.append(transfer);
  box.append(h('h3','练习反馈（由你确认）'),p('打勾是个人自报，不代表客观发音评分或独立测试结果。','tiny'),lines(shadow,deliver));
- box.append(lines(btn('完成本篇／继续',()=>completeSpeech(speech),'btn primary'),btn('跳过本篇',()=>completeSpeech(speech,true),'btn ghost')));
+ box.append(lines(btn('完成本篇／继续',()=>completeSpeech(speech),'btn primary'),btn('🧩 进入复杂句仿说专练 →',()=>setPage('complexLab'),'btn secondary'),btn('跳过本篇',()=>completeSpeech(speech,true),'btn ghost')));
  app.append(box);
  // Only a verified cached speech Blob enables the seekable player; no fake audio.
  void (async()=>{try{

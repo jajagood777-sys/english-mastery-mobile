@@ -494,3 +494,38 @@ export function parseAiComplexSentenceResponse(rawText, { topicId = 'work_routin
     isAiGenerated: true
   };
 }
+
+/**
+ * Filter drills across all topics by frameId (or return all drills for a given topicId).
+ */
+export function listDrillsByFrame(frameId = 'all', topicId = 'work_routine') {
+  const f = String(frameId || 'all').trim();
+  if (!f || f === 'all') {
+    const topic = COMPLEX_IMITATION_TOPICS.find(t => t.id === topicId) || COMPLEX_IMITATION_TOPICS[0];
+    return (topic?.drills || []).map(d => ({ ...d, topicId: topic.id, topicLabel: topic.label }));
+  }
+  const out = [];
+  for (const topic of COMPLEX_IMITATION_TOPICS) {
+    for (const d of (topic.drills || [])) {
+      if (d.frameId === f) out.push({ ...d, topicId: topic.id, topicLabel: topic.label });
+    }
+  }
+  return out;
+}
+
+/**
+ * Build a concise Band 7.5+ AI spoken critique prompt for a learner's Stage 3 slot-swap sentence.
+ */
+export function buildComplexSwapCritiquePrompt({ userSentence = '', frame = null, targetWords = [] } = {}) {
+  const words = (Array.isArray(targetWords) ? targetWords : []).filter(Boolean).join(', ');
+  return [
+    'You are an encouraging IELTS Speaking Band 8.5 coach. Evaluate this learner sentence built with a spoken complex frame:',
+    `Target frame: ${frame?.pattern || 'complex spoken sentence'}`,
+    words ? `Target vocabulary to weave in: ${words}` : '',
+    `Learner sentence: "${String(userSentence || '').trim()}"`,
+    'Reply in EXACTLY 3 short lines (plain Chinese + English, zero jargon):',
+    '点评: <1句肯定亮点 + 指出1处最影响地道/流利的小毛病>',
+    '升级版: <1句更地道的 Band 7.5 口语自然版英文，带 / 意群停顿>',
+    '语调提示: <1句中文提示哪个词该重读或在哪停顿>'
+  ].filter(Boolean).join('\n');
+}
