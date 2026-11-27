@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { buildIntraSessionRehearsalQueue, normalizeVocabularyPractice } from '../vocab.mjs';
 import { extractAudioTasks } from '../audio-tasks.mjs';
 
-test('v20.4.0 Micro-Rehearsal marks definition-option tasks as optionsAreDefinitions and shuffles deterministically', () => {
+test('v20.4.1 Micro-Rehearsal marks definition-option tasks as optionsAreDefinitions and shuffles deterministically', () => {
   const tasks = [
     {
       id: 'V-DEF-1',
@@ -60,7 +60,7 @@ test('v20.4.0 Micro-Rehearsal marks definition-option tasks as optionsAreDefinit
   assert.equal(clozeCorrectOpt.text, 'corroborate');
 });
 
-test('v20.4.0 normalizeVocabularyPractice preserves isReviewMistake and batchGroup', () => {
+test('v20.4.1 normalizeVocabularyPractice preserves isReviewMistake and batchGroup', () => {
   const { tasks, errors } = normalizeVocabularyPractice([
     {
       id: 'REV-1',
@@ -87,7 +87,7 @@ test('v20.4.0 normalizeVocabularyPractice preserves isReviewMistake and batchGro
   assert.equal(tasks[0].batchGroup, '错题回炉');
 });
 
-test('v20.4.0 audio-tasks extracts vocabulary_practice target + archived_example and speaking Q+A', () => {
+test('v20.4.1 audio-tasks extracts vocabulary_practice target + archived_example and speaking Q+A', () => {
   const pack = {
     schema_version: '2.0',
     pack_id: 'TEST-V1970-AUDIO',
@@ -130,7 +130,7 @@ test('v20.4.0 audio-tasks extracts vocabulary_practice target + archived_example
   );
 });
 
-test('v20.4.0 app.js contains Maimemo auto-pronounce, zero-leak rehearsal, and wrong-word review UI', () => {
+test('v20.4.1 app.js contains Maimemo auto-pronounce, zero-leak rehearsal, and wrong-word review UI', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /function isVocabAutoPronounceOn/);
   assert.match(app, /function triggerVocabAutoPronounce/);
