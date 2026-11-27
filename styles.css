@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.7 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.4.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.3.7 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.4.0 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -3105,7 +3105,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   opacity: 0.78;
 }
 
-/* v20.3.7 Live 4/3/2 Speech Countdown Card */
+/* v20.4.0 Live 4/3/2 Speech Countdown Card */
 .speech-432-card {
   margin: 10px 0 12px;
   padding: 12px 14px;
@@ -3155,7 +3155,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   gap: 8px;
 }
 
-/* v20.3.7 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
+/* v20.4.0 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
 .harvest-context-sentence {
   font-size: 1rem;
   line-height: 1.65;
@@ -3239,4 +3239,26 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   font-size: 0.78rem;
   opacity: 0.85;
   font-weight: 400;
+}
+
+/* v20.4.0 Standalone Complex Imitation Lab 2.0 */
+.complex-swap-builder {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.complex-swap-input {
+  width: 100%;
+  min-height: 68px;
+  font-size: 0.95rem;
+}
+.complex-swap-feedback {
+  white-space: pre-line;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  font-size: 0.88rem;
+  line-height: 1.55;
 }
