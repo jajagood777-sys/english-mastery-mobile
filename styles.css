@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.4.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.4.1 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.4.0 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.4.1 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -3105,7 +3105,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   opacity: 0.78;
 }
 
-/* v20.4.0 Live 4/3/2 Speech Countdown Card */
+/* v20.4.1 Live 4/3/2 Speech Countdown Card */
 .speech-432-card {
   margin: 10px 0 12px;
   padding: 12px 14px;
@@ -3155,7 +3155,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   gap: 8px;
 }
 
-/* v20.4.0 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
+/* v20.4.1 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
 .harvest-context-sentence {
   font-size: 1rem;
   line-height: 1.65;
@@ -3241,7 +3241,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   font-weight: 400;
 }
 
-/* v20.4.0 Standalone Complex Imitation Lab 2.0 */
+/* v20.4.1 Standalone Complex Imitation Lab 2.0 */
 .complex-swap-builder {
   margin-top: 10px;
   display: flex;

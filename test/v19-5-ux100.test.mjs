@@ -21,8 +21,8 @@ import {
 import { APP_VERSION, mergeTransferAttempts, validateBackup, mergeBackupState } from '../core.mjs';
 import { checkVocabularyTaskLeak, scheduleInSessionDelayedRetry } from '../vocab.mjs';
 
-test('v20.4.0 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, natural sort & interruption resume', () => {
-  assert.equal(APP_VERSION, '20.4.0');
+test('v20.4.1 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, natural sort & interruption resume', () => {
+  assert.equal(APP_VERSION, '20.4.1');
 
   const sorted = naturalSortTracks([
     { title: '第10集_Travel' },
@@ -77,7 +77,7 @@ test('v20.4.0 Batch 1: Unclear mark, cross-episode replay queue, scrubber undo, 
   assert.match(readiness.summaryText, /2\/3 集已就绪，第 2 集需要重导/);
 });
 
-test('v20.4.0 Batch 2: Cursor dictation, minimal word diff, home env/deferred card & real continuation cue', () => {
+test('v20.4.1 Batch 2: Cursor dictation, minimal word diff, home env/deferred card & real continuation cue', () => {
   const ins = insertDictationAtCursor('First sentence. Third sentence.', 'Second sentence.', 16, 16);
   assert.equal(ins.value, 'First sentence. Second sentence. Third sentence.');
 
@@ -131,7 +131,7 @@ test('v20.4.0 Batch 2: Cursor dictation, minimal word diff, home env/deferred ca
   assert.equal(pairs.length, 3);
 });
 
-test('v20.4.0 Six Legacy Regression Routes & Accident Guards remain intact', () => {
+test('v20.4.1 Six Legacy Regression Routes & Accident Guards remain intact', () => {
   // Route 1: Idempotent backup merge (restored twice -> no duplicates)
   const att = [{ id: 'ta1', taskId: 't1', firstAnswer: 'orig', retryAnswer: '' }];
   const merged1 = mergeTransferAttempts([], att);
@@ -163,7 +163,7 @@ test('v20.4.0 Six Legacy Regression Routes & Accident Guards remain intact', () 
   assert.match(app, /insertDictationAtCursor/);
 });
 
-test('v20.4.0 Bugfix Guards: validateBackup/mergeBackupState persist unclearMarks & deferredSpeaking, manual pause never triggers BT banner, replay exits cleanly', () => {
+test('v20.4.1 Bugfix Guards: validateBackup/mergeBackupState persist unclearMarks & deferredSpeaking, manual pause never triggers BT banner, replay exits cleanly', () => {
   const s1 = validateBackup({
     version: 4.3,
     items: [{ id: "i1", kind: "word", target: "test", meaning: "测试" }],
@@ -185,7 +185,7 @@ test('v20.4.0 Bugfix Guards: validateBackup/mergeBackupState persist unclearMark
   assert.match(app, /d\.status='completed';d\.completedAt=submittedAt;/);
 });
 
-test('v20.4.0 Vocab Anti-Leak & Compact Zero-Scroll Feedback: hides target when options contain target word or blank', () => {
+test('v20.4.1 Vocab Anti-Leak & Compact Zero-Scroll Feedback: hides target when options contain target word or blank', () => {
   assert.equal(shouldHideVocabTargetHeader({
     type: 'collocation_choice',
     target: 'subdue',
@@ -211,7 +211,7 @@ test('v20.4.0 Vocab Anti-Leak & Compact Zero-Scroll Feedback: hides target when 
   assert.match(app, /vocab-feedback-top-bar/);
 });
 
-test('v20.4.0 Commute Quiz System: anti-leak pack gate, 3-item delayed retry interleaving & fast-flow toggle', () => {
+test('v20.4.1 Commute Quiz System: anti-leak pack gate, 3-item delayed retry interleaving & fast-flow toggle', () => {
   const leakCheck = checkVocabularyTaskLeak({
     type: 'collocation_challenge',
     target: 'subdue',

@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '20.4.0';
+export const APP_VERSION = '20.4.1';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -586,7 +586,7 @@ export function mergeReadingMarks(existing=[], incoming=[]) {
     if(!mark.readingId||!normalizedWord||!String(mark.originalSentence||'').trim()) continue;
     const id=readingMarkId({...mark,normalizedWord});
     const prior=byId.get(id);
-    const next={...mark,id,normalizedWord,savedStatus:mark.savedStatus==='SAVED'||prior?.savedStatus==='SAVED'?'SAVED':'UNSAVED',savedItemId:mark.savedItemId||prior?.savedItemId||null,harvestTier:mark.harvestTier||prior?.harvestTier||null,harvestRecalled:typeof mark.harvestRecalled==='boolean'?mark.harvestRecalled:(typeof prior?.harvestRecalled==='boolean'?prior.harvestRecalled:null),harvestedAt:mark.harvestedAt||prior?.harvestedAt||null};
+    const next={...mark,id,normalizedWord,savedStatus:mark.savedStatus==='SAVED'||prior?.savedStatus==='SAVED'?'SAVED':'UNSAVED',savedItemId:mark.savedItemId||prior?.savedItemId||null,harvestTier:mark.harvestTier||prior?.harvestTier||null,harvestRecalled:typeof mark.harvestRecalled==='boolean'?mark.harvestRecalled:(typeof prior?.harvestRecalled==='boolean'?prior.harvestRecalled:null),harvestedAt:mark.harvestedAt||prior?.harvestedAt||null,savedGloss:mark.savedGloss||prior?.savedGloss||null};
     if(prior){Object.assign(prior,next);}else{byId.set(id,next);out.push(next);}
   }
   return out;
@@ -654,6 +654,7 @@ export function mergeBackupState(current={}, restored={}) {
     vocabularyAttempts:uniqueBy([...(current.vocabularyAttempts||[]), ...(restored.vocabularyAttempts||[])], 'id'),
     manualReviewMarks:uniqueBy([...(current.manualReviewMarks||[]), ...(restored.manualReviewMarks||[])], 'word'),
     microLessonProgress:{...(restored.microLessonProgress||{}),...(current.microLessonProgress||{})},
+    complexLabProgress:(()=>{const a=restored.complexLabProgress||{},b=current.complexLabProgress||{};const doneIds=[...new Set([...(Array.isArray(a.doneIds)?a.doneIds:[]),...(Array.isArray(b.doneIds)?b.doneIds:[])])];const entries=uniqueBy([...(Array.isArray(a.entries)?a.entries:[]),...(Array.isArray(b.entries)?b.entries:[])],'id');const todayDate=b.todayDate||a.todayDate||'';const todayCount=b.todayDate===a.todayDate?Math.max(Number(a.todayCount||0),Number(b.todayCount||0)):Number(b.todayDate?b.todayCount:a.todayCount||0);return {doneIds,entries,todayDate,todayCount};})(),
         customRadioPacks:uniqueBy([...(current.customRadioPacks||[]),...(restored.customRadioPacks||[])],'id'),
         myAudioTracks:uniqueBy([...(current.myAudioTracks||[]),...(restored.myAudioTracks||[])],'id'),
         radioMoments:uniqueBy([...(current.radioMoments||[]),...(restored.radioMoments||[])],'id'),
@@ -1093,6 +1094,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
       high_risk_count:report.fsrs_shadow.highRiskCount||0
     }:null,
     transfer_evidence:transferEvidence,
+    complex_imitation_evidence:report.complex_imitation_evidence||null,
     integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false,choice_recognition_never_counted_as_K:true}
   };
 }
@@ -1244,7 +1246,7 @@ export function validateBackup(value){
         v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[]}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[], complexLabProgress=null}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1396,6 +1398,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     fsrs_shadow: replayFsrsShadowHistory(detail, now),
     radio_exposure: summarizeRadioExposure(radioLog),
     manual_review_marks: Array.isArray(manualReviewMarks)?manualReviewMarks:[],
+    complex_imitation_evidence: (()=>{const cl=complexLabProgress&&typeof complexLabProgress==='object'?complexLabProgress:null;const doneIds=Array.isArray(cl?.doneIds)?[...new Set(cl.doneIds)]:[];const entries=Array.isArray(cl?.entries)?cl.entries.slice(-30):[];return {mastered_total:doneIds.length,today_count:Number(cl?.todayCount||0),today_date:String(cl?.todayDate||''),mastered_ids:doneIds.slice(-40),swap_entries:entries,counts_as_mastery_k:false};})(),
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
     sync_status: 'NOT_SUBMITTED'
@@ -1474,6 +1477,13 @@ export function battleReportMarkdown(report) {
     `## Central Immortal Aperture handoff`, ``,
     `请中央仙窍（Gemini）处理这份言道修炼殿 ${report.app_version||APP_VERSION} 学习战报：1）先按 report_id 和 session_id 去重，避免重复录入；2）将真实训练时间、K/V/N 与独立产出证据增量同步至 Google Sheets 唯一成长数据库，并将正式战报归档至 Google Drive 及更新重要信息墙；3）结合本战报中的「顽固易混词对雷达」「零幻觉客观表达体检（未命中词块）」与「FSRS 6.3.2 高风险到期词」，按 YANDAO-PACK-GEN-11.0 规范生成下一份单 ZIP 学习包。所有写入必须回读验证，触控选择题与微回炉不得冒充 K，严禁凭空填补学习记录。`
   ];
+  const clEv = report.complex_imitation_evidence;
+  if (clEv && (clEv.mastered_total > 0 || (Array.isArray(clEv.swap_entries) && clEv.swap_entries.length > 0))) {
+    lines.push('', '## Complex Imitation Lab（复杂句仿说工坊）', `- 今日练熟：${clEv.today_count || 0} 句 · 累计练熟：${clEv.mastered_total || 0} 句（不虚计 K）`);
+    for (const ent of (clEv.swap_entries || []).slice(-10)) {
+      lines.push(`- [${inline(ent.frameId || 'frame')}] 自造句：${inline(ent.sentence || '')}${ent.aiFeedback ? ` ｜ AI 点评：${inline(ent.aiFeedback)}` : ''}`);
+    }
+  }
   return lines.join('\n');
 }
 

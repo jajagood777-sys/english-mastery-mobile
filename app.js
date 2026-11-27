@@ -3133,7 +3133,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.0)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.1)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4434,7 +4434,7 @@ function finishDailyJourney(){
   const session={id:j.id,startedAt:j.startedAt,endedAt,activeMs,mode:'journey',scope:'today',packId:j.packId};
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
-  const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],spellingAttempts:j.spellingAttempts||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],vocabularyTasks:journeyVocabularyTasks(),vocabularyAttempts:j.vocabularyAttempts||[],originalWordArchive:data.dailyPack?.originalWordArchive||[],radioLog:radioSessionLog,manualReviewMarks:data.manualReviewMarks||[],timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const report=buildBattleReport({session,attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],spellingAttempts:j.spellingAttempts||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],vocabularyTasks:journeyVocabularyTasks(),vocabularyAttempts:j.vocabularyAttempts||[],originalWordArchive:data.dailyPack?.originalWordArchive||[],radioLog:radioSessionLog,manualReviewMarks:data.manualReviewMarks||[],complexLabProgress:data.complexLabProgress||null,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.module_coverage=j.completed.map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));
   report.reading_completed=j.readingDoneIds.filter(id=>!(j.readingPartialIds||[]).includes(id)).length;
   report.reading_partial=j.readingPartialIds||[];
@@ -4463,7 +4463,7 @@ function rebuildJourneyReport(){
   const readingIds=new Set(journeyReadings().map(reading=>reading.id));
   const journeyTransferAttempts=journeyTransferAttemptsForReport(j);
   const session={id:j.id,startedAt:j.startedAt,endedAt:j.finishedAt,activeMs:sessions.reduce((sum,item)=>sum+Number(item.activeMs||0),0)+Number(j.readingMs||0)+Number(j.speechMs||0)+Number(j.transferMs||0),mode:'journey',scope:'today',packId:j.packId};
-  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],timezone:'Asia/Shanghai',appVersion:APP_VERSION});
+  const report=buildBattleReport({session,attempts:data.attempts,items:data.items,allowedSessionIds:ids,readingMarks:journeyReadingMarksForReport(j,readingIds),readings:journeyReadings(),readingChecks:(data.readingChecks||[]).filter(check=>readingIds.has(check.readingId)),readingRetellingAttempts:(data.readingRetellingAttempts||[]).filter(row=>readingIds.has(row.readingId)),weaknesses:inferredWeaknesses(),transferAttempts:journeyTransferAttempts,readingRecallAttempts:j.readingRecallAttempts||[],readingCompletedIds:j.readingDoneIds||[],listeningDiagnostics:data.listeningDiagnosticAttempts||[],complexLabProgress:data.complexLabProgress||null,timezone:'Asia/Shanghai',appVersion:APP_VERSION});
   report.report_id=`report:${j.id}:recovered`;report.recovered_from_report_id=`report:${j.id}`;report.recovery={source:'local raw attempts and stage sessions',verified:true};
   report.module_coverage=(j.completed||[]).map(x=>({...x,label:JOURNEY_LABELS[x.stage]||x.stage}));report.reading_completed=(j.readingDoneIds||[]).filter(id=>!(j.readingPartialIds||[]).includes(id)).length;report.reading_partial=j.readingPartialIds||[];report.reading_seconds=Math.round(Number(j.readingMs||0)/1000);report.active_time_by_day={};for(const row of [...sessions,{activeByDay:j.vocabularyActiveByDay},{activeByDay:j.readingActiveByDay},{activeByDay:j.speechActiveByDay},{activeByDay:j.transferActiveByDay}])for(const [day,ms] of Object.entries(row.activeByDay||{}))report.active_time_by_day[day]=(report.active_time_by_day[day]||0)+Number(ms||0);report.unallocated_active_ms=Math.max(0,Number(session.activeMs||0)-Object.values(report.active_time_by_day).reduce((a,b)=>a+b,0));report.speech_practice={source:'speech_chamber',audio_active_seconds:Math.round(Number(j.speechMs||0)/1000),attempts:(j.speechAttempts||[]).map(x=>({...x,assessment:'USER_SELF_REPORT_NOT_PRONUNCIATION_SCORE'}))};report.target_minutes=j.targetMinutes;report.modules_completed=(j.completed||[]).filter(x=>x.status==='completed').length;report.modules_planned=j.steps?.length||0;report.data_quality={...report.data_quality,recovered_without_overwriting_original:true,reading_completion_self_reported:true,goal_not_a_completion_rule:true};
   report.transfer_attempts=journeyTransferAttempts;report.transfer_summary={attempted:report.transfer_evidence?.counts.total||0,independent:report.transfer_evidence?.counts.independent||0,prompted:report.transfer_evidence?.counts.prompted||0,self_corrected:journeyTransferAttempts.filter(x=>x.retryAnswer).length,unassessed:journeyTransferAttempts.filter(x=>!x.rating).length};
@@ -5976,16 +5976,45 @@ function getComplexLabTodayCount() {
   return Number(p.todayCount || 0);
 }
 
+function recordComplexSwapEntry({ drillId = '', frameId = '', topicId = '', sentence = '', aiFeedback = '' } = {}) {
+  const clean = String(sentence || '').trim();
+  if (!clean) return;
+  const today = todayKey();
+  const prev = data.complexLabProgress || { doneIds: [], entries: [], todayDate: today, todayCount: 0 };
+  const entries = Array.isArray(prev.entries) ? [...prev.entries] : [];
+  entries.push({
+    id: `cswap:${drillId}:${Date.now()}`,
+    drillId,
+    frameId,
+    topicId,
+    sentence: clean,
+    aiFeedback: String(aiFeedback || '').trim().slice(0, 400),
+    at: new Date().toISOString()
+  });
+  data.complexLabProgress = {
+    doneIds: Array.isArray(prev.doneIds) ? prev.doneIds : [],
+    entries: entries.slice(-60),
+    todayDate: prev.todayDate || today,
+    todayCount: Number(prev.todayCount || 0)
+  };
+  save();
+}
+
 function markComplexDrillMastered(drillId) {
   const today = todayKey();
-  const prev = data.complexLabProgress || { doneIds: [], todayDate: today, todayCount: 0 };
+  const prev = data.complexLabProgress || { doneIds: [], entries: [], todayDate: today, todayCount: 0 };
   const doneIds = Array.isArray(prev.doneIds) ? [...prev.doneIds] : [];
   const already = doneIds.includes(drillId);
   if (!already) doneIds.push(drillId);
   const todayCount = (prev.todayDate === today ? Number(prev.todayCount || 0) : 0) + (already ? 0 : 1);
-  data.complexLabProgress = { doneIds: doneIds.slice(-120), todayDate: today, todayCount };
+  data.complexLabProgress = {
+    doneIds: doneIds.slice(-120),
+    entries: Array.isArray(prev.entries) ? prev.entries : [],
+    todayDate: today,
+    todayCount
+  };
   save();
-  notify(already ? '这句已经在已练熟列表里啦，可点「换一句」继续冲刺！' : `✓ 已记入今日练熟（今日累计 ${todayCount} 句）！`);
+  notify(already ? '这句已经在已练熟列表里啦，可点「换一句」继续冲刺！' : `✓ 已记入今日练熟（今日累计 ${todayCount} 句，已同步进战报）！`);
 }
 
 function renderComplexImitationPage() {
@@ -6194,6 +6223,7 @@ function renderComplexImitationLab({ standalone = false } = {}) {
             targetWords: linkedWords.map(w => w.word)
           });
           complexSwapFeedback = await askAiFreeTutor({ question: prompt, context: mine });
+          recordComplexSwapEntry({ drillId: drill.id, frameId: frame.id, topicId: topic.id, sentence: mine, aiFeedback: complexSwapFeedback });
         } catch (err) {
           notify(`AI 点评失败：${String(err?.message || err).slice(0, 45)}`);
         } finally {
