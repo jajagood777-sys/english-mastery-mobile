@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeSpeechManifestPayload } from '../speech-clips.mjs';
 import { isSupportedSourcePackSchema, handoverEntries } from '../handover.mjs';
 
-test('v20.3.4 normalizeSpeechManifestPayload accepts both v1 object and legacy top-level array', () => {
+test('v20.3.5 normalizeSpeechManifestPayload accepts both v1 object and legacy top-level array', () => {
   const v1Obj = { version: 1, clips: [{ file: 'a.mp3', text: 'hello', voice: 'af_heart' }] };
   const norm1 = normalizeSpeechManifestPayload(v1Obj);
   assert.equal(norm1.version, 1);
@@ -18,7 +18,7 @@ test('v20.3.4 normalizeSpeechManifestPayload accepts both v1 object and legacy t
   assert.equal(normalizeSpeechManifestPayload({ version: 99 }), null);
 });
 
-test('v20.3.4 isSupportedSourcePackSchema and handoverEntries preserve r11-v19.8.0 packs', () => {
+test('v20.3.5 isSupportedSourcePackSchema and handoverEntries preserve r11-v19.8.0 packs', () => {
   assert.equal(isSupportedSourcePackSchema('2.0'), true);
   assert.equal(isSupportedSourcePackSchema('r11-v19.8.0'), true);
   assert.equal(isSupportedSourcePackSchema('1.0'), false);
