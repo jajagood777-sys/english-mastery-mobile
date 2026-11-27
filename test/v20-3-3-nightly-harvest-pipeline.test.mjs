@@ -10,8 +10,8 @@ import {
 } from '../core.mjs';
 import { buildRadioPlaylist } from '../radio.mjs';
 
-test('v20.3.3 collectReadingMarkEvidence, buildBattleReport, battleReportMarkdown, and buildCentralLearningFeedback preserve Word Harvest Bridge triage fields', () => {
-  assert.equal(APP_VERSION, '20.3.3');
+test('v20.3.4 collectReadingMarkEvidence, buildBattleReport, battleReportMarkdown, and buildCentralLearningFeedback preserve Word Harvest Bridge triage fields', () => {
+  assert.equal(APP_VERSION, '20.3.4');
   const readings = [{ id: 'r1', title: 'Oasis Edge', text: 'Nadia was a new **apprentice** at the botanical station, and she walked the narrow aisle.' }];
   const readingMarks = [
     {
@@ -71,7 +71,7 @@ test('v20.3.3 collectReadingMarkEvidence, buildBattleReport, battleReportMarkdow
   assert.equal(feedback.reading_vocabulary_evidence.items[1].harvest_tier, 'drop');
 });
 
-test('v20.3.3 buildRadioPlaylist excludes dropped reading marks while keeping promoted and untriaged marks', () => {
+test('v20.3.4 buildRadioPlaylist excludes dropped reading marks while keeping promoted and untriaged marks', () => {
   const tracks = buildRadioPlaylist({
     channel: 'sentences_listening',
     readingMarks: [
@@ -85,7 +85,7 @@ test('v20.3.3 buildRadioPlaylist excludes dropped reading marks while keeping pr
   assert.ok(!tracks.some(t => t.kind === 'reading_vocab' && t.title === 'clockwork'), 'dropped mark must not pollute radio flashcards');
 });
 
-test('v20.3.3 app.js renders reading marks across Sentence Focus and bold-markdown paragraphs and skips already-harvested marks in legacy recall queue', () => {
+test('v20.3.4 app.js renders reading marks across Sentence Focus and bold-markdown paragraphs and skips already-harvested marks in legacy recall queue', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /function resolveMarkStartInText\(/);
   assert.match(app, /function appendMarkedReadingSegment\(/);

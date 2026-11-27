@@ -23,7 +23,7 @@ import {
 } from '../core.mjs';
 
 test('15.1.4 vocab engine validates 14 types and grades recognition honestly without counting as K', () => {
-  assert.equal(APP_VERSION, '20.3.3');
+  assert.equal(APP_VERSION, '20.3.4');
   assert.equal(VOCAB_QUESTION_TYPES.length, 14);
 
   const sampleTask = {

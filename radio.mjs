@@ -2322,3 +2322,35 @@ export function rescaleSyncedSegments(segments = [], durationSec = 0) {
   });
 }
 
+export const RADIO_PLAYBACK_MODES = [
+  { id: "auto_next", label: "🔁 自动连播", shortLabel: "自动连播", desc: "播完当前自动切下一集，循环整张歌单" },
+  { id: "single_loop", label: "🔂 单曲循环", shortLabel: "单曲循环", desc: "单集/单条播完无缝重播" },
+  { id: "shuffle", label: "🔀 随机播放", shortLabel: "随机播放", desc: "播完自动随机切下一集（不连续重复）" }
+];
+
+export function normalizeRadioPlaybackMode(mode) {
+  const m = String(mode || "").trim().toLowerCase();
+  if (m === "single_loop" || m === "shuffle" || m === "auto_next") return m;
+  return "auto_next";
+}
+
+export function nextRadioPlaybackMode(mode) {
+  const cur = normalizeRadioPlaybackMode(mode);
+  const idx = RADIO_PLAYBACK_MODES.findIndex(item => item.id === cur);
+  return RADIO_PLAYBACK_MODES[(idx + 1) % RADIO_PLAYBACK_MODES.length].id;
+}
+
+export function pickNextRadioIndex({ currentIndex = 0, total = 0, mode = "auto_next", randomFn = Math.random } = {}) {
+  const len = Math.trunc(Number(total) || 0);
+  if (len <= 0) return -1;
+  const cur = ((Math.trunc(Number(currentIndex) || 0) % len) + len) % len;
+  const m = normalizeRadioPlaybackMode(mode);
+  if (m === "single_loop" || len === 1) return cur;
+  if (m === "shuffle") {
+    const raw = typeof randomFn === "function" ? Number(randomFn()) : Math.random();
+    const clamped = Number.isFinite(raw) ? Math.min(0.999999999, Math.max(0, raw)) : 0;
+    const offset = Math.floor(clamped * (len - 1));
+    return offset >= cur ? offset + 1 : offset;
+  }
+  return (cur + 1) % len;
+}
