@@ -353,6 +353,32 @@ let readingFocusSentenceIdx = 0;
 let speechTimerMode = 'steady';
 let speechRoundIdx = 0;
 let speechPlanActive = false;
+let speech432Expanded = false;
+let speech432Running = false;
+let speech432RemainSec = 0;
+let speech432Timer = null;
+function playSpeechCueBeep(freq = 660, durationMs = 160) {
+  try {
+    const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+    if (!AC) return;
+    const ctx = new AC();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + durationMs / 1000);
+    setTimeout(() => { try { ctx.close(); } catch {} }, durationMs + 80);
+  } catch {}
+}
+function stopSpeech432Countdown() {
+  if (speech432Timer) { clearInterval(speech432Timer); speech432Timer = null; }
+  speech432Running = false;
+}
 let complexLabOpen = false;
 let complexTopicId = 'work_routine';
 let complexDrillIdx = 0;
@@ -3100,7 +3126,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.4)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.5)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -6092,25 +6118,95 @@ function renderSpeechChamber(){
   const spBar=div('v20-commute-bar');
   const secList=speechTimerMode==='432'?MINI_432_SECONDS:STEADY_REFINE_SECONDS;
   const curSec=secList[speechRoundIdx%secList.length];
-  spBar.append(
-    btn(speechTimerMode==='432'?`⏱️ 4/3/2 压时（第${(speechRoundIdx%3)+1}轮 ${curSec}s）`:`🎯 恒时精修（${curSec}s×3）`,()=>{speechTimerMode=speechTimerMode==='432'?'steady':'432';speechRoundIdx=0;notify(speechTimerMode==='432'?'已切至微缩 4/3/2 压时复述（24s→18s→14s）':'已切至恒时精修模式（20s×3 抓准度）');render();},'btn ghost small-btn'),
-    btn('下一轮压时',()=>{speechRoundIdx=(speechRoundIdx+1)%3;notify(`已切换至第 ${speechRoundIdx+1} 轮（目标 ${secList[speechRoundIdx]} 秒）`);render();},'btn ghost small-btn'),
-    btn(speechPlanActive?`🧠 15s 构思中 (${speechPlanCountdownSec}s)`:'🧠 15s 防背稿提纲',()=>{
+  if (!speech432Running && (speech432RemainSec <= 0 || speech432RemainSec > curSec)) {
+    speech432RemainSec = curSec;
+  }
+  const startOrToggle432 = () => {
+    speech432Expanded = true;
+    if (speech432Running) {
+      stopSpeech432Countdown();
+      render();
+      return;
+    }
+    if (speech432RemainSec <= 0 || speech432RemainSec > curSec) speech432RemainSec = curSec;
+    speech432Running = true;
+    playSpeechCueBeep(580, 120);
+    if (speech432Timer) clearInterval(speech432Timer);
+    const totalMs = curSec * 1000;
+    const startedAt = Date.now();
+    const startRemainMs = speech432RemainSec * 1000;
+    speech432Timer = setInterval(() => {
+      if (!speech432Running) { clearInterval(speech432Timer); speech432Timer = null; return; }
+      const leftMs = Math.max(0, startRemainMs - (Date.now() - startedAt));
+      speech432RemainSec = Number((leftMs / 1000).toFixed(1));
+      const clockEl = document.getElementById('yd-speech-432-clock');
+      const fillEl = document.getElementById('yd-speech-432-fill');
+      if (clockEl) {
+        clockEl.textContent = `${speech432RemainSec.toFixed(1)}s`;
+        clockEl.classList.toggle('is-urgent', speech432RemainSec > 0 && speech432RemainSec <= 5);
+      }
+      if (fillEl) {
+        const pct = Math.max(0, Math.min(100, (leftMs / totalMs) * 100));
+        fillEl.style.width = `${pct}%`;
+        fillEl.classList.toggle('is-urgent', speech432RemainSec > 0 && speech432RemainSec <= 5);
+      }
+      if (leftMs <= 0) {
+        stopSpeech432Countdown();
+        playSpeechCueBeep(880, 220);
+        const nextR = (speechRoundIdx + 1) % 3;
+        const nextSec = secList[nextR];
+        notify(speechTimerMode === '432'
+          ? `🔔 第 ${(speechRoundIdx % 3) + 1} 轮（${curSec}s）压时完成！点「下一轮」挑战 ${nextSec}s。`
+          : `🔔 第 ${(speechRoundIdx % 3) + 1} 轮（${curSec}s）精修完成！可点「下一轮」继续打磨。`);
+        render();
+      }
+    }, 100);
+    render();
+  };
+  const planBtn = btn(speechPlanActive?(speechPlanCountdownSec>0?`🧠 15s 构思中 (${speechPlanCountdownSec}s)`:'🧠 15s 脱稿中'):'🧠 15s 防背稿提纲',()=>{
       if(speechPlanTimer){clearInterval(speechPlanTimer);speechPlanTimer=null;}
       speechPlanActive=!speechPlanActive;
       if(speechPlanActive){
         speechPlanCountdownSec=15;
-        notify('🧠 15 秒防背稿提纲已展开：只盯 3 组逻辑锚点词开口，不背整句！');
+        notify('🧠 15 秒防背稿提纲已开启：下方原稿已自动遮罩，只盯 3 组锚点词脱稿开口！');
         speechPlanTimer=setInterval(()=>{
           if(!speechPlanActive){clearInterval(speechPlanTimer);speechPlanTimer=null;return;}
           speechPlanCountdownSec=Math.max(0,speechPlanCountdownSec-1);
           const badge=document.getElementById('yd-speech-plan-timer');
-          if(badge)badge.textContent=speechPlanCountdownSec>0?`⏱️ 构思倒计时 ${speechPlanCountdownSec}s`:'✅ 15s 到！立即看锚点词脱稿开口';
-          if(speechPlanCountdownSec<=0){clearInterval(speechPlanTimer);speechPlanTimer=null;}
+          const topBtn=document.getElementById('yd-speech-plan-btn');
+          if(badge)badge.textContent=speechPlanCountdownSec>0?`⏱️ 构思倒计时 ${speechPlanCountdownSec}s（原稿已自动遮罩）`:'🚀 15s 到！立即看锚点词脱稿开口';
+          if(topBtn)topBtn.textContent=speechPlanCountdownSec>0?`🧠 15s 构思中 (${speechPlanCountdownSec}s)`:'🧠 15s 脱稿中';
+          if(speechPlanCountdownSec<=0){clearInterval(speechPlanTimer);speechPlanTimer=null;playSpeechCueBeep(740,180);}
         },1000);
       }
       render();
-    },speechPlanActive?'btn primary small-btn':'btn ghost small-btn'),
+      if(speechPlanActive){
+        requestAnimationFrame(()=>{document.getElementById('yd-speech-plan-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
+      }
+    },speechPlanActive?'btn primary small-btn':'btn ghost small-btn');
+  planBtn.id='yd-speech-plan-btn';
+  spBar.append(
+    btn(speechTimerMode==='432'?`⏱️ 4/3/2 压时（第${(speechRoundIdx%3)+1}轮 ${curSec}s）`:`🎯 恒时精修（${curSec}s×3）`,()=>{
+      stopSpeech432Countdown();
+      speechTimerMode=speechTimerMode==='432'?'steady':'432';
+      speechRoundIdx=0;
+      const nextList=speechTimerMode==='432'?MINI_432_SECONDS:STEADY_REFINE_SECONDS;
+      speech432RemainSec=nextList[0];
+      speech432Expanded=true;
+      notify(speechTimerMode==='432'?'已切至 4/3/2 压时倒计时（24s→18s→14s），点下方「开始本轮倒计时」直接练！':'已切至恒时精修计时（20s×3 抓准度），点下方「开始本轮倒计时」直接练！');
+      render();
+      requestAnimationFrame(()=>{document.getElementById('yd-speech-432-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
+    },speechTimerMode==='432'?'btn primary small-btn':'btn ghost small-btn'),
+    btn('下一轮压时',()=>{
+      stopSpeech432Countdown();
+      speechRoundIdx=(speechRoundIdx+1)%3;
+      speech432RemainSec=secList[speechRoundIdx];
+      speech432Expanded=true;
+      notify(`已切换至第 ${speechRoundIdx+1} 轮（目标 ${secList[speechRoundIdx]} 秒），点下方开始倒计时。`);
+      render();
+      requestAnimationFrame(()=>{document.getElementById('yd-speech-432-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
+    },'btn ghost small-btn'),
+    planBtn,
     btn(complexLabOpen?'🧩 收起复杂句仿说':'🧩 复杂句仿说',()=>{complexLabOpen=!complexLabOpen;if(complexLabOpen)notify('🧩 口语复杂句仿说工坊已展开：先听示范 → 录音模仿 → A/B 对比 → 换词自造！');render();},complexLabOpen?'btn primary small-btn':'btn ghost small-btn')
   );
   app.append(spBar);
@@ -6128,16 +6224,47 @@ function renderSpeechChamber(){
  if(pool.length>1){const select=el('select','','select');for(const item of pool){const opt=el('option',item.title);opt.value=item.id;select.append(opt);}select.value=speech.id;
  select.addEventListener('change',()=>{pauseJourneySpeech();selectedSpeechId=select.value;render();});box.append(field('选择演讲',select));}
  box.append(h('h2',speech.title),p(`来源：${speech.authorOrSpeaker||speech.sourceType||'用户稿件'} · ${speech.sourceId}`,'tiny'));
+ if(speechTimerMode==='432' || speech432Expanded){
+   const timerCard = div('speech-432-card');
+   timerCard.id = 'yd-speech-432-card';
+   const headRow = div('speech-432-head');
+   const modeTitle = speechTimerMode === '432'
+     ? `⏱️ 4/3/2 压时 · 第 ${(speechRoundIdx % 3) + 1}/3 轮（24s → 18s → 14s）`
+     : `🎯 恒时精修 · 第 ${(speechRoundIdx % 3) + 1}/3 轮（目标 ${curSec}s）`;
+   const clock = el('span', `${Number(speech432RemainSec || curSec).toFixed(1)}s`, `speech-432-clock${speech432RemainSec > 0 && speech432RemainSec <= 5 ? ' is-urgent' : ''}`);
+   clock.id = 'yd-speech-432-clock';
+   headRow.append(el('strong', modeTitle), clock);
+   const bar = div('speech-432-bar');
+   const fill = div(`speech-432-fill${speech432RemainSec > 0 && speech432RemainSec <= 5 ? ' is-urgent' : ''}`);
+   fill.id = 'yd-speech-432-fill';
+   fill.style.width = `${Math.max(0, Math.min(100, (Number(speech432RemainSec || curSec) / Math.max(1, curSec)) * 100))}%`;
+   bar.append(fill);
+   const nextRoundSec = secList[(speechRoundIdx + 1) % 3];
+   const actionsRow = div('speech-432-actions');
+   actionsRow.append(
+     btn(speech432Running ? '⏸ 暂停倒计时' : '▶ 开始本轮倒计时', startOrToggle432, 'btn primary small-btn'),
+     btn('↺ 重置', () => { stopSpeech432Countdown(); speech432RemainSec = curSec; render(); }, 'btn secondary small-btn'),
+     btn(`⏭ 下一轮 (${nextRoundSec}s)`, () => { stopSpeech432Countdown(); speechRoundIdx = (speechRoundIdx + 1) % 3; speech432RemainSec = nextRoundSec; render(); }, 'btn ghost small-btn')
+   );
+   timerCard.append(headRow, bar, actionsRow);
+   box.append(timerCard);
+ }
  if(speechPlanActive){
    const anchors=extractSpeechAnchorKeywords(speech.scriptEn,3);
    const planCard=div('reading-mode-banner speech-plan-banner');
-   const timerSpan=el('span',speechPlanCountdownSec>0?`⏱️ 构思倒计时 ${speechPlanCountdownSec}s`:'✅ 15s 到！立即看锚点词脱稿开口','tiny');
+   planCard.id='yd-speech-plan-card';
+   const timerSpan=el('span',speechPlanCountdownSec>0?`⏱️ 构思倒计时 ${speechPlanCountdownSec}s（原稿已自动遮罩）`:'🚀 15s 到！立即看锚点词脱稿开口','tiny');
    timerSpan.id='yd-speech-plan-timer';
    const chipsWrap=div('speech-anchor-chips');
    anchors.forEach((a,i)=>{
      chipsWrap.append(el('span',`#${i+1} ${a}`,'badge'));
    });
-   planCard.append(timerSpan,chipsWrap);
+   const go432Btn = btn(`▶ 用锚点词直接开 ${curSec}s 压时`, () => {
+     speech432Expanded = true;
+     speech432RemainSec = curSec;
+     startOrToggle432();
+   }, 'btn primary small-btn');
+   planCard.append(timerSpan,chipsWrap,go432Btn);
    box.append(planCard);
  }
 
@@ -6155,7 +6282,7 @@ function renderSpeechChamber(){
 
  const rate=el('select','','select speech-rate-select');for(const speed of [.75,.9,1,1.15,1.25]){const option=el('option',speed+'×');option.value=String(speed);rate.append(option);}rate.value='1';rate.setAttribute('aria-label','演讲音频播放速度');rate.addEventListener('change',()=>{audio.playbackRate=Number(rate.value);});
  let a=null,b=null,loop=false;
- let segLoop=false,segLoopIdx=-1,masked=false,userScrolled=false,lastActiveIdx=-1;
+ let segLoop=false,segLoopIdx=-1,masked=Boolean(speechPlanActive),userScrolled=false,lastActiveIdx=-1;
  let speechSegments=buildAutoSyncedSegments({title:speech.title,text:speech.scriptEn},0);
 
  const btnSegLoop=btn('🔁 单句循环',()=>{
@@ -6187,12 +6314,12 @@ function renderSpeechChamber(){
  // Live Synced Scrolling Subtitle Teleprompter (adapted from Pocket Radio)
  const subPanel=section('radio-subtitle-panel speech-subtitle-panel');
  const subToolbar=div('radio-sub-toolbar');
- const toggle=btn('🙈 遮罩脱稿',()=>{
+ const toggle=btn(masked?'👁️ 显示演讲稿':'🙈 遮罩脱稿',()=>{
    masked=!masked;
    toggle.textContent=masked?'👁️ 显示演讲稿':'🙈 遮罩脱稿';
    toggle.className=masked?'btn primary small-btn':'btn secondary small-btn';
    subList.querySelectorAll('.radio-sub-line').forEach(elRow=>elRow.classList.toggle('is-masked',masked));
- },'btn secondary small-btn');
+ },masked?'btn primary small-btn':'btn secondary small-btn');
  subToolbar.append(el('span','📜 同步滚动字幕 · 点任意句跳转跟读','tiny'),toggle);
  const subList=div('radio-subtitle-list speech-subtitle-list');
  const recenterBtn=btn('🎯 回到当前句',()=>{

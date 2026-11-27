@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.4 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.5 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.3.4 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.3.5 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -3103,4 +3103,54 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   font-size: 0.85em;
   vertical-align: 1px;
   opacity: 0.78;
+}
+
+/* v20.3.5 Live 4/3/2 Speech Countdown Card */
+.speech-432-card {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(15, 118, 110, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.speech-432-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.92rem;
+}
+.speech-432-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.35rem;
+  color: var(--accent, #0f766e);
+  letter-spacing: -0.02em;
+}
+.speech-432-clock.is-urgent {
+  color: #dc2626;
+}
+.speech-432-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.14);
+  overflow: hidden;
+}
+.speech-432-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #0f766e);
+  transition: width 0.1s linear, background-color 0.2s ease;
+}
+.speech-432-fill.is-urgent {
+  background: #dc2626;
+}
+.speech-432-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
