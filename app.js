@@ -43,7 +43,7 @@ import {buildCdtlCard,buildInterferenceRadar} from './cdtl.mjs';
 import {analyzeDiscourseAndChunks,analyzeReadingPassageMetrics} from './discourse.mjs';
 import {registerMediaSession,createAbLoopState,setAbLoopPoint,shouldLoopBack,dictationCapability,createDictationController} from './immersion.mjs';
 import {buildCultivationHeatmap,buildFsrsForecast,lookupOfflineLexicon,buildCommuteSprintQueue,evaluateBackupFreshness} from './mastery-os.mjs';
-import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure,buildPackSpeakingQaEpisodes,buildAutoSyncedSegments,rescaleSyncedSegments} from './radio.mjs';
+import {RADIO_CHANNELS,RADIO_SPEED_PRESETS,RADIO_PLAYBACK_MODES,normalizeRadioPlaybackMode,nextRadioPlaybackMode,pickNextRadioIndex,computeShadowPauseMs,computeSegmentWatchdogMs,buildRadioPlaylist,buildRadioPodcastEpisodes,summarizeRadioExposure,buildPackSpeakingQaEpisodes,buildAutoSyncedSegments,rescaleSyncedSegments} from './radio.mjs';
 import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGritBadges} from './motivation.mjs';
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
@@ -302,8 +302,9 @@ let radioEpisodeIndex = 0;
 let radioAudioStatus = "";
 let readingAudioStatus = "";
 let radioRate = 0.9;
-let radioStopAfterRound = true;
+let radioStopAfterRound = false;
 let radioShuffle = false;
+let radioPlaybackMode = "auto_next";
 let radioPlaying = false;
 let radioIndex = 0;
 let radioShadowPause = false;
@@ -1347,10 +1348,10 @@ function prefetchNextRadioTrack(nextIdx) {
   }
 }
 
-async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null, fromUnclearReplay = false } = {}) {
+async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null, fromUnclearReplay = false, fromAutoAdvance = false } = {}) {
   stopAllRadioPlayback();
   if (!fromUnclearReplay) { radioUnclearReplayQueue = []; radioUnclearReplayCursor = -1; }
-  unlockRadioAudio();
+  if (!fromAutoAdvance) unlockRadioAudio();
   if (!radioEpisodes.length) refreshRadioTracks();
   if (!radioEpisodes.length) {
     notify(radioChannel === "speaking_qa"
@@ -1607,7 +1608,12 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       onPlay: () => resumePocketRadio(),
       onPause: () => pausePocketRadio(),
       onPrev: () => playRadioPodcastAt(radioEpisodeIndex - 1),
-      onNext: () => playRadioPodcastAt(radioEpisodeIndex + 1)
+      onNext: () => {
+        const nextIdx = radioPlaybackMode === "shuffle"
+          ? pickNextRadioIndex({ currentIndex: radioEpisodeIndex, total: radioEpisodes.length, mode: "shuffle" })
+          : radioEpisodeIndex + 1;
+        playRadioPodcastAt(nextIdx);
+      }
     });
     try {
       if (typeof navigator !== "undefined" && navigator.mediaSession?.setActionHandler) {
@@ -1652,17 +1658,26 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
       }
       const epUnclearMarks = buildUnclearReplayQueue(data.radioUnclearMarks || [], { episodeId: episode.id });
       if (epUnclearMarks.length > 0 && radioUnclearReplayCursor < 0 && !radioSingleLoop) {
-        notify(`🎧 本集已播完：你记下了 ${epUnclearMarks.length} 处没听清，可一键连听。`);
-        stopPocketRadio(true);
-        return;
+        notify(`🎧 本集记下了 ${epUnclearMarks.length} 处没听清（已继续连播，随时可点一键回听）。`);
       }
-      if (radioSingleLoop) {
-        radioTimer = setTimeout(() => {
-          if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex, { startAtSec: 0 });
-        }, 600);
-        return;
+      if (radioPlaybackMode === "single_loop" || radioSingleLoop) {
+        try {
+          audio.currentTime = 0;
+          audio.playbackRate = radioRate;
+          audio.onended = advanceAfterEpisode;
+          const replayPromise = audio.play();
+          if (replayPromise && typeof replayPromise.catch === "function") {
+            replayPromise.catch(() => {
+              if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex, { startAtSec: 0, fromAutoAdvance: true });
+            });
+          }
+          return;
+        } catch {
+          if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex, { startAtSec: 0, fromAutoAdvance: true });
+          return;
+        }
       }
-      // If user has items in commute queue, play next queued item first
+      // If user has items in commute queue, play next queued item immediately (no iOS background timer drop)
       if (Array.isArray(data.radioQueue) && data.radioQueue.length) {
         const nextQ = data.radioQueue.shift();
         save();
@@ -1670,19 +1685,18 @@ async function playRadioPodcastAt(epIdx, { retryFresh = false, startAtSec = null
         refreshRadioTracks();
         const qIdx = radioEpisodes.findIndex(e => e.id === nextQ.episodeId);
         if (qIdx >= 0) {
-          radioTimer = setTimeout(() => {
-            if (radioPlaying === myPlayToken) playRadioPodcastAt(qIdx, { startAtSec: nextQ.startSec || 0 });
-          }, 500);
+          if (radioPlaying === myPlayToken) playRadioPodcastAt(qIdx, { startAtSec: nextQ.startSec || 0, fromAutoAdvance: true });
           return;
         }
       }
-      if (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length) {
+      if (radioStopAfterRound && radioPlaybackMode === "auto_next" && radioEpisodeIndex + 1 >= radioEpisodes.length) {
         notify("✓ 本轮音频已全部播完。");
         stopPocketRadio(true);
       } else {
-        radioTimer = setTimeout(() => {
-          if (radioPlaying === myPlayToken) playRadioPodcastAt(radioEpisodeIndex + 1);
-        }, 500);
+        const nextIdx = pickNextRadioIndex({ currentIndex: radioEpisodeIndex, total: radioEpisodes.length, mode: radioPlaybackMode });
+        if (nextIdx >= 0 && radioPlaying === myPlayToken) {
+          playRadioPodcastAt(nextIdx, { fromAutoAdvance: true });
+        }
       }
     };
     const playRes = await playUrlOnRadioAudio(entry.url, radioRate, watchdogMs, myPlayToken, revokeAfterPlay, markEpisodeStarted);
@@ -1877,9 +1891,9 @@ async function playRadioSegment(segText, rate, myPlayToken, onActualPlay = null)
   }
 }
 
-async function playRadioTrackAt(idx) {
+async function playRadioTrackAt(idx, { fromAutoAdvance = false } = {}) {
   stopAllRadioPlayback();
-  unlockRadioAudio();
+  if (!fromAutoAdvance) unlockRadioAudio();
   if (!radioTracks.length) refreshRadioTracks();
   if (!radioTracks.length) {
     notify("当前频道暂无可播放条目，请切换到「YouTube 励志演讲」或「Notebook 口语与对话」。");
@@ -1922,7 +1936,12 @@ async function playRadioTrackAt(idx) {
     onPlay: () => playRadioTrackAt(radioIndex),
     onPause: () => stopPocketRadio(true),
     onPrev: () => playRadioTrackAt(radioIndex - 1),
-    onNext: () => playRadioTrackAt(radioIndex + 1)
+    onNext: () => {
+      const nextIdx = radioPlaybackMode === "shuffle"
+        ? pickNextRadioIndex({ currentIndex: radioIndex, total: radioTracks.length, mode: "shuffle" })
+        : radioIndex + 1;
+      playRadioTrackAt(nextIdx);
+    }
   });
 
   render();
@@ -1938,10 +1957,21 @@ async function playRadioTrackAt(idx) {
     }
   }
   if (radioPlaying !== myPlayToken) return;
-  const pauseMs = computeShadowPauseMs(track.text, { enabled: radioShadowPause });
-  radioTimer = setTimeout(() => {
-    if (radioPlaying === myPlayToken) playRadioTrackAt(radioIndex + 1);
-  }, pauseMs);
+  if (radioStopAfterRound && radioPlaybackMode === "auto_next" && radioIndex + 1 >= radioTracks.length) {
+    notify("✓ 本轮磨耳朵已全部播完。");
+    stopPocketRadio(true);
+    return;
+  }
+  const nextTrackIdx = pickNextRadioIndex({ currentIndex: radioIndex, total: radioTracks.length, mode: radioPlaybackMode });
+  if (nextTrackIdx < 0) return;
+  if (radioShadowPause) {
+    const pauseMs = computeShadowPauseMs(track.text, { enabled: true });
+    radioTimer = setTimeout(() => {
+      if (radioPlaying === myPlayToken) playRadioTrackAt(nextTrackIdx, { fromAutoAdvance: true });
+    }, pauseMs);
+  } else if (radioPlaying === myPlayToken) {
+    playRadioTrackAt(nextTrackIdx, { fromAutoAdvance: true });
+  }
 }
 
 function renderPocketRadioDrawer() {
@@ -2806,8 +2836,17 @@ function renderPocketRadioDrawer() {
   const momentBtn = btn("👂 没听清", () => markCurrentRadioUnclear(), "btn secondary radio-seek-btn");
   momentBtn.setAttribute("aria-label", "标记这里没听清并继续播放");
   const nextBtn = btn("⟩", () => {
-    if (isPodcast) playRadioPodcastAt(radioEpisodeIndex + 1);
-    else playRadioTrackAt(radioIndex + 1);
+    if (isPodcast) {
+      const nextIdx = radioPlaybackMode === "shuffle"
+        ? pickNextRadioIndex({ currentIndex: radioEpisodeIndex, total: radioEpisodes.length, mode: "shuffle" })
+        : radioEpisodeIndex + 1;
+      playRadioPodcastAt(nextIdx);
+    } else {
+      const nextIdx = radioPlaybackMode === "shuffle"
+        ? pickNextRadioIndex({ currentIndex: radioIndex, total: radioTracks.length, mode: "shuffle" })
+        : radioIndex + 1;
+      playRadioTrackAt(nextIdx);
+    }
   }, "btn secondary radio-icon-btn");
   nextBtn.setAttribute("aria-label", isPodcast ? "下一集" : "下一条");
   controls.append(prevBtn, rewindBtn, playBtn, momentBtn, nextBtn);
@@ -2816,11 +2855,15 @@ function renderPocketRadioDrawer() {
     const nextEp = radioEpisodes[(radioEpisodeIndex + 1) % Math.max(1, radioEpisodes.length)];
     const nextText = radioSleepAtEpisodeEnd
       ? "🌙 本集结束后停止"
-      : (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length)
-        ? "⏹ 本轮结束后停止"
-        : nextEp && radioEpisodes.length > 1
-          ? `下一集：${cleanRadioEpisodeLabel(nextEp.title, radioEpisodeIndex + 1)}`
-          : "当前频道共 1 集";
+      : radioPlaybackMode === "single_loop"
+        ? "🔂 单曲循环 · 播完无缝重播本集"
+        : radioPlaybackMode === "shuffle"
+          ? "🔀 随机播放 · 播完自动随机切下一集"
+          : (radioStopAfterRound && radioEpisodeIndex + 1 >= radioEpisodes.length)
+            ? "⏹ 本轮结束后停止"
+            : nextEp && radioEpisodes.length > 1
+              ? `下一集：${cleanRadioEpisodeLabel(nextEp.title, radioEpisodeIndex + 1)}`
+              : "🔁 自动连播 · 当前频道共 1 集（播完重播）";
     const nextBar = div("radio-next-up-bar");
     nextBar.append(
       el("span", nextText),
@@ -2830,7 +2873,17 @@ function renderPocketRadioDrawer() {
   }
 
   const quickBar = div("radio-quick-bar");
+  const activeModeMeta = RADIO_PLAYBACK_MODES.find(m => m.id === radioPlaybackMode) || RADIO_PLAYBACK_MODES[0];
+  const modeToggleBtn = btn(activeModeMeta.label, () => {
+    const nextMode = nextRadioPlaybackMode(radioPlaybackMode);
+    applyRadioPlaybackMode(nextMode);
+    const meta = RADIO_PLAYBACK_MODES.find(m => m.id === nextMode) || RADIO_PLAYBACK_MODES[0];
+    notify(`播放模式已切换为「${meta.shortLabel}」：${meta.desc}`);
+    render();
+  }, "btn primary small-btn radio-mode-toggle-btn");
+  modeToggleBtn.setAttribute("aria-label", `切换播放模式，当前：${activeModeMeta.shortLabel}`);
   quickBar.append(
+    modeToggleBtn,
     btn(radioOfflineOnly ? "✈️ 仅离线:开" : "✈️ 仅离线:关", () => {
       radioOfflineOnly = !radioOfflineOnly;
       data.settings.radioOfflineOnly = radioOfflineOnly;
@@ -2907,8 +2960,8 @@ function renderPocketRadioDrawer() {
       render();
     }, radioAbLoop ? "btn primary small-btn" : "btn secondary small-btn"),
     btn(radioSingleLoop ? "🔂 单集循环:开" : "🔂 单集循环:关", () => {
-      radioSingleLoop = !radioSingleLoop;
-      notify(radioSingleLoop ? "已开启单集循环。" : "已关闭单集循环。");
+      applyRadioPlaybackMode(radioSingleLoop ? "auto_next" : "single_loop");
+      notify(radioSingleLoop ? "已开启单曲循环。" : "已切换为自动连播。");
       render();
     }, radioSingleLoop ? "btn primary small-btn" : "btn ghost small-btn"),
     btn(radioBlindScript ? "👁️ 显示原文" : "🙈 盲听遮罩", () => {
@@ -2942,10 +2995,8 @@ function renderPocketRadioDrawer() {
       render();
     }, "btn ghost small-btn"),
     btn(radioShuffle ? "🔀 随机:开" : "🔀 顺序", () => {
-      radioShuffle = !radioShuffle;
-      radioIndex = 0;
-      radioEpisodeIndex = 0;
-      refreshRadioTracks(radioShuffle);
+      applyRadioPlaybackMode(radioShuffle ? "auto_next" : "shuffle");
+      notify(radioShuffle ? "已切换为随机播放。" : "已切换为自动连播。");
       render();
     }, radioShuffle ? "btn primary small-btn" : "btn secondary small-btn"),
     btn("🗑 清空云端缓存", async () => {
@@ -3049,7 +3100,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.3)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.4)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3423,6 +3474,16 @@ let migrationNotice='';let selectedReadingId=null;let selectedSpeechId=null;let 
 let data=load();
 applyTheme();
 radioOfflineOnly = Boolean(data?.settings?.radioOfflineOnly);
+function applyRadioPlaybackMode(mode, { persist = true } = {}) {
+  radioPlaybackMode = normalizeRadioPlaybackMode(mode);
+  radioSingleLoop = radioPlaybackMode === "single_loop";
+  radioShuffle = radioPlaybackMode === "shuffle";
+  if (persist && data?.settings) {
+    data.settings.radioPlaybackMode = radioPlaybackMode;
+    save();
+  }
+}
+applyRadioPlaybackMode(data?.settings?.radioPlaybackMode || "auto_next", { persist: false });
 // Curate real, neutral US female voices; never expose Apple's novelty character/effect voices.
 // This is a display filter, not a claim that the system voices are neural or premium.
 function refreshSpeechVoices(){if(!('speechSynthesis'in window))return [];const voices=window.speechSynthesis.getVoices().filter(voice=>voice&&/^en[-_]\w+/i.test(voice.lang||''));availableVoices=voices.sort((a,b)=>{const aUS=/^en[-_]US(?:[-_]|$)/i.test(a.lang||''),bUS=/^en[-_]US(?:[-_]|$)/i.test(b.lang||'');return Number(bUS)-Number(aUS);});return availableVoices;}
@@ -6726,7 +6787,7 @@ let tickCount=0;setInterval(()=>{
     if(j&&!j.goalNotified&&journeyElapsedMs()>=j.targetMinutes*60000){j.goalNotified=true;save();notify(`正向累计已达到参考 ${j.targetMinutes} 分钟。可以继续完成剩余模块。`);}
   }else if(s.activeMs>=s.dueGoal*60000 && !s.goalNotified){s.goalNotified=true;save();notify(`已达到参考 ${s.dueGoal} 分钟，可根据任务完成情况继续学习。`);}},1000);
 document.addEventListener('selectionchange',()=>{const selection=window.getSelection();const text=selection?.toString().trim();const article=document.getElementById('reading-article');const anchor=selection?.anchorNode;const paragraph=anchor?.parentElement?.closest?.('.reading-paragraph');if(text&&article&&anchor&&article.contains(anchor)&&paragraph){selectedText=text;selectedParagraphText=paragraph.textContent||'';selectedParagraphIndex=Number(paragraph.dataset.paragraphIndex||0);}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){radioAudioUnlocked=false;}if(!document.hidden){initSpeechVoices();refreshSpeechVoiceUi();}if(document.hidden&&data.dailyJourney?.vocabularyRunning)pauseJourneyVocabulary();if(document.hidden&&data.dailyJourney?.readingRunning)pauseJourneyReading();if(document.hidden&&data.dailyJourney?.speechRunning)pauseJourneySpeech();if(document.hidden&&data.dailyJourney?.transferRunning){accrueTransfer();data.dailyJourney.transferRunning=false;data.dailyJourney.transferLastTick=null;save();notify('页面离开时已暂停综合输出计时。');}if(document.hidden&&data.paperStoryPractice?.running){accruePaperStory();data.paperStoryPractice.running=false;data.paperStoryPractice.lastTick=null;save();notify('纸上故事练习已暂停，原始回答仍已保留。');}if(document.hidden){const s=data.activeSession;if(s||journeyStage())saveV19ExactResume({stage:s?.journeyStage||journeyStage()||'',itemId:s?.queue?.[s?.index]||'',draftText:s?.draft||data.dailyJourney?.transferDraft||'',answerRevealedBeforeExit:Boolean(s?.step==='revealed'||s?.viewedAnswer||data.dailyJourney?.transferState==='revealed'),hintTierBeforeExit:s?.hintLevel?String(s.hintLevel):null});}if(document.hidden&&data.activeSession?.running){pauseSession();notify('页面离开时已自动暂停计时。');}else if(!document.hidden&&data.activeSession&&!data.activeSession.running&&page==='practice'){render();}else if(!document.hidden&&data.paperStoryPractice&&!data.paperStoryPractice.running&&page==='storyPractice'&&!data.paperStoryPractice.finishedAt){render();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&!radioPlaying){radioAudioUnlocked=false;}if(!document.hidden){initSpeechVoices();refreshSpeechVoiceUi();}if(document.hidden&&data.dailyJourney?.vocabularyRunning)pauseJourneyVocabulary();if(document.hidden&&data.dailyJourney?.readingRunning)pauseJourneyReading();if(document.hidden&&data.dailyJourney?.speechRunning)pauseJourneySpeech();if(document.hidden&&data.dailyJourney?.transferRunning){accrueTransfer();data.dailyJourney.transferRunning=false;data.dailyJourney.transferLastTick=null;save();notify('页面离开时已暂停综合输出计时。');}if(document.hidden&&data.paperStoryPractice?.running){accruePaperStory();data.paperStoryPractice.running=false;data.paperStoryPractice.lastTick=null;save();notify('纸上故事练习已暂停，原始回答仍已保留。');}if(document.hidden){const s=data.activeSession;if(s||journeyStage())saveV19ExactResume({stage:s?.journeyStage||journeyStage()||'',itemId:s?.queue?.[s?.index]||'',draftText:s?.draft||data.dailyJourney?.transferDraft||'',answerRevealedBeforeExit:Boolean(s?.step==='revealed'||s?.viewedAnswer||data.dailyJourney?.transferState==='revealed'),hintTierBeforeExit:s?.hintLevel?String(s.hintLevel):null});}if(document.hidden&&data.activeSession?.running){pauseSession();notify('页面离开时已自动暂停计时。');}else if(!document.hidden&&data.activeSession&&!data.activeSession.running&&page==='practice'){render();}else if(!document.hidden&&data.paperStoryPractice&&!data.paperStoryPractice.running&&page==='storyPractice'&&!data.paperStoryPractice.finishedAt){render();}});
 window.addEventListener('pagehide',()=>{/* pagehide-v19-resume */const s=data.activeSession;if(s||journeyStage())saveV19ExactResume({stage:s?.journeyStage||journeyStage()||'',itemId:s?.queue?.[s?.index]||'',draftText:s?.draft||data.dailyJourney?.transferDraft||'',answerRevealedBeforeExit:Boolean(s?.step==='revealed'||s?.viewedAnswer||data.dailyJourney?.transferState==='revealed'),hintTierBeforeExit:s?.hintLevel?String(s.hintLevel):null});flushDraftSave();if(data.dailyJourney?.readingRunning)pauseJourneyReading();if(data.dailyJourney?.speechRunning)pauseJourneySpeech();if(data.paperStoryPractice?.running){accruePaperStory();data.paperStoryPractice.running=false;data.paperStoryPractice.lastTick=null;save();}if(data.activeSession)pauseSession();stopActiveAudio();stopLocalAudio();stopActiveRecording({renderAfter:false});});
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 const themeToggle=document.getElementById('theme-toggle');if(themeToggle)themeToggle.addEventListener('click',()=>setTheme(data.settings.theme==='night'?'day':'night'));
