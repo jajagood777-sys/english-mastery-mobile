@@ -48,7 +48,7 @@ import {CULTIVATION_REALMS,computeCultivationRealm,getAdversityQuote,computeGrit
 import {AI_PROVIDERS,GEMINI_TTS_VOICES,GEMINI_TTS_DEFAULT_MODEL,GEMINI_TTS_FALLBACK_MODEL,SILICONFLOW_TTS_VOICES,SILICONFLOW_TTS_DEFAULT_VOICE,loadAiConfig,saveAiConfig,clearAiConfig,isAiTutorReady,isGeminiTtsReady,isSiliconFlowTtsReady,isCloudTtsReady,synthesizeGeminiSpeech,synthesizeCloudSpeech,makeTtsCacheKey,readPersistentTtsAudio,writePersistentTtsAudio,deletePersistentTtsAudio,hasPersistentTtsAudio,countPersistentTtsAudio,clearPersistentTtsAudio,saveAudioBookmark,loadAudioBookmark,clearAudioBookmark,recordTtsApiCall,getDailyTtsUsage,askAiCritiqueOutput,askAiExplainSentence,askAiContrastWords,askAiDictionary,askAiFreeTutor,askAiCheckGrammar,askAiSpeakingDemoCoach,testAiTutorConnection} from './ai-tutor.mjs';
 import {replayFsrsShadowHistory} from './core.mjs';
 import {COMPLEX_FRAME_TYPES,COMPLEX_STAGE_META,COMPLEX_IMITATION_TOPICS,extractLearnedVocabPool,buildLinkedComplexDrill,buildAiComplexSentencePrompt,parseAiComplexSentenceResponse} from './complex-imitation.mjs';
-import {HARVEST_TRIAGE_TIERS,buildHarvestCard,summarizeHarvestProgress,filterMarksForTomorrowPack} from './reading-harvest.mjs';
+import {HARVEST_TRIAGE_TIERS,buildHarvestCard,summarizeHarvestProgress,filterMarksForTomorrowPack,splitSentenceWithHighlight,buildHarvestQuizOptions,buildHarvestAiGlossPrompt,parseHarvestAiGlossResponse} from './reading-harvest.mjs';
 import {SESSION_PACING_MODES,LISTENING_DECODE_STEPS,selectTodayMissionWords,detectActivatedMissionWords,buildOpeningWarmupQueue,buildClosingExitTicket,clampShadowRepCount} from './pipeline-mastery.mjs';
 
 const STORE='central-english-mastery.v2';
@@ -388,6 +388,9 @@ let complexAiBusy = false;
 let readingHarvestActiveMarkId = null;
 let readingHarvestRevealed = false;
 let readingHarvestForceShow = false;
+let readingHarvestStep = 'encode';
+let readingHarvestChoicePicked = null;
+let readingHarvestAiBusyId = null;
 let warmupIdx = 0;
 let warmupRevealed = false;
 let warmupDoneIds = new Set();
@@ -3126,7 +3129,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.6)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.7)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -6532,9 +6535,33 @@ function applyReadingMarkHarvest(reading, mark, { tier, recalled }) {
   );
   readingHarvestRevealed = false;
   readingHarvestActiveMarkId = null;
+  readingHarvestStep = 'encode';
+  readingHarvestChoicePicked = null;
   if (save()) {
     const labelMap = { promote: '🔥 已收割为明日必考词并入库', passive: '👁️ 已记为仅混眼熟（不塞明日考题）', drop: '🗑️ 已略过，不进明日学习包' };
     notify(`${mark.wordText}：${labelMap[tier] || '已处理'}`);
+    render();
+  }
+}
+
+async function fetchHarvestInlineGloss(mark, card) {
+  if (!mark || !card?.word || readingHarvestAiBusyId === mark.id) return;
+  const cfg = loadAiConfig();
+  if (!isAiTutorReady(cfg)) return;
+  readingHarvestAiBusyId = mark.id;
+  render();
+  try {
+    const prompt = buildHarvestAiGlossPrompt(card.word, card.originalSentence);
+    const reply = await askAiFreeTutor({ question: prompt, context: card.originalSentence || card.word });
+    const parsed = parseHarvestAiGlossResponse(reply);
+    if (parsed) {
+      mark.savedGloss = parsed;
+      save();
+    }
+  } catch {
+    // Non-blocking: offline fallback & manual note stay available
+  } finally {
+    if (readingHarvestAiBusyId === mark.id) readingHarvestAiBusyId = null;
     render();
   }
 }
@@ -6547,13 +6574,13 @@ function renderReadingWordHarvestBridge(reading, marks) {
 
   const headRow = div('journey-flow-top');
   headRow.append(
-    el('span', '🌾 读后生词收割台 · WORD HARVEST BRIDGE', 'eyebrow'),
+    el('span', '🌾 读后生词收割台 · WORD HARVEST 2.0', 'eyebrow'),
     el('span', `已收割 ${summary.harvested}/${summary.total} · 🔥必考 ${summary.promoted} · 👁️眼熟 ${summary.passive} · 🗑️略过 ${summary.dropped}`, 'tiny')
   );
   box.append(
     headRow,
-    h('h3', summary.completed && !readingHarvestForceShow ? '本篇生词已收割完毕' : '完读 60 秒快闪巩固与分流'),
-    p('只做 1 次原句语境提取 + 听音绑定，再分流进明日词包，防止生词堆积与隔夜遗忘。', 'tiny subtle')
+    h('h3', summary.completed && !readingHarvestForceShow ? '本篇生词已收割完毕' : '先看懂再小测 · 2 步收割生词'),
+    p('第 1 步先听音看懂本句意思与搭配，第 2 步原句秒测并决定明天去向，不再盲猜。', 'tiny subtle')
   );
 
   const pendingMarks = marks.filter(m => !['promote', 'passive', 'drop'].includes(m.harvestTier));
@@ -6569,6 +6596,8 @@ function renderReadingWordHarvestBridge(reading, marks) {
       chip.addEventListener('click', () => {
         readingHarvestActiveMarkId = m.id;
         readingHarvestRevealed = false;
+        readingHarvestStep = 'encode';
+        readingHarvestChoicePicked = null;
         readingHarvestForceShow = true;
         render();
       });
@@ -6586,24 +6615,11 @@ function renderReadingWordHarvestBridge(reading, marks) {
 
   const stageCard = div('harvest-active-card');
   const posIdx = marks.findIndex(m => m.id === activeMark.id) + 1;
-  stageCard.append(el('div', `第 ${posIdx} / ${marks.length} 词 · 原句挖空瞬时回忆`, 'tiny subtle'));
+  const isEncodeStep = readingHarvestStep !== 'check';
+  stageCard.append(el('div', `第 ${posIdx} / ${marks.length} 词 · ${isEncodeStep ? '第 1 步：先看懂再测' : '第 2 步：原句小测与分流'}`, 'tiny subtle'));
 
-  if (!readingHarvestRevealed) {
-    stageCard.append(
-      p(card.clozedSentence, 'harvest-cloze-sentence'),
-      lines(
-        btn('👁️ 揭晓原词与读音', () => {
-          readingHarvestRevealed = true;
-          const segs = [card.word, card.originalSentence].filter(Boolean);
-          void speakNaturalOrDevice(card.originalSentence || card.word, segs, { silentMissing: true });
-          render();
-        }, 'btn primary small-btn'),
-        btn('🔊 先听原句提示', () => {
-          void speakNaturalOrDevice(card.originalSentence || card.word, [card.originalSentence || card.word], { silentMissing: true });
-        }, 'btn ghost small-btn')
-      )
-    );
-  } else {
+  if (isEncodeStep) {
+    // STEP 1: Encode First — Target Word + 1-Tap Audio + Highlighted Context Sentence + Bilingual/Offline Meaning
     const wordRow = div('journey-flow-top');
     wordRow.append(
       h('h4', card.word),
@@ -6611,40 +6627,171 @@ function renderReadingWordHarvestBridge(reading, marks) {
         btn('🔊 读词+原句', () => {
           void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
         }, 'btn secondary small-btn'),
-        btn('🔍 AI 查词', () => openAiLexiconDrawer(card.word), 'btn ghost small-btn')
+        btn('🔍 AI 详查', () => openAiLexiconDrawer(card.word), 'btn ghost small-btn')
       )
     );
     stageCard.append(wordRow);
-    if (card.senseEn) stageCard.append(p(`释义：${card.senseEn}`, 'subtle'));
-    if (card.originalSentence) stageCard.append(p(`原句：${card.originalSentence}`, 'hint'));
 
-    // Self-check recall toggle (honest retrieval record)
-    const recallRow = div('harvest-recall-row');
-    recallRow.append(
-      el('span', '刚才看着挖空原句想起来了吗？', 'tiny'),
-      btn(activeMark.harvestRecalled === true ? '✓ 已记：想起来了' : '✓ 想起来了', () => {
+    if (card.originalSentence) {
+      const sentP = el('p', '', 'harvest-context-sentence');
+      for (const seg of splitSentenceWithHighlight(card.originalSentence, card.word)) {
+        if (seg.highlight) sentP.append(el('mark', seg.text, 'harvest-word-highlight'));
+        else sentP.append(document.createTextNode(seg.text));
+      }
+      stageCard.append(sentP);
+    }
+
+    const meaningBox = div('harvest-meaning-box');
+    const sg = activeMark.savedGloss;
+    const hasStructuredGloss = sg && typeof sg === 'object' && (sg.zh || sg.en);
+    const hasStringGloss = typeof sg === 'string' && sg.trim().length > 0;
+    const cfg = loadAiConfig();
+    const aiReady = isAiTutorReady(cfg);
+
+    if (hasStructuredGloss) {
+      if (sg.zh) meaningBox.append(el('div', `中文意思：${sg.zh}`, 'harvest-gloss-zh'));
+      if (sg.en) meaningBox.append(el('div', `英文释义：${sg.en}`, 'tiny subtle'));
+      if (sg.chunk) meaningBox.append(el('div', `常用搭配：${sg.chunk}`, 'badge harvest-chunk-badge'));
+    } else if (hasStringGloss) {
+      meaningBox.append(el('div', `我的释义笔记：${sg.trim()}`, 'harvest-gloss-zh'));
+    } else if (card.senseEn) {
+      meaningBox.append(el('div', `本包释义：${card.senseEn}`, 'harvest-gloss-zh'));
+      if (aiReady && readingHarvestAiBusyId !== activeMark.id) {
+        meaningBox.append(btn('✨ 补中文意思与搭配', () => { void fetchHarvestInlineGloss(activeMark, card); }, 'btn ghost small-btn'));
+      }
+    } else if (readingHarvestAiBusyId === activeMark.id) {
+      meaningBox.append(el('div', '⏳ 正在结合本句生成中文意思与常用搭配…', 'tiny subtle'));
+    } else if (aiReady) {
+      meaningBox.append(el('div', '⏳ 正在自动获取本句语境释义…', 'tiny subtle'));
+      setTimeout(() => { void fetchHarvestInlineGloss(activeMark, card); }, 0);
+    } else {
+      meaningBox.append(el('div', '这是文章里新点的拓展词，暂无离线释义。可点右上角「AI 详查」，或直接记一句中文意思：', 'tiny subtle'));
+      const noteRow = div('harvest-manual-note-row');
+      const noteInput = el('input', '', 'input');
+      noteInput.type = 'text';
+      noteInput.placeholder = '例如：植物学的 / 仪表刻度…';
+      const saveNoteBtn = btn('保存释义', () => {
+        const val = noteInput.value.trim();
+        if (!val) return;
+        activeMark.savedGloss = { zh: val, en: '', chunk: '' };
+        save();
+        render();
+      }, 'btn secondary small-btn');
+      noteRow.append(noteInput, saveNoteBtn);
+      meaningBox.append(noteRow);
+    }
+    stageCard.append(meaningBox);
+
+    stageCard.append(lines(
+      btn('下一步：原句小测 →', () => {
+        readingHarvestStep = 'check';
+        readingHarvestRevealed = false;
+        readingHarvestChoicePicked = null;
+        render();
+      }, 'btn primary small-btn'),
+      btn('已懂，直接分流', () => {
+        readingHarvestStep = 'check';
+        readingHarvestRevealed = true;
+        readingHarvestChoicePicked = card.word;
         activeMark.harvestRecalled = true;
-        save();
         render();
-      }, activeMark.harvestRecalled === true ? 'btn secondary small-btn' : 'btn ghost small-btn'),
-      btn(activeMark.harvestRecalled === false ? '✗ 已记：没想起' : '✗ 没想起', () => {
-        activeMark.harvestRecalled = false;
-        save();
+      }, 'btn ghost small-btn')
+    ));
+  } else {
+    // STEP 2: Post-Encoding Contextual Quick Check (3-Option Blitz or Self-Check) + Self-Explanatory 3-Tier Triage Cards
+    const backRow = div('journey-flow-top');
+    backRow.append(
+      el('span', '看原句把刚学过的词填回去：', 'tiny'),
+      btn('← 回看释义', () => {
+        readingHarvestStep = 'encode';
+        readingHarvestChoicePicked = null;
         render();
-      }, activeMark.harvestRecalled === false ? 'btn secondary small-btn' : 'btn ghost small-btn')
+      }, 'btn ghost small-btn')
     );
-    stageCard.append(recallRow);
+    stageCard.append(backRow);
+    stageCard.append(p(card.clozedSentence, 'harvest-cloze-sentence'));
 
-    // 3-way Triage Bar
-    const triageRow = div('harvest-triage-bar');
-    for (const t of HARVEST_TRIAGE_TIERS) {
-      const cls = t.id === 'promote' ? 'btn primary small-btn' : t.id === 'passive' ? 'btn secondary small-btn' : 'btn ghost small-btn';
-      const b = btn(t.label, () => {
+    const options = buildHarvestQuizOptions(card.word, {
+      marks,
+      archive: data.dailyPack?.originalWordArchive || [],
+      vocabPractice: data.dailyPack?.vocabularyPractice || []
+    });
+
+    if (options.length >= 3) {
+      const choiceRow = div('harvest-choice-row');
+      for (const opt of options) {
+        const picked = readingHarvestChoicePicked !== null;
+        const isCorrect = opt.toLowerCase() === card.word.toLowerCase();
+        const isPicked = picked && readingHarvestChoicePicked.toLowerCase() === opt.toLowerCase();
+        let cls = 'btn secondary small-btn harvest-choice-btn';
+        if (picked && isCorrect) cls += ' is-correct';
+        else if (isPicked && !isCorrect) cls += ' is-wrong';
+        const optBtn = btn(opt, () => {
+          if (readingHarvestChoicePicked !== null) return;
+          readingHarvestChoicePicked = opt;
+          readingHarvestRevealed = true;
+          activeMark.harvestRecalled = isCorrect;
+          save();
+          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+          render();
+        }, cls);
+        choiceRow.append(optBtn);
+      }
+      stageCard.append(choiceRow);
+      if (readingHarvestChoicePicked !== null) {
+        const ok = readingHarvestChoicePicked.toLowerCase() === card.word.toLowerCase();
+        stageCard.append(p(
+          ok
+            ? `✓ 语境选对了（${card.word}）！下面选一下明天怎么安排这个词：`
+            : `💡 正确答案是「${card.word}」——刚认识还不牢，建议点「🔥 明日必考」明天再练一遍：`,
+          ok ? 'tiny harvest-feedback-ok' : 'tiny harvest-feedback-miss'
+        ));
+      }
+    } else if (!readingHarvestRevealed) {
+      stageCard.append(lines(
+        btn('👁️ 核对原词与读音', () => {
+          readingHarvestRevealed = true;
+          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+          render();
+        }, 'btn primary small-btn')
+      ));
+    } else {
+      const recallRow = div('harvest-recall-row');
+      recallRow.append(
+        el('span', `原词：${card.word} · 刚才想起来了吗？`, 'tiny'),
+        btn(activeMark.harvestRecalled === true ? '✓ 想起来了' : '✓ 想起来了', () => {
+          activeMark.harvestRecalled = true;
+          save();
+          render();
+        }, activeMark.harvestRecalled === true ? 'btn secondary small-btn' : 'btn ghost small-btn'),
+        btn(activeMark.harvestRecalled === false ? '✗ 没想起' : '✗ 没想起', () => {
+          activeMark.harvestRecalled = false;
+          save();
+          render();
+        }, activeMark.harvestRecalled === false ? 'btn secondary small-btn' : 'btn ghost small-btn')
+      );
+      stageCard.append(recallRow);
+    }
+
+    // Self-explanatory 3-Tier Triage Cards (always visible label + 1-line consequence on mobile, zero hidden tooltips)
+    const triageRow = div('harvest-triage-bar harvest-triage-cards');
+    for (const tier of HARVEST_TRIAGE_TIERS) {
+      const cls = tier.id === 'promote'
+        ? 'btn primary harvest-triage-card'
+        : tier.id === 'passive'
+          ? 'btn secondary harvest-triage-card'
+          : 'btn ghost harvest-triage-card';
+      const cardBtn = el('button', '', cls);
+      cardBtn.type = 'button';
+      cardBtn.append(
+        el('strong', tier.label),
+        el('span', tier.desc, 'harvest-triage-desc')
+      );
+      cardBtn.addEventListener('click', () => {
         readingHarvestForceShow = false;
-        applyReadingMarkHarvest(reading, activeMark, { tier: t.id, recalled: activeMark.harvestRecalled });
-      }, cls);
-      b.title = t.desc;
-      triageRow.append(b);
+        applyReadingMarkHarvest(reading, activeMark, { tier: tier.id, recalled: activeMark.harvestRecalled });
+      });
+      triageRow.append(cardBtn);
     }
     stageCard.append(triageRow);
   }

@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.3.6 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.3.7 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.3.6 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.3.7 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -3105,7 +3105,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   opacity: 0.78;
 }
 
-/* v20.3.6 Live 4/3/2 Speech Countdown Card */
+/* v20.3.7 Live 4/3/2 Speech Countdown Card */
 .speech-432-card {
   margin: 10px 0 12px;
   padding: 12px 14px;
@@ -3153,4 +3153,90 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* v20.3.7 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
+.harvest-context-sentence {
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 8px 0;
+  color: var(--ink, #1f2937);
+}
+.harvest-word-highlight {
+  background: rgba(15, 118, 110, 0.16);
+  color: var(--accent, #0f766e);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.harvest-meaning-box {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.harvest-gloss-zh {
+  font-weight: 700;
+  font-size: 0.96rem;
+}
+.harvest-chunk-badge {
+  align-self: flex-start;
+}
+.harvest-manual-note-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.harvest-choice-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.harvest-choice-btn {
+  min-height: 44px;
+  justify-content: center;
+  font-weight: 600;
+}
+.harvest-choice-btn.is-correct {
+  background: #0f766e !important;
+  color: #ffffff !important;
+  border-color: #0f766e !important;
+}
+.harvest-choice-btn.is-wrong {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+}
+.harvest-feedback-ok {
+  color: #0f766e;
+  font-weight: 600;
+}
+.harvest-feedback-miss {
+  color: #b45309;
+  font-weight: 600;
+}
+.harvest-triage-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.harvest-triage-card {
+  min-height: 48px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+}
+.harvest-triage-desc {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  font-weight: 400;
 }
