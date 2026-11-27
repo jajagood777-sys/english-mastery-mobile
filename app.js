@@ -3126,7 +3126,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.5)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.3.6)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4171,7 +4171,7 @@ function activeRecordingPanel(meta){const key=recordingPanelKey(meta);return Arr
 function refreshRecordingPanel(meta){const panel=activeRecordingPanel(meta);if(panel)panel.replaceWith(renderRecordingControls(meta));}
 function renderRecordingControls(meta){const panel=section('recording-panel');panel.dataset.recordingKey=recordingPanelKey(meta);panel.append(h('h3',meta.followAlong?'跟读录音 · SHADOWING':'口语录音 · SPEAKING','question-label'),p(meta.followAlong?'先听参考，再录下自己的版本。录音只保存在本机，不提供发音分数。':'录音只在你点击开始后请求麦克风权限；不提供发音分数。文字答案始终可用。','subtle'));const capability=recordingCapability();if(!capability.supported){panel.append(p(`${capability.reason} iPhone 可在设置 → Safari → 麦克风中重新允许；你也可以继续使用文字输入。`,'hint'));return panel;}if(meta.followAlong)panel.append(lines(btn(meta.audioUrl?'听参考音频':'听设备参考朗读',()=>meta.audioUrl?playReferenceAudio(meta.audioUrl,meta.text):speakEnglish(meta.text),'btn secondary'),btn('停止播放',()=>{stopSpeech();stopActiveAudio();stopLocalAudio();},'btn ghost')));const row=lines();const active=recordingController?.meta?.weaknessId===meta.weaknessId&&recordingController?.meta?.attemptId===meta.attemptId&&recordingController?.meta?.role===meta.role;if(active){const status=el('span','录音中 · 00:00','tiny');const timer=setInterval(()=>{if(!status.isConnected||!recordingController||recordingController.meta.attemptId!==meta.attemptId){clearInterval(timer);return;}status.textContent=`录音中 · ${fmtTime(Date.now()-recordingController.startedAt)}`;},250);row.append(btn('停止录音',stopActiveRecording,'btn danger'),status);}else row.append(btn(meta.role==='retry'?'重录当前答案':meta.followAlong?'开始跟读录音':'开始录音',()=>startActiveRecording(meta),'btn secondary'),el('span',`${meta.role==='retry'?'重答录音':'初答录音'} · ${capability.mimeType}`,'tiny'));panel.append(row);const list=div('recording-list');panel.append(list);listRecordings({weaknessId:meta.weaknessId,taskId:meta.taskId}).then(rows=>{const origRow=rows.find(item=>item.role==='original');const retryRow=rows.find(item=>item.role==='retry');if(origRow&&retryRow){const cmpBar=div('recording-row');cmpBar.append(btn('▶ 听我的初答',()=>playLocalRecording(origRow.id),'btn secondary small-btn'),btn('▶ 听我的重答',()=>playLocalRecording(retryRow.id),'btn secondary small-btn'),btn('🔁 连起来听（停0.5秒）',()=>playSequentialLocalRecordings([origRow.id,retryRow.id],500),'btn primary small-btn'));list.append(cmpBar);}rows.filter(item=>item.role===meta.role).forEach(item=>{const line=div('recording-row');const short=item.durationMs>0&&item.durationMs<5000?' · 可能不完整':'';line.append(el('span',`${item.role==='retry'?'我的重答':'我的初答'} · ${fmtTime(item.durationMs||0)}${short}`,'tiny'),btn(item.role==='retry'?'听我的重答':'听我的初答',()=>playLocalRecording(item.id),'btn ghost'),btn('导出',()=>exportLocalRecording(item.id),'btn ghost'));list.append(line);});}).catch(()=>{list.append(p('录音记录暂时不可读取，文字训练不受影响。','tiny'));});return panel;}
 async function playSequentialLocalRecordings(ids=[],gapMs=500){for(let idx=0;idx<ids.length;idx++){const row=await getRecording(ids[idx]).catch(()=>null);if(!row?.blob)continue;await new Promise(resolve=>{stopSpeech();stopActiveAudio();stopLocalAudio();const url=URL.createObjectURL(row.blob);const audio=new Audio(url);activeLocalAudio=audio;const done=()=>{URL.revokeObjectURL(url);if(activeLocalAudio===audio)activeLocalAudio=null;resolve();};audio.onended=done;audio.onerror=done;audio.play().catch(done);});if(idx<ids.length-1)await new Promise(r=>setTimeout(r,gapMs));}}
-async function startActiveRecording(meta){const capability=recordingCapability();if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');stopSpeech();stopActiveAudio();stopLocalAudio();try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}const recorder=new MediaRecorder(stream,{mimeType:capability.mimeType});const chunks=[];const controller={recorder,stream,chunks,meta:{...meta,mimeType:capability.mimeType},startedAt:Date.now(),renderAfterStop:true,interrupted:false,onVis:null};recordingController=controller;const tracks=stream.getAudioTracks?stream.getAudioTracks():stream.getTracks();tracks.forEach(t=>{t.onended=()=>{controller.interrupted=true;stopActiveRecording({renderAfter:false});};});controller.onVis=()=>{if(document.hidden){controller.interrupted=true;stopActiveRecording({renderAfter:false});}};document.addEventListener('visibilitychange',controller.onVis);recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};recorder.onstop=async()=>{if(controller.onVis)document.removeEventListener('visibilitychange',controller.onVis);try{const blob=new Blob(chunks,{type:recorder.mimeType||capability.mimeType});if(!validRecordingBlob(blob,controller.interrupted)){notify('录音未完成或为空，请重新录制。');return;}const saved=await putRecording({...meta,mimeType:recorder.mimeType||capability.mimeType,durationMs:Date.now()-controller.startedAt},blob);meta.onSaved?.(saved);notify('录音已保存在本机。');}catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留。`);}finally{stream.getTracks().forEach(track=>track.stop());if(recordingController===controller)recordingController=null;if(controller.renderAfterStop)refreshRecordingPanel(meta);}};recorder.start();refreshRecordingPanel(meta);}catch(error){notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝，已切换为文字训练。':'录音不可用，已切换为文字训练。');}}
+async function startActiveRecording(meta){const capability=recordingCapability();if(!capability.supported)return notify('当前浏览器不支持录音，已保留文字训练。');stopSpeech();stopActiveAudio();stopLocalAudio();if(typeof stopAllRadioPlayback==='function')stopAllRadioPlayback();try{if(typeof navigator!=='undefined'&&navigator.audioSession){navigator.audioSession.type='play-and-record';}}catch{}try{const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});if(!activeRecordingPanel(meta)){stream.getTracks().forEach(track=>track.stop());return;}let recorder;let chosenMime=capability.mimeType||'';try{recorder=chosenMime?new MediaRecorder(stream,{mimeType:chosenMime}):new MediaRecorder(stream);}catch{chosenMime='';recorder=new MediaRecorder(stream);}const effectiveMime=recorder.mimeType||chosenMime||'audio/mp4';const chunks=[];const controller={recorder,stream,chunks,meta:{...meta,mimeType:effectiveMime},startedAt:Date.now(),renderAfterStop:true,interrupted:false,onVis:null};recordingController=controller;const tracks=stream.getAudioTracks?stream.getAudioTracks():stream.getTracks();tracks.forEach(t=>{t.onended=()=>{controller.interrupted=true;stopActiveRecording({renderAfter:false});};});controller.onVis=()=>{if(document.hidden){controller.interrupted=true;stopActiveRecording({renderAfter:false});}};document.addEventListener('visibilitychange',controller.onVis);recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};recorder.onstop=async()=>{if(controller.onVis)document.removeEventListener('visibilitychange',controller.onVis);try{const blob=new Blob(chunks,{type:recorder.mimeType||effectiveMime});if(!validRecordingBlob(blob,controller.interrupted)){notify('录音未完成或为空，请重新录制。');return;}const saved=await putRecording({...meta,mimeType:recorder.mimeType||effectiveMime,durationMs:Date.now()-controller.startedAt},blob);meta.onSaved?.(saved);notify('录音已保存在本机。');}catch(error){notify(`录音保存失败：${error.message}；文字答案仍然保留。`);}finally{stream.getTracks().forEach(track=>track.stop());try{if(typeof navigator!=='undefined'&&navigator.audioSession){navigator.audioSession.type='playback';}}catch{}if(recordingController===controller)recordingController=null;if(controller.renderAfterStop)refreshRecordingPanel(meta);}};recorder.start();refreshRecordingPanel(meta);}catch(error){try{if(typeof navigator!=='undefined'&&navigator.audioSession){navigator.audioSession.type='playback';}}catch{}notify(error?.name==='NotAllowedError'?'麦克风权限被拒绝（请在 iPhone 设置 → Safari → 麦克风 中允许），已保留文字训练。':`录音启动失败（${error?.name||'请重试或先暂停其他音频'}），已保留文字训练。`);}}
 function stopActiveRecording({renderAfter=true}={}){const controller=recordingController;if(!controller?.recorder||controller.recorder.state!=='recording')return false;controller.renderAfterStop=renderAfter;if(!renderAfter)controller.interrupted=true;controller.recorder.stop();return true;}
 async function playLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');stopSpeech();stopActiveAudio();stopLocalAudio();const url=URL.createObjectURL(row.blob);const audio=new Audio(url);activeLocalAudio=audio;activeLocalAudioUrl=url;const done=()=>{if(activeLocalAudio===audio)stopLocalAudio();};audio.onended=done;audio.onerror=done;await audio.play();}catch(error){stopLocalAudio();notify(`无法播放录音：${error.message}`);}}
 async function exportLocalRecording(id){try{const row=await getRecording(id);if(!row?.blob)return notify('找不到本地录音。');const url=URL.createObjectURL(row.blob);const link=el('a','');link.href=url;link.download=`english-cultivation-${row.role}-${row.createdAt.replaceAll(':','-')}.${row.mimeType.includes('mp4')?'m4a':'webm'}`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(error){notify(`无法导出录音：${error.message}`);}}
@@ -6180,9 +6180,7 @@ function renderSpeechChamber(){
         },1000);
       }
       render();
-      if(speechPlanActive){
-        requestAnimationFrame(()=>{document.getElementById('yd-speech-plan-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
-      }
+
     },speechPlanActive?'btn primary small-btn':'btn ghost small-btn');
   planBtn.id='yd-speech-plan-btn';
   spBar.append(
@@ -6195,7 +6193,6 @@ function renderSpeechChamber(){
       speech432Expanded=true;
       notify(speechTimerMode==='432'?'已切至 4/3/2 压时倒计时（24s→18s→14s），点下方「开始本轮倒计时」直接练！':'已切至恒时精修计时（20s×3 抓准度），点下方「开始本轮倒计时」直接练！');
       render();
-      requestAnimationFrame(()=>{document.getElementById('yd-speech-432-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
     },speechTimerMode==='432'?'btn primary small-btn':'btn ghost small-btn'),
     btn('下一轮压时',()=>{
       stopSpeech432Countdown();
@@ -6204,7 +6201,6 @@ function renderSpeechChamber(){
       speech432Expanded=true;
       notify(`已切换至第 ${speechRoundIdx+1} 轮（目标 ${secList[speechRoundIdx]} 秒），点下方开始倒计时。`);
       render();
-      requestAnimationFrame(()=>{document.getElementById('yd-speech-432-card')?.scrollIntoView({behavior:'smooth',block:'center'});});
     },'btn ghost small-btn'),
     planBtn,
     btn(complexLabOpen?'🧩 收起复杂句仿说':'🧩 复杂句仿说',()=>{complexLabOpen=!complexLabOpen;if(complexLabOpen)notify('🧩 口语复杂句仿说工坊已展开：先听示范 → 录音模仿 → A/B 对比 → 换词自造！');render();},complexLabOpen?'btn primary small-btn':'btn ghost small-btn')
@@ -6322,10 +6318,16 @@ function renderSpeechChamber(){
  },masked?'btn primary small-btn':'btn secondary small-btn');
  subToolbar.append(el('span','📜 同步滚动字幕 · 点任意句跳转跟读','tiny'),toggle);
  const subList=div('radio-subtitle-list speech-subtitle-list');
+ const scrollRowInsideSubList=(rowEl)=>{
+   if(!rowEl||!subList)return;
+   const targetTop=Math.max(0,rowEl.offsetTop-Math.max(0,(subList.clientHeight-rowEl.offsetHeight)/2));
+   if(typeof subList.scrollTo==='function'){subList.scrollTo({top:targetTop,behavior:'smooth'});}
+   else{subList.scrollTop=targetTop;}
+ };
  const recenterBtn=btn('🎯 回到当前句',()=>{
    userScrolled=false;recenterBtn.hidden=true;
    const activeEl=subList.querySelector('.radio-sub-line.is-active');
-   if(activeEl)activeEl.scrollIntoView({block:'center',behavior:'smooth'});
+   if(activeEl)scrollRowInsideSubList(activeEl);
  },'btn primary small-btn radio-sub-recenter-btn');
  recenterBtn.hidden=true;
  let programmaticScroll=false;
@@ -6364,9 +6366,10 @@ function renderSpeechChamber(){
    });
    if(idx>=0&&idx!==lastActiveIdx){
      lastActiveIdx=idx;
-     if(!userScrolled&&rowEls[idx]){
+     const shouldAutoFollow=!audio.paused||forcedIdx!==null;
+     if(shouldAutoFollow&&!userScrolled&&rowEls[idx]){
        programmaticScroll=true;
-       rowEls[idx].scrollIntoView({block:'center',behavior:'smooth'});
+       scrollRowInsideSubList(rowEls[idx]);
        setTimeout(()=>{programmaticScroll=false;},350);
      }
    }

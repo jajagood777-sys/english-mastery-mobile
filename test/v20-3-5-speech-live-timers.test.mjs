@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-test('v20.3.5: Speech Chamber wires live 4/3/2 countdown card, chime, and 15s outline auto-mask', () => {
+test('v20.3.6: Speech Chamber wires live 4/3/2 countdown card, chime, and 15s outline auto-mask', () => {
   const appSrc = fs.readFileSync(path.join(process.cwd(), 'app.js'), 'utf8');
   const cssSrc = fs.readFileSync(path.join(process.cwd(), 'styles.css'), 'utf8');
 

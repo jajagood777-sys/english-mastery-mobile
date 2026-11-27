@@ -11,7 +11,7 @@ import {
   parseAiComplexSentenceResponse
 } from '../complex-imitation.mjs';
 
-test('v20.3.5 complex-imitation exports 8 spoken frames, 3 stages, and 6 topics with thought groups & skeletons', () => {
+test('v20.3.6 complex-imitation exports 8 spoken frames, 3 stages, and 6 topics with thought groups & skeletons', () => {
   assert.equal(COMPLEX_FRAME_TYPES.length, 8);
   assert.equal(COMPLEX_STAGE_META.length, 3);
   assert.equal(COMPLEX_IMITATION_TOPICS.length, 6);
@@ -27,7 +27,7 @@ test('v20.3.5 complex-imitation exports 8 spoken frames, 3 stages, and 6 topics 
   }
 });
 
-test('v20.3.5 extractLearnedVocabPool prioritizes today mistakes & deduplicates across all YanDao stores', () => {
+test('v20.3.6 extractLearnedVocabPool prioritizes today mistakes & deduplicates across all YanDao stores', () => {
   const pool = extractLearnedVocabPool({
     dailyPack: {
       vocabularyPractice: [
@@ -51,7 +51,7 @@ test('v20.3.5 extractLearnedVocabPool prioritizes today mistakes & deduplicates 
   assert.ok(!words.includes('w:skip-id'));
 });
 
-test('v20.3.5 buildLinkedComplexDrill links learned words and flags in-model matches', () => {
+test('v20.3.6 buildLinkedComplexDrill links learned words and flags in-model matches', () => {
   const linked = buildLinkedComplexDrill({
     topicId: 'work_routine',
     drillIndex: 0,
@@ -68,7 +68,7 @@ test('v20.3.5 buildLinkedComplexDrill links learned words and flags in-model mat
   assert.match(linked.stage3Prompt, /steady/);
 });
 
-test('v20.3.5 AI prompt builder and parser handle structured and fallback responses cleanly', () => {
+test('v20.3.6 AI prompt builder and parser handle structured and fallback responses cleanly', () => {
   const prompt = buildAiComplexSentencePrompt({
     topicLabel: '教学与学习',
     frame: COMPLEX_FRAME_TYPES[2],
@@ -94,7 +94,7 @@ test('v20.3.5 AI prompt builder and parser handle structured and fallback respon
   assert.ok(fallback.chunks.includes('/'));
 });
 
-test('v20.3.5 app.js, styles.css, and sw.js wire Complex Imitation Lab, 3-stage fading, and A/B compare', () => {
+test('v20.3.6 app.js, styles.css, and sw.js wire Complex Imitation Lab, 3-stage fading, and A/B compare', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
@@ -107,5 +107,5 @@ test('v20.3.5 app.js, styles.css, and sw.js wire Complex Imitation Lab, 3-stage 
   assert.match(cssSrc, /\.complex-imitation-lab/);
   assert.match(cssSrc, /\.complex-thought-slash/);
   assert.match(swSrc, /\.\/complex-imitation\.mjs/);
-  assert.match(swSrc, /english-cultivation-static-v20\.3\.5/);
+  assert.match(swSrc, /english-cultivation-static-v20\.3\.6/);
 });

@@ -2,7 +2,7 @@ import {stableHash} from './core.mjs';
 
 export const RECORDING_DB_NAME='english-cultivation-recordings-v1';
 export const RECORDING_STORE_NAME='recordings';
-const MIME_CANDIDATES=['audio/mp4;codecs=mp4a.40.2','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];
+const MIME_CANDIDATES=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/aac'];
 
 export function chooseRecordingMimeType(mediaRecorder=globalThis.MediaRecorder){
   if(!mediaRecorder||typeof mediaRecorder.isTypeSupported!=='function')return null;

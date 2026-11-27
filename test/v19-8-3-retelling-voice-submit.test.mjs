@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { composeReadingRetellingSubmission } from '../core.mjs';
 
-test('v20.3.5 composeReadingRetellingSubmission supports voice-only retelling and app.js renders visible submission receipt + toast', () => {
+test('v20.3.6 composeReadingRetellingSubmission supports voice-only retelling and app.js renders visible submission receipt + toast', () => {
   const res = composeReadingRetellingSubmission({
     reading: { id: 'R1', packId: 'P1' },
     current: { id: 'retelling:R1:draft', readingId: 'R1', recordingIds: ['rec-1'] },
