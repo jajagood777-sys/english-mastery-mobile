@@ -9,19 +9,19 @@ export const HARVEST_TRIAGE_TIERS = [
     id: 'promote',
     label: '🔥 明日必考',
     shortLabel: '明日必考',
-    desc: '高价值核心词：立即入库，明日重点考练'
+    desc: '加入明天学习包，重点出题巩固'
   },
   {
     id: 'passive',
     label: '👁️ 仅混眼熟',
     shortLabel: '仅混眼熟',
-    desc: '保留阅读记录，但不塞进明日高频考题'
+    desc: '留在生词本里，不塞进明天考题'
   },
   {
     id: 'drop',
-    label: '🗑️ 略过',
+    label: '🗑️ 略过不管',
     shortLabel: '略过',
-    desc: '人名/生僻词/已懂，不进入明日学习包'
+    desc: '已懂或生僻人名，以后不再出现'
   }
 ];
 
@@ -102,6 +102,7 @@ export function buildHarvestCard(mark, { archive = [], vocabPractice = [], items
     originalSentence,
     clozedSentence,
     senseEn,
+    savedGloss: mark.savedGloss || null,
     triage,
     recalled: typeof mark.harvestRecalled === 'boolean' ? mark.harvestRecalled : null,
     harvestedAt: mark.harvestedAt || null
@@ -151,4 +152,85 @@ export function filterMarksForTomorrowPack(marks = []) {
     if (tier === 'drop' || tier === 'passive') return false;
     return true;
   });
+}
+
+/**
+ * Split a sentence into segments highlighting the target word (typographic enhancement).
+ */
+export function splitSentenceWithHighlight(sentence, word) {
+  const cleanSent = String(sentence || '').replace(/\s+/g, ' ').trim();
+  const cleanWord = String(word || '').trim();
+  if (!cleanSent) return [];
+  if (!cleanWord) return [{ text: cleanSent, highlight: false }];
+  let re = new RegExp(`(\\b${escapeRegExp(cleanWord)}\\b)`, 'gi');
+  if (!re.test(cleanSent)) {
+    re = new RegExp(`(${escapeRegExp(cleanWord)})`, 'gi');
+  }
+  const parts = cleanSent.split(re).filter(Boolean);
+  return parts.map(part => ({
+    text: part,
+    highlight: part.toLowerCase() === cleanWord.toLowerCase()
+  }));
+}
+
+/**
+ * Build deterministic 3-option contextual quiz choices (target + 2 distractors) for zero-typing evaluation.
+ */
+export function buildHarvestQuizOptions(targetWord, { marks = [], archive = [], vocabPractice = [] } = {}) {
+  const target = String(targetWord || '').trim();
+  if (!target) return [];
+  const lowerTarget = target.toLowerCase();
+  const pool = [];
+  const pushCandidate = (w) => {
+    const clean = String(w || '').trim();
+    if (!clean || clean.toLowerCase() === lowerTarget) return;
+    if (!pool.some(x => x.toLowerCase() === clean.toLowerCase())) pool.push(clean);
+  };
+  for (const m of (Array.isArray(marks) ? marks : [])) pushCandidate(m?.wordText || m?.word);
+  for (const v of (Array.isArray(vocabPractice) ? vocabPractice : [])) pushCandidate(v?.target || v?.word);
+  for (const a of (Array.isArray(archive) ? archive : [])) pushCandidate(a?.expression || a?.word || a?.target);
+
+  if (pool.length < 2) return [target];
+  // Deterministic hash pick based on target word so re-renders keep option order stable
+  let seed = 0;
+  for (let i = 0; i < lowerTarget.length; i++) seed = (seed * 31 + lowerTarget.charCodeAt(i)) >>> 0;
+  const d1 = pool[seed % pool.length];
+  const rest = pool.filter(w => w.toLowerCase() !== d1.toLowerCase());
+  const d2 = rest[(seed + 7) % rest.length];
+  const trio = [target, d1, d2];
+  // Deterministic rotation so target is not always option 0
+  const shift = seed % 3;
+  return [trio[shift], trio[(shift + 1) % 3], trio[(shift + 2) % 3]];
+}
+
+/**
+ * Build a compact bilingual prompt for AI in-context word glossing (L1 + concise L2 + collocation chunk).
+ */
+export function buildHarvestAiGlossPrompt(word, sentence) {
+  return [
+    `Explain the English word "${String(word || '').trim()}" strictly in the context of this sentence:`,
+    `"${String(sentence || '').trim()}"`,
+    'Reply in EXACTLY 3 short lines (no markdown bullets, no extra prose):',
+    'ZH: <简明中文核心意思，不超过16个字>',
+    'EN: <concise plain-English meaning in this sentence, max 12 words>',
+    'CHUNK: <2-4 word natural collocation or phrase from/for this context>'
+  ].join('\n');
+}
+
+/**
+ * Parse AI bilingual gloss response into { zh, en, chunk }.
+ */
+export function parseHarvestAiGlossResponse(raw) {
+  const txt = String(raw || '').trim();
+  if (!txt) return null;
+  const pick = (prefix) => {
+    const m = txt.match(new RegExp(`^\s*${prefix}\s*[:：]\s*(.+)$`, 'im'));
+    return m ? m[1].replace(/^["'`*]+|["'`*]+$/g, '').trim() : '';
+  };
+  const zh = pick('ZH');
+  const en = pick('EN');
+  const chunk = pick('CHUNK');
+  if (zh || en) return { zh, en, chunk };
+  const firstLine = txt.split(/\r?\n/).map(s => s.trim()).filter(Boolean)[0] || '';
+  return firstLine ? { zh: firstLine.slice(0, 80), en: '', chunk: '' } : null;
 }

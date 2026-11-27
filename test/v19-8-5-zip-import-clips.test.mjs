@@ -52,7 +52,7 @@ function makeMockIndexedDb() {
   };
 }
 
-test('v20.3.6 importSpeechClips imports manifest clips without ReferenceError on parsed and preserves pack_id/engine', async () => {
+test('v20.3.7 importSpeechClips imports manifest clips without ReferenceError on parsed and preserves pack_id/engine', async () => {
   const prevIdb = globalThis.indexedDB;
   const mockIdb = makeMockIndexedDb();
   globalThis.indexedDB = mockIdb;
@@ -104,7 +104,7 @@ test('v20.3.6 importSpeechClips imports manifest clips without ReferenceError on
   }
 });
 
-test('v20.3.6 speech-clips.mjs contains zero stray parsed.pack_id or parsed.engine references', () => {
+test('v20.3.7 speech-clips.mjs contains zero stray parsed.pack_id or parsed.engine references', () => {
   const src = readFileSync(new URL('../speech-clips.mjs', import.meta.url), 'utf8');
   assert.equal(/\bparsed\.pack_id\b/.test(src), false);
   assert.equal(/\bparsed\.engine\b/.test(src), false);
