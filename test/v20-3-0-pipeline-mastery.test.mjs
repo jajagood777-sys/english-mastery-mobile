@@ -11,7 +11,7 @@ import {
   clampShadowRepCount
 } from '../pipeline-mastery.mjs';
 
-test('v20.4.5 selectTodayMissionWords prioritizes missed vocab & promoted reading harvest words and detects inflected activation', () => {
+test('v20.4.6 selectTodayMissionWords prioritizes missed vocab & promoted reading harvest words and detects inflected activation', () => {
   const data = {
     dailyPack: { packId: 'p1', vocabularyPractice: [{ target: 'steady', archivedExample: 'Keep a steady pace.' }] },
     dailyJourney: {
@@ -39,7 +39,7 @@ test('v20.4.5 selectTodayMissionWords prioritizes missed vocab & promoted readin
   assert.ok(res.activated.some(x => x.word === 'insulated' && x.byManual));
 });
 
-test('v20.4.5 buildOpeningWarmupQueue and buildClosingExitTicket produce concise interleaved consolidation items', () => {
+test('v20.4.6 buildOpeningWarmupQueue and buildClosingExitTicket produce concise interleaved consolidation items', () => {
   const data = {
     dailyPack: {
       packId: 'p1',
@@ -62,7 +62,7 @@ test('v20.4.5 buildOpeningWarmupQueue and buildClosingExitTicket produce concise
   assert.ok(exit.some(x => x.kind === 'complex_frame'));
 });
 
-test('v20.4.5 pacing modes, listening decode steps, and shadow rep sweet-spot helper behave cleanly', () => {
+test('v20.4.6 pacing modes, listening decode steps, and shadow rep sweet-spot helper behave cleanly', () => {
   assert.equal(SESSION_PACING_MODES.length, 2);
   assert.equal(LISTENING_DECODE_STEPS.length, 3);
   assert.equal(clampShadowRepCount(0).inSweetSpot, false);
@@ -70,7 +70,7 @@ test('v20.4.5 pacing modes, listening decode steps, and shadow rep sweet-spot he
   assert.equal(clampShadowRepCount(5).inSweetSpot, false);
 });
 
-test('v20.4.5 app.js, styles.css, and sw.js wire all 4 full-pipeline upgrades cleanly', () => {
+test('v20.4.6 app.js, styles.css, and sw.js wire all 4 full-pipeline upgrades cleanly', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
@@ -84,5 +84,5 @@ test('v20.4.5 app.js, styles.css, and sw.js wire all 4 full-pipeline upgrades cl
   assert.match(cssSrc, /\.mission-word-chip\.is-activated/);
   assert.match(cssSrc, /\.listening-decode-strip/);
   assert.match(swSrc, /\.\/pipeline-mastery\.mjs/);
-  assert.match(swSrc, /english-cultivation-static-v20\.4\.5/);
+  assert.match(swSrc, /english-cultivation-static-v20\.4\.6/);
 });

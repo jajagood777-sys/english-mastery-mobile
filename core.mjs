@@ -5,7 +5,7 @@ import {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics} from './discour
 import {summarizeRadioExposure} from './radio.mjs';
 export {analyzeDiscourseAndChunks, analyzeReadingPassageMetrics, buildIntraSessionRehearsalQueue, buildInterferenceRadar};
 export const VERSION = 4.3;
-export const APP_VERSION = '20.4.5';
+export const APP_VERSION = '20.4.6';
 export const REPORT_SCHEMA_VERSION = 1;
 export const REVIEW_DAYS = { K: 7, V: 3, N: 1 };
 export function revealedReadingRecall(row = {}) {
@@ -1095,6 +1095,7 @@ export function buildCentralLearningFeedback({report=null,generatedAt='' }={}) {
     }:null,
     transfer_evidence:transferEvidence,
     complex_imitation_evidence:report.complex_imitation_evidence||null,
+    companion_lab_evidence:report.companion_lab_evidence||null,
     integrity:{source:'local Battle Report only',ai_score:false,official_exam_score:false,external_sync:false,choice_recognition_never_counted_as_K:true}
   };
 }
@@ -1246,7 +1247,7 @@ export function validateBackup(value){
         v19:value.v19&&typeof value.v19==='object'&&!Array.isArray(value.v19)?{disputes:Array.isArray(value.v19.disputes)?value.v19.disputes:[],confidenceLogs:Array.isArray(value.v19.confidenceLogs)?value.v19.confidenceLogs:[],lifeTasks:Array.isArray(value.v19.lifeTasks)?value.v19.lifeTasks:[],exactResume:value.v19.exactResume&&typeof value.v19.exactResume==='object'?value.v19.exactResume:null,stopCheckpoint:value.v19.stopCheckpoint&&typeof value.v19.stopCheckpoint==='object'?value.v19.stopCheckpoint:null,prefs:{largeText:false,oneHandMode:false,aiOutboundPreview:true,...(value.v19.prefs&&typeof value.v19.prefs==='object'?value.v19.prefs:{})},speechRecallMode:typeof value.v19.speechRecallMode==='string'?value.v19.speechRecallMode:'full_text'}:undefined,reports:Array.isArray(value.reports)?value.reports:[],dailyPack,packHistory,dailyJourney,paperStoryPractice,activeSession:null,settings:{duration:40,speechRate:.9,theme:'system',chineseHints:true,retryAfterError:true,newLimit:10,reviewLimit:20,...(value.settings||{})}};
 }
 
-export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[], complexLabProgress=null}) {
+export function buildBattleReport({session, attempts, items=[], allowedSessionIds=null, timezone='Asia/Shanghai', appVersion=APP_VERSION, now=new Date(), readingMarks=[], readings=[], readingChecks=[], weaknesses=[], transferAttempts=[], readingRecallAttempts=[], readingRetellingAttempts=[], readingCompletedIds=[], spellingAttempts=[], listeningDiagnostics=[], vocabularyTasks=[], vocabularyAttempts=[], originalWordArchive=[], radioLog=null, manualReviewMarks=[], complexLabProgress=null, companionEvidence=null}) {
   const itemMap = new Map((Array.isArray(items)?items:[]).map(item => [item.id, item]));
   const allowed = new Set((Array.isArray(allowedSessionIds)?allowedSessionIds:[session.id]).filter(Boolean));
   const seen = new Set(); const fingerprints = new Set();
@@ -1399,6 +1400,7 @@ export function buildBattleReport({session, attempts, items=[], allowedSessionId
     radio_exposure: summarizeRadioExposure(radioLog),
     manual_review_marks: Array.isArray(manualReviewMarks)?manualReviewMarks:[],
     complex_imitation_evidence: (()=>{const cl=complexLabProgress&&typeof complexLabProgress==='object'?complexLabProgress:null;const doneIds=Array.isArray(cl?.doneIds)?[...new Set(cl.doneIds)]:[];const entries=Array.isArray(cl?.entries)?cl.entries.slice(-30):[];return {mastered_total:doneIds.length,today_count:Number(cl?.todayCount||0),today_date:String(cl?.todayDate||''),mastered_ids:doneIds.slice(-40),swap_entries:entries,counts_as_mastery_k:false};})(),
+    companion_lab_evidence: companionEvidence && typeof companionEvidence === 'object' ? companionEvidence : null,
     listening_diagnostics: Array.isArray(listeningDiagnostics)?listeningDiagnostics:[],
     data_quality: {actual_active_time:true, duplicate_attempts_checked:true, semantic_score:false, unrated_preserved:true, choice_recognition_never_counted_as_K:true},
     sync_status: 'NOT_SUBMITTED'

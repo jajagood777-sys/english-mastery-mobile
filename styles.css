@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.4.5 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.4.6 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3308,3 +3308,43 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   font-size: 0.68rem;
   opacity: 0.78;
 }
+
+/* ===== v20.4.6 Adaptive Paper-Companion Lab ===== */
+.companion-hero { display: flex; flex-direction: column; gap: 10px; }
+.companion-paper-ref { font-size: 12px; color: var(--accent, #1e5f4b); font-weight: 600; background: rgba(30,95,75,0.08); padding: 6px 10px; border-radius: 10px; }
+.companion-switcher, .companion-block-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.companion-block-nav { margin: 10px 0; }
+.companion-import-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--border, #d6d3cb); border-radius: 12px; background: var(--bg, #f7f5f0); }
+.companion-json-input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 8px; border-radius: 8px; border: 1px solid var(--border, #d6d3cb); background: var(--card, #fff); color: var(--ink, #1d2420); }
+.companion-card { display: flex; flex-direction: column; gap: 12px; }
+.companion-rule-callout { padding: 12px 14px; border-left: 3px solid var(--accent, #1e5f4b); background: rgba(30,95,75,0.06); border-radius: 10px; font-size: 14px; line-height: 1.55; }
+.companion-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; }
+.companion-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.companion-sound-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border, #d6d3cb); background: var(--card, #fff); color: var(--ink, #1d2420); cursor: pointer; }
+.phoneme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.phoneme-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border-radius: 14px; border: 1px solid var(--border, #d6d3cb); background: var(--card, #fff); color: var(--ink, #1d2420); text-align: left; cursor: pointer; transition: border-color 0.15s ease; }
+.phoneme-tile.is-vowel { border-left: 4px solid #b45309; }
+.phoneme-tile.is-consonant { border-left: 4px solid #1e5f4b; }
+.phoneme-tile.is-done { background: rgba(30,95,75,0.08); border-color: #1e5f4b; }
+.phoneme-main { font-size: 18px; font-weight: 700; }
+.phoneme-anchor { font-size: 13px; font-weight: 600; opacity: 0.85; }
+.blend-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #d6d3cb); border-radius: 12px; background: var(--card, #fff); }
+.blend-parts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.blend-pill { font-size: 16px; font-weight: 700; min-width: 34px; }
+.blend-target { font-size: 17px; font-weight: 700; margin-left: 4px; color: var(--accent, #1e5f4b); }
+.unseen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.unseen-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border, #d6d3cb); border-radius: 12px; background: var(--card, #fff); }
+.unseen-item.is-clean { border-color: #1e5f4b; background: rgba(30,95,75,0.07); }
+.unseen-item.is-review { border-color: #b45309; background: rgba(180,83,9,0.07); }
+.unseen-word { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
+.dictation-row { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border, #d6d3cb); border-radius: 12px; background: var(--card, #fff); }
+.dictation-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dictation-answer { font-size: 14px; font-weight: 700; color: var(--accent, #1e5f4b); }
+.dictation-input { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border, #d6d3cb); background: var(--bg, #f7f5f0); color: var(--ink, #1d2420); font-size: 15px; }
+.companion-reading-box { display: flex; flex-direction: column; gap: 6px; }
+.companion-sent-btn { text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border, #d6d3cb); background: var(--card, #fff); color: var(--ink, #1d2420); font-size: 16px; line-height: 1.5; cursor: pointer; }
+.companion-sent-btn:active { border-color: var(--accent, #1e5f4b); }
+.tpr-timer-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border-radius: 14px; border: 1px solid var(--border, #d6d3cb); background: var(--bg, #f7f5f0); }
+.tpr-timer-display { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--accent, #1e5f4b); }
+.companion-check-btn { justify-content: flex-start; text-align: left; width: 100%; }
+.companion-foot { display: flex; justify-content: space-between; margin-top: 8px; }
