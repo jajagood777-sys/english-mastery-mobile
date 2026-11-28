@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { APP_VERSION } from '../core.mjs';
 
-test('v20.4.4 bumps APP_VERSION and sw.js CACHE + SKIP_WAITING listener', () => {
-  assert.equal(APP_VERSION, '20.4.4');
+test('v20.4.5 bumps APP_VERSION and sw.js CACHE + SKIP_WAITING listener', () => {
+  assert.equal(APP_VERSION, '20.4.5');
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(sw, /english-cultivation-static-v20\.4\.4/);
+  assert.match(sw, /english-cultivation-static-v20\.4\.5/);
   assert.match(sw, /SKIP_WAITING/);
   assert.match(sw, /self\.skipWaiting\(\)/);
   assert.match(sw, /\.\/release-safety\.mjs/);
 });
 
-test('v20.4.4 integrates complexLab into One-Flow Journey right after speech', () => {
+test('v20.4.5 integrates complexLab into One-Flow Journey right after speech', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /speech:'演讲跟读',complexLab:'复杂句仿说',transfer:'综合输出'/);
   assert.match(app, /if\(journeySpeeches\(\)\.length\)\{stages\.push\('speech'\);stages\.push\('complexLab'\);\}/);
@@ -20,14 +20,14 @@ test('v20.4.4 integrates complexLab into One-Flow Journey right after speech', (
   assert.match(app, /renderJourneyFlowRibbon\('complexLab'\)/);
 });
 
-test('v20.4.4 wires One-Tap PWA Update Banner for waiting SW without deadlock', () => {
+test('v20.4.5 wires One-Tap PWA Update Banner for waiting SW without deadlock', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.match(app, /if \(!pwaUpdateReady && !swWaitingWorker\) return el\('span', ''\);/);
   assert.match(app, /function applyPendingPwaUpdate\(\)/);
   assert.match(app, /postMessage\(\{ type: 'SKIP_WAITING' \}\)/);
 });
 
-test('v20.4.4 speech-clips.mjs accepts California & dual-speaker Kokoro voices while rejecting invalid strings', () => {
+test('v20.4.5 speech-clips.mjs accepts California & dual-speaker Kokoro voices while rejecting invalid strings', () => {
   const sc = readFileSync(new URL('../speech-clips.mjs', import.meta.url), 'utf8');
   const m = sc.match(/\/\^\[A-Za-z0-9\._\+-\]\{2,64\}\$\//);
   assert.ok(m, 'Expected safe voice regex in speech-clips.mjs');

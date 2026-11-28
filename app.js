@@ -3134,7 +3134,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.4)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.5)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -6810,6 +6810,21 @@ async function fetchHarvestInlineGloss(mark, card) {
   }
 }
 
+function speakHarvestWordAndSentence(word, sentence = '') {
+  const cleanWord = String(word || '').replace(/\*\*([^*\n]{1,80})\*\*/g, '$1').trim();
+  const cleanSent = String(sentence || '').replace(/\*\*([^*\n]{1,80})\*\*/g, '$1').trim();
+  const phrase = cleanWord && cleanSent ? `${cleanWord}. ${cleanSent}` : (cleanSent || cleanWord);
+  if (!phrase) return false;
+  try {
+    const cfg = loadAiConfig();
+    if (isCloudTtsReady(cfg) && !radioOfflineOnly) {
+      void speakWithGeminiOrFallback(phrase, { silentFallback: true });
+      return true;
+    }
+  } catch {}
+  // Synchronous device TTS call inside the tap handler so iOS Safari never loses user-gesture activation
+  return speakDevice(phrase);
+}
 function renderReadingWordHarvestBridge(reading, marks) {
   if (!Array.isArray(marks) || !marks.length) return null;
   const summary = summarizeHarvestProgress(marks);
@@ -6869,7 +6884,7 @@ function renderReadingWordHarvestBridge(reading, marks) {
       h('h4', card.word),
       lines(
         btn('🔊 读词+原句', () => {
-          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+          speakHarvestWordAndSentence(card.word, card.originalSentence);
         }, 'btn secondary small-btn'),
         btn('🔍 AI 详查', () => openAiLexiconDrawer(card.word), 'btn ghost small-btn')
       )
@@ -6892,32 +6907,31 @@ function renderReadingWordHarvestBridge(reading, marks) {
     const cfg = loadAiConfig();
     const aiReady = isAiTutorReady(cfg);
 
-    if (hasStructuredGloss) {
-      if (sg.zh) meaningBox.append(el('div', `中文意思：${sg.zh}`, 'harvest-gloss-zh'));
-      if (sg.en) meaningBox.append(el('div', `英文释义：${sg.en}`, 'tiny subtle'));
-      if (sg.chunk) meaningBox.append(el('div', `常用搭配：${sg.chunk}`, 'badge harvest-chunk-badge'));
+    if (hasStructuredGloss && (sg.en || sg.chunk)) {
+      if (sg.en) meaningBox.append(el('div', `English: ${sg.en}`, 'harvest-gloss-zh'));
+      if (sg.chunk) meaningBox.append(el('div', `Collocation: ${sg.chunk}`, 'badge harvest-chunk-badge'));
     } else if (hasStringGloss) {
-      meaningBox.append(el('div', `我的释义笔记：${sg.trim()}`, 'harvest-gloss-zh'));
+      meaningBox.append(el('div', `Note: ${sg.trim()}`, 'harvest-gloss-zh'));
     } else if (card.senseEn) {
-      meaningBox.append(el('div', `本包释义：${card.senseEn}`, 'harvest-gloss-zh'));
+      meaningBox.append(el('div', `English: ${card.senseEn}`, 'harvest-gloss-zh'));
       if (aiReady && readingHarvestAiBusyId !== activeMark.id) {
-        meaningBox.append(btn('✨ 补中文意思与搭配', () => { void fetchHarvestInlineGloss(activeMark, card); }, 'btn ghost small-btn'));
+        meaningBox.append(btn('✨ 补英文搭配', () => { void fetchHarvestInlineGloss(activeMark, card); }, 'btn ghost small-btn'));
       }
     } else if (readingHarvestAiBusyId === activeMark.id) {
-      meaningBox.append(el('div', '⏳ 正在结合本句生成中文意思与常用搭配…', 'tiny subtle'));
+      meaningBox.append(el('div', '⏳ 正在结合本句生成纯英文释义与常用搭配…', 'tiny subtle'));
     } else if (aiReady) {
-      meaningBox.append(el('div', '⏳ 正在自动获取本句语境释义…', 'tiny subtle'));
+      meaningBox.append(el('div', '⏳ 正在自动获取本句纯英文语境释义…', 'tiny subtle'));
       setTimeout(() => { void fetchHarvestInlineGloss(activeMark, card); }, 0);
     } else {
-      meaningBox.append(el('div', '这是文章里新点的拓展词，暂无离线释义。可点右上角「AI 详查」，或直接记一句中文意思：', 'tiny subtle'));
+      meaningBox.append(el('div', '这是文章里新点的拓展词，暂无离线英文释义。可点右上角「AI 详查」，或直接记一句英文释义：', 'tiny subtle'));
       const noteRow = div('harvest-manual-note-row');
       const noteInput = el('input', '', 'input');
       noteInput.type = 'text';
-      noteInput.placeholder = '例如：植物学的 / 仪表刻度…';
+      noteInput.placeholder = 'e.g. goods carried on a ship / cargo ferry';
       const saveNoteBtn = btn('保存释义', () => {
         const val = noteInput.value.trim();
         if (!val) return;
-        activeMark.savedGloss = { zh: val, en: '', chunk: '' };
+        activeMark.savedGloss = { zh: '', en: val, chunk: '' };
         save();
         render();
       }, 'btn secondary small-btn');
@@ -6976,7 +6990,7 @@ function renderReadingWordHarvestBridge(reading, marks) {
           readingHarvestRevealed = true;
           activeMark.harvestRecalled = isCorrect;
           save();
-          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+          speakHarvestWordAndSentence(card.word, card.originalSentence);
           render();
         }, cls);
         choiceRow.append(optBtn);
@@ -6995,7 +7009,7 @@ function renderReadingWordHarvestBridge(reading, marks) {
       stageCard.append(lines(
         btn('👁️ 核对原词与读音', () => {
           readingHarvestRevealed = true;
-          void speakNaturalOrDevice(card.originalSentence || card.word, [card.word, card.originalSentence].filter(Boolean), { silentMissing: true });
+          speakHarvestWordAndSentence(card.word, card.originalSentence);
           render();
         }, 'btn primary small-btn')
       ));
