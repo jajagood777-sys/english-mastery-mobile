@@ -34,7 +34,7 @@ import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash,pruneOldPackSpeechClips} from './speech-clips.mjs';
 import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,buildEndOfDayContinuationCue,buildWeeklyThreePairHighlights,shouldHideVocabTargetHeader} from './ux-100.mjs';
 import {collectCrossModuleLexicon,matchCrossModuleWordsInText} from './cross-link.mjs';
-import { listCompanionModules, resolveActiveCompanionModule, normalizeCompanionModule, summarizeCompanionEvidence, buildCompanionBattleReport, companionBattleReportMarkdown, companionRecordingExt } from './adaptive-companion.mjs';
+import { listCompanionModules, resolveActiveCompanionModule, normalizeCompanionModule, summarizeCompanionEvidence, buildCompanionBattleReport, companionBattleReportMarkdown, companionRecordingExt, upsertCompanionErrorBank, recordCompanionErrorPass, collectCompanionErrorBank } from './adaptive-companion.mjs';
 import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity,naturalSortTracks,createUnclearMark,buildUnclearReplayQueue,computeScrubberUndoTarget,computeInterruptionResumeAction,computeCommuteReadiness} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings,isSupportedSourcePackSchema} from './handover.mjs';
@@ -4279,7 +4279,7 @@ function sourcePackForHandover(report){
     return {...stored,bytes,packId:parsed.pack_id,schemaVersion:parsed.schema_version,provenance:stored.provenance||{type:'imported_daily_pack',source:'local file'}};
   }catch(error){return {unavailableReason:`原始学习包不可安全导出：${error.message}`};}
 }
-function reportRecordingIds(report){const ids=new Set();for(const row of (report?.attempts||[])){for(const id of (row.recording_ids||[]))ids.add(id);}for(const row of (report?.transfer_attempts||[])){for(const id of (row.recordingIds||row.recording_ids||[]))ids.add(id);}for(const row of (report?.reading_analysis?.retelling_attempts||[])){for(const id of (row.recordingIds||row.recording_ids||[]))ids.add(id);}return [...ids];}
+function reportRecordingIds(report){const ids=new Set();for(const row of (report?.attempts||[])){for(const id of (row.recording_ids||[]))ids.add(id);}for(const row of (report?.transfer_attempts||[])){for(const id of (row.recordingIds||row.recording_ids||[]))ids.add(id);}for(const row of (report?.reading_analysis?.retelling_attempts||[])){for(const id of (row.recordingIds||row.recording_ids||[]))ids.add(id);}for(const p of Object.values(data.companionState?.progress||{})){for(const arr of Object.values(p?.recordingIds||{})){for(const id of (Array.isArray(arr)?arr:[]))ids.add(id);}}return [...ids];}
 
 async function exportCentralHandover(includeRecordings=false){const report=reportFor();if(!report)return notify('请先完成一次训练，再导出中央交接包。');if(includeRecordings&&!confirm('录音会写入本地 ZIP 文件，不会上传。确认继续？'))return;const ids=includeRecordings?reportRecordingIds(report):[];const recordings=[];try{for(const id of ids){const row=await getRecording(id);if(!row?.blob)continue;const bytes=new Uint8Array(await row.blob.arrayBuffer());recordings.push({...row,bytes,sha256:await sha256Hex(bytes)});}const sourcePack=sourcePackForHandover(report);if(sourcePack.bytes)sourcePack.sha256=await sha256Hex(sourcePack.bytes);const feedback=JSON.parse(centralFeedbackJSON());const packageData=handoverEntries({report,feedback,pack:data.dailyPack,sourcePack,recordings});const zip=zipStore(packageData.entries);const reread=readZipStore(zip.bytes);const manifestEntry=reread.find(entry=>entry.name==='manifest.json');if(!manifestEntry)throw Error('导出后回读失败：缺少 manifest.json。');const checked=JSON.parse(new TextDecoder().decode(manifestEntry.bytes));if(Number(checked.actual_packaged_count??0)!==recordings.filter(row=>row.bytes.length>0).length)throw Error('导出后回读失败：录音数量不一致。');if(checked.source_pack_included){const packEntry=reread.find(entry=>entry.name==='learning-pack.json');if(!packEntry)throw Error('导出后回读失败：缺少 learning-pack.json。');if(checked.source_pack_sha256!==await sha256Hex(packEntry.bytes))throw Error('导出后回读失败：原始学习包 SHA-256 不一致。');}const recStatus=describeHandoverRecordings({report,manifest:checked,includeRecordings});lastHandoverExportStatus={...recStatus,fileCount:packageData.entries.length,reportId:report.report_id||null,at:new Date().toISOString()};downloadBytes(`english-cultivation-central-handover-${report.session_id||Date.now()}.zip`,zip.bytes,'application/zip');if(recStatus.complete){notify(`中央交接包已生成（${packageData.entries.length} 个文件）：${recStatus.summaryText}。不会自动同步外部服务。`);}else{notify(`已保存现有材料（${packageData.entries.length} 个文件），录音未带齐：${recStatus.summaryText}。`);}render();}catch(error){notify(`交接包生成失败或回读失败：${error.message}；原始录音和学习记录未改变。`);}}
 
@@ -7416,7 +7416,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 
-// ===== v20.4.7 Adaptive Paper-Companion Lab =====
+// ===== v20.4.9 Adaptive Paper-Companion Lab =====
 function ensureCompanionState() {
   if (!data.companionState || typeof data.companionState !== 'object') {
     data.companionState = { activeModuleId: '', customModules: [], progress: {} };
@@ -7437,6 +7437,11 @@ function getCompanionProgress(modId) {
   if (!p.dictationResults || typeof p.dictationResults !== 'object') p.dictationResults = {};
   if (!Array.isArray(p.checklistIds)) p.checklistIds = [];
   if (!p.recordingIds || typeof p.recordingIds !== 'object') p.recordingIds = {};
+  if (!p.errorBank || typeof p.errorBank !== 'object') p.errorBank = {};
+  if (!p.hvptResults || typeof p.hvptResults !== 'object') p.hvptResults = {};
+  if (!Array.isArray(p.flashDoneIds)) p.flashDoneIds = [];
+  if (!Array.isArray(p.chainDoneIds)) p.chainDoneIds = [];
+  if (!Array.isArray(p.microDemoDoneIds)) p.microDemoDoneIds = [];
   return p;
 }
 
@@ -7555,6 +7560,388 @@ function formatCompanionTimer(sec) {
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 }
 
+let companionLabMode = 'study'; // 'study' | 'review'
+let companionReviewTab = 'gpc_flash'; // 'gpc_flash' | 'word_chain' | 'hvpt' | 'error_bank' | 'micro_demo'
+let companionFlashSubMode = 'visual'; // 'visual' | 'auditory'
+let companionFlashIdx = 0;
+let companionFlashRevealed = false;
+let companionFlashAuditDraft = '';
+let companionHvptIdx = 0;
+let companionMicroDemoIdx = 0;
+let companionMicroTimerLeft = 60;
+let companionMicroTimerRunning = false;
+let companionMicroTimerId = null;
+
+function renderCompanionReviewSuite(active, prog, markStudied) {
+  const rs = active.reviewSuite;
+  if (!rs) {
+    const empty = section('companion-card');
+    empty.append(h('h2', '本模块暂未配置复习题库'), p('更新网站升级到下一课后，复习模式会自动同步出现。', 'subtle'));
+    app.append(empty);
+    return;
+  }
+  const bank = collectCompanionErrorBank(prog);
+  const tabBar = div('companion-block-nav');
+  const tabs = [
+    ['gpc_flash', '⚡ 双向快闪'],
+    ['word_chain', '🔗 词链变音'],
+    ['hvpt', '🎧 多音色辨音'],
+    ['error_bank', `🎯 错题池(${bank.open.length})`],
+    ['micro_demo', '🎙 60秒脱稿试讲']
+  ];
+  for (const [tid, tlabel] of tabs) {
+    tabBar.append(btn(tlabel, () => {
+      companionReviewTab = tid;
+      render();
+    }, companionReviewTab === tid ? 'btn primary small-btn' : 'btn secondary small-btn'));
+  }
+  app.append(tabBar);
+
+  const card = section('companion-card');
+
+  if (companionReviewTab === 'gpc_flash' && rs.gpcFlash) {
+    const gf = rs.gpcFlash;
+    card.append(el('div', 'REVIEW MODE 1 · UFLI BIDIRECTIONAL DRILL', 'eyebrow'), h('h2', gf.title), p(gf.tip, 'tiny subtle'));
+    card.append(lines(
+      btn('👀 看字秒读 (Visual)', () => { companionFlashSubMode = 'visual'; companionFlashIdx = 0; companionFlashRevealed = false; render(); }, companionFlashSubMode === 'visual' ? 'btn primary small-btn' : 'btn secondary small-btn'),
+      btn('👂 听音写拼 (Auditory)', () => { companionFlashSubMode = 'auditory'; companionFlashIdx = 0; companionFlashRevealed = false; companionFlashAuditDraft = ''; render(); }, companionFlashSubMode === 'auditory' ? 'btn primary small-btn' : 'btn secondary small-btn')
+    ));
+    if (companionFlashSubMode === 'visual') {
+      const list = gf.visualCards || [];
+      const cur = list[companionFlashIdx % Math.max(1, list.length)];
+      if (cur) {
+        const box = div('companion-flash-card');
+        box.append(
+          el('div', `第 ${(companionFlashIdx % list.length) + 1} / ${list.length} 张`, 'tiny subtle'),
+          el('div', cur.grapheme, 'companion-flash-big')
+        );
+        if (companionFlashRevealed) {
+          box.append(
+            el('div', `${cur.ipa} · anchor: ${cur.anchor}`, 'dictation-answer'),
+            p(cur.caution || '', 'tiny subtle')
+          );
+        } else {
+          box.append(p('先自己干脆读出纯音（绝不拖 /uh/），再点揭晓核对。', 'tiny subtle'));
+        }
+        box.append(lines(
+          btn('👁 揭晓 + 听纯音', () => {
+            companionFlashRevealed = true;
+            speakCompanionAudio(cur.anchor, 0.95, cur.audioUrl || '');
+            markStudied();
+            render();
+          }, 'btn primary small-btn'),
+          btn('✓ 秒读准', () => {
+            if (!prog.flashDoneIds.includes(cur.id)) prog.flashDoneIds.push(cur.id);
+            companionFlashIdx = (companionFlashIdx + 1) % list.length;
+            companionFlashRevealed = false;
+            markStudied();
+            render();
+          }, 'btn secondary small-btn'),
+          btn('✗ 进错题池', () => {
+            upsertCompanionErrorBank(prog, { id: cur.id, label: `${cur.grapheme} ${cur.ipa}`, ipa: cur.anchor, audioUrl: cur.audioUrl || '', source: '双向快闪·看字' });
+            companionFlashIdx = (companionFlashIdx + 1) % list.length;
+            companionFlashRevealed = false;
+            markStudied();
+            render();
+          }, 'btn ghost small-btn')
+        ));
+        card.append(box);
+      }
+    } else {
+      const list = gf.auditoryCards || [];
+      const cur = list[companionFlashIdx % Math.max(1, list.length)];
+      if (cur) {
+        const box = div('companion-flash-card');
+        box.append(el('div', `听音写拼 第 ${(companionFlashIdx % list.length) + 1} / ${list.length} 词`, 'tiny subtle'));
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'dictation-input';
+        inp.placeholder = '听音后写在纸上，或在这里输入核对';
+        inp.autocomplete = 'off';
+        inp.autocapitalize = 'none';
+        inp.spellcheck = false;
+        inp.value = companionFlashAuditDraft;
+        inp.addEventListener('input', () => { companionFlashAuditDraft = inp.value; });
+        box.append(
+          lines(
+            btn('🔊 播报音频', () => { speakCompanionAudio(cur.answer, 0.95, cur.audioUrl || ''); markStudied(); }, 'btn primary small-btn'),
+            btn('🔊 慢速', () => { speakCompanionAudio(cur.answer, 0.75, cur.audioUrl || ''); markStudied(); }, 'btn secondary small-btn')
+          ),
+          inp
+        );
+        if (companionFlashRevealed) {
+          box.append(el('div', `答案：${cur.answer} (${cur.ipa})`, 'dictation-answer'));
+        }
+        box.append(lines(
+          btn(companionFlashRevealed ? '隐藏答案' : '👁 揭晓核对', () => { companionFlashRevealed = !companionFlashRevealed; render(); }, 'btn ghost small-btn'),
+          btn('✓ 拼对了', () => {
+            if (!prog.flashDoneIds.includes(cur.id)) prog.flashDoneIds.push(cur.id);
+            companionFlashIdx = (companionFlashIdx + 1) % list.length;
+            companionFlashRevealed = false;
+            companionFlashAuditDraft = '';
+            markStudied();
+            render();
+          }, 'btn secondary small-btn'),
+          btn('✗ 拼错进错题池', () => {
+            upsertCompanionErrorBank(prog, { id: cur.id, label: cur.answer, ipa: cur.ipa, audioUrl: cur.audioUrl || '', source: '双向快闪·听写' });
+            companionFlashIdx = (companionFlashIdx + 1) % list.length;
+            companionFlashRevealed = false;
+            companionFlashAuditDraft = '';
+            markStudied();
+            render();
+          }, 'btn ghost small-btn')
+        ));
+        card.append(box);
+      }
+    }
+  } else if (companionReviewTab === 'word_chain' && rs.wordChains) {
+    const wc = rs.wordChains;
+    card.append(el('div', 'REVIEW MODE 2 · SINGLE-PHONEME WORD CHAINS', 'eyebrow'), h('h2', wc.title), p(wc.tip, 'tiny subtle'));
+    for (const ch of (wc.chains || [])) {
+      card.append(h('h3', ch.name));
+      for (const stp of (ch.steps || [])) {
+        const done = prog.chainDoneIds.includes(stp.id);
+        const row = div('blend-row');
+        const wordEl = div('blend-parts');
+        const wSpan = el('span', '', 'blend-target');
+        [...stp.word].forEach((chLetter, i) => {
+          wSpan.append(i === stp.changedIdx ? el('mark', chLetter, 'chain-diff-mark') : document.createTextNode(chLetter));
+        });
+        wordEl.append(wSpan, el('span', stp.note || '', 'tiny subtle'));
+        const acts = lines(
+          btn('🔊 常速', () => { speakCompanionAudio(stp.word, 1.0, stp.audioUrl || ''); markStudied(); }, 'btn primary small-btn'),
+          btn('🔊 慢速', () => { speakCompanionAudio(stp.word, 0.75, stp.audioUrl || ''); markStudied(); }, 'btn secondary small-btn'),
+          btn(done ? '✓ 顺畅' : '标顺畅', () => {
+            if (done) prog.chainDoneIds = prog.chainDoneIds.filter(x => x !== stp.id);
+            else prog.chainDoneIds.push(stp.id);
+            markStudied();
+            render();
+          }, done ? 'btn primary small-btn' : 'btn ghost small-btn'),
+          btn('✗ 卡顿', () => {
+            upsertCompanionErrorBank(prog, { id: stp.id, label: stp.word, ipa: stp.note || '', audioUrl: stp.audioUrl || '', source: '词链变音' });
+            markStudied();
+            notify(`「${stp.word}」已加入错题池`);
+            render();
+          }, 'btn ghost small-btn')
+        );
+        row.append(wordEl, acts);
+        card.append(row);
+      }
+    }
+  } else if (companionReviewTab === 'hvpt' && rs.hvptTrials) {
+    const hv = rs.hvptTrials;
+    const trials = hv.trials || [];
+    const curIdx = companionHvptIdx % Math.max(1, trials.length);
+    const cur = trials[curIdx];
+    const doneN = Object.keys(prog.hvptResults || {}).length;
+    const okN = Object.values(prog.hvptResults || {}).filter(x => x && x.correct).length;
+    card.append(
+      el('div', 'REVIEW MODE 3 · 4-TALKER HVPT MINIMAL-PAIR LISTENING', 'eyebrow'),
+      h('h2', hv.title),
+      el('div', hv.articulatoryCue, 'companion-rule-callout'),
+      el('div', `当前进度：已辨音 ${doneN}/${trials.length} · 正确 ${okN}/${doneN || 0}（4 种美音男女声混测）`, 'tiny subtle')
+    );
+    if (cur) {
+      const res = prog.hvptResults[cur.id] || null;
+      const box = div('companion-flash-card');
+      box.append(
+        el('div', `第 ${curIdx + 1} / ${trials.length} 题 · 播音员：${cur.talker}`, 'tiny subtle'),
+        lines(
+          btn('🔊 听音辨词', () => { speakCompanionAudio(cur.target, 0.98, cur.audioUrl || ''); markStudied(); }, 'btn primary small-btn'),
+          btn('🔊 慢速重听', () => { speakCompanionAudio(cur.target, 0.78, cur.audioUrl || ''); markStudied(); }, 'btn secondary small-btn')
+        )
+      );
+      const optRow = div('companion-chip-grid');
+      for (const opt of (cur.options || [])) {
+        const picked = res && res.picked === opt.word;
+        const isTarget = opt.word === cur.target;
+        let cls = 'btn secondary small-btn';
+        if (res) {
+          if (isTarget) cls = 'btn primary small-btn';
+          else if (picked) cls = 'btn danger small-btn';
+          else cls = 'btn ghost small-btn';
+        }
+        optRow.append(btn(`${opt.word} ${opt.ipa}`, () => {
+          const ok = opt.word === cur.target;
+          prog.hvptResults[cur.id] = { picked: opt.word, correct: ok, target: cur.target, talker: cur.talker };
+          if (!ok) {
+            upsertCompanionErrorBank(prog, { id: cur.id, label: `${cur.target} (${cur.targetIpa})`, ipa: cur.talker, audioUrl: cur.audioUrl || '', source: 'HVPT 多音色辨音' });
+          }
+          markStudied();
+          render();
+        }, cls));
+      }
+      box.append(optRow);
+      if (res) {
+        box.append(p(res.correct
+          ? `✓ 听辨准确！正是 ${cur.target} (${cur.targetIpa})，马上跟读一遍强化音形绑定。`
+          : `✗ 正确答案是 ${cur.target} (${cur.targetIpa})，已自动收入错题池。点上方重听对比口型再进下一题。`,
+          res.correct ? 'dictation-answer' : 'tiny subtle'));
+      }
+      box.append(lines(
+        btn('← 上一题', () => { companionHvptIdx = (curIdx - 1 + trials.length) % trials.length; render(); }, 'btn ghost small-btn'),
+        btn('下一题 →', () => { companionHvptIdx = (curIdx + 1) % trials.length; render(); }, 'btn primary small-btn')
+      ));
+      card.append(box);
+    }
+  } else if (companionReviewTab === 'error_bank' && rs.connectedCheck) {
+    const cc = rs.connectedCheck;
+    card.append(el('div', 'REVIEW MODE 4 · CROSS-DAY ERROR BANK + CONNECTED TEXT', 'eyebrow'), h('h2', cc.title), p(cc.tip, 'tiny subtle'));
+    if (!bank.open.length) {
+      card.append(el('div', '🎉 当前错题池已全部清零！在「双向快闪 / 词链 / 多音色辨音 / 假词 / 听写」里遇到不稳的项会自动出现在这里。', 'companion-rule-callout'));
+    } else {
+      card.append(h('h3', `待清零错题（${bank.open.length} 项 · 需连续过关 2 次）`));
+      for (const item of bank.open) {
+        const row = div('blend-row');
+        row.append(
+          div('blend-parts'),
+          lines(
+            item.audioUrl ? btn('🔊 听音', () => speakCompanionAudio(item.label, 0.92, item.audioUrl), 'btn secondary small-btn') : el('span', ''),
+            btn(`✓ 读准过关 (${item.streak}/2)`, () => {
+              const updated = recordCompanionErrorPass(prog, item.id, 2);
+              markStudied();
+              if (updated?.cleared) notify(`🎉 「${item.label}」连续 2 次过关，已从错题池清零！`);
+              render();
+            }, 'btn primary small-btn'),
+            btn('✗ 还卡壳', () => {
+              upsertCompanionErrorBank(prog, item);
+              markStudied();
+              render();
+            }, 'btn ghost small-btn')
+          )
+        );
+        row.firstChild.append(el('span', item.label, 'blend-target'), el('span', `${item.ipa || ''} · 来源：${item.source} · 失误 ${item.misses} 次`, 'tiny subtle'));
+        card.append(row);
+      }
+    }
+    if (bank.cleared.length) {
+      card.append(p(`已清零历史错题：${bank.cleared.map(x => x.label).join('、')}`, 'tiny subtle'));
+    }
+    card.append(h('h3', '控词短句迁移抽查（点句听音 + 录音自检）'));
+    const passage = div('companion-reading-box');
+    for (const s of (cc.sentences || [])) {
+      const sb = el('button', s.text, 'companion-sent-btn');
+      sb.type = 'button';
+      sb.addEventListener('click', () => { speakCompanionAudio(s.text, 0.95, s.audioUrl || ''); markStudied(); });
+      passage.append(sb);
+    }
+    card.append(passage);
+    const recWrap = div('companion-record-wrap');
+    recWrap.append(renderRecordingControls({
+      weaknessId: `companion:${active.id}`,
+      taskId: 'review-connected',
+      attemptId: `companion:${active.id}:review-connected`,
+      role: 'original',
+      onSaved: row => {
+        prog.recordingIds['review-connected'] = [...new Set([...(prog.recordingIds['review-connected'] || []), row.id])];
+        markStudied();
+      }
+    }));
+    card.append(recWrap);
+  } else if (companionReviewTab === 'micro_demo' && rs.microDemos) {
+    const md = rs.microDemos;
+    const prompts = md.prompts || [];
+    const cur = prompts[companionMicroDemoIdx % Math.max(1, prompts.length)];
+    card.append(
+      el('div', 'REVIEW MODE 5 · UNSCRIPTED 60S MICRO-DEMO + A/B COMPARE', 'eyebrow'),
+      h('h2', md.title),
+      p(md.tip, 'tiny subtle'),
+      el('div', md.correctionProtocol, 'companion-rule-callout')
+    );
+    if (cur) {
+      const done = prog.microDemoDoneIds.includes(cur.id);
+      const box = div('companion-flash-card');
+      box.append(
+        el('div', `脱稿抽签卡 #${(companionMicroDemoIdx % prompts.length) + 1} / ${prompts.length}`, 'eyebrow'),
+        h('h3', cur.title),
+        p(cur.goal, 'subtle'),
+        lines(
+          btn('🎲 随机换一题', () => {
+            companionMicroDemoIdx = (companionMicroDemoIdx + 1 + Math.floor(Math.random() * Math.max(1, prompts.length - 1))) % prompts.length;
+            render();
+          }, 'btn secondary small-btn'),
+          btn(done ? '✓ 已完成本卡' : '标记本卡已演练', () => {
+            if (!done) prog.microDemoDoneIds.push(cur.id);
+            markStudied();
+            render();
+          }, done ? 'btn primary small-btn' : 'btn ghost small-btn')
+        )
+      );
+      card.append(box);
+    }
+    const tBox = div('tpr-timer-box');
+    const disp = el('div', formatCompanionTimer(companionMicroTimerLeft), 'tpr-timer-display companion-micro-display');
+    tBox.append(disp, lines(
+      btn(companionMicroTimerRunning ? '⏸ 暂停 60s' : '▶ 开始 60s 脱稿计时', () => {
+        if (companionMicroTimerRunning) {
+          clearInterval(companionMicroTimerId);
+          companionMicroTimerId = null;
+          companionMicroTimerRunning = false;
+          render();
+        } else {
+          if (companionMicroTimerLeft <= 0) companionMicroTimerLeft = 60;
+          companionMicroTimerRunning = true;
+          companionMicroTimerId = setInterval(() => {
+            companionMicroTimerLeft = Math.max(0, companionMicroTimerLeft - 1);
+            const dEl = document.querySelector('.companion-micro-display');
+            if (dEl) dEl.textContent = formatCompanionTimer(companionMicroTimerLeft);
+            if (companionMicroTimerLeft <= 0) {
+              clearInterval(companionMicroTimerId);
+              companionMicroTimerId = null;
+              companionMicroTimerRunning = false;
+              markStudied();
+              notify('⏱️ 60 秒脱稿试讲结束！回听初录抓 1 个毛病再重录对比。');
+              render();
+            }
+          }, 1000);
+          render();
+        }
+      }, 'btn primary small-btn'),
+      btn('↺ 重置 60s', () => {
+        if (companionMicroTimerId) { clearInterval(companionMicroTimerId); companionMicroTimerId = null; }
+        companionMicroTimerRunning = false;
+        companionMicroTimerLeft = 60;
+        render();
+      }, 'btn ghost small-btn')
+    ));
+    card.append(tBox);
+
+    const recWrap = div('companion-record-wrap');
+    recWrap.append(
+      el('div', '🎙 初录 vs 重录 A/B 对比（两段都录完自动出现「连起来听」按钮）', 'eyebrow'),
+      renderRecordingControls({
+        weaknessId: `companion:${active.id}`,
+        taskId: 'review-micro-demo',
+        attemptId: `companion:${active.id}:review-micro-demo:orig`,
+        role: 'original',
+        onSaved: row => {
+          prog.recordingIds['review-micro-demo'] = [...new Set([...(prog.recordingIds['review-micro-demo'] || []), row.id])];
+          markStudied();
+        }
+      }),
+      renderRecordingControls({
+        weaknessId: `companion:${active.id}`,
+        taskId: 'review-micro-demo',
+        attemptId: `companion:${active.id}:review-micro-demo:retry`,
+        role: 'retry',
+        onSaved: row => {
+          prog.recordingIds['review-micro-demo'] = [...new Set([...(prog.recordingIds['review-micro-demo'] || []), row.id])];
+          markStudied();
+        }
+      })
+    );
+    card.append(recWrap);
+  }
+
+  const foot = lines(
+    btn('← 回到新学伴学', () => { companionLabMode = 'study'; render(); }, 'btn secondary small-btn'),
+    btn('📦 导出伴学战报 ZIP（含录音）', () => exportCompanionBattleReport(active, prog), 'btn primary small-btn')
+  );
+  foot.classList.add('companion-foot');
+  card.append(foot);
+  app.append(card);
+}
+
 function renderCompanionLab() {
   const st = ensureCompanionState();
   const modules = listCompanionModules(data);
@@ -7631,7 +8018,23 @@ function renderCompanionLab() {
     impBox.append(ta, impActions);
     top.append(impBox);
   }
+  const openErrCount = collectCompanionErrorBank(prog).open.length;
+  const modeSwitch = div('companion-mode-switch');
+  modeSwitch.append(
+    btn('📖 新学伴学', () => { companionLabMode = 'study'; render(); }, companionLabMode === 'study' ? 'btn primary small-btn' : 'btn secondary small-btn'),
+    btn(`🔁 全能复习（5 模式）${openErrCount ? ` · 错题 ${openErrCount}` : ''}`, () => { companionLabMode = 'review'; render(); }, companionLabMode === 'review' ? 'btn primary small-btn' : 'btn secondary small-btn')
+  );
+  top.append(modeSwitch);
   app.append(top);
+
+  const markStudiedTop = () => {
+    prog.lastStudiedAt = new Date().toISOString();
+    save();
+  };
+  if (companionLabMode === 'review') {
+    renderCompanionReviewSuite(active, prog, markStudiedTop);
+    return;
+  }
 
   if (blocks.length > 1) {
     const navBar = div('companion-block-nav');
@@ -7759,7 +8162,7 @@ function renderCompanionLab() {
       const acts = lines(
         btn('🔊 参考音', () => { speakCompanionAudio(item.speak || item.text.replace(/\*/g, ''), 0.9, item.audioUrl || ''); markStudied(); }, 'btn secondary small-btn'),
         btn('✓ 读准', () => { prog.unseenMarks[item.id] = 'clean'; markStudied(); render(); }, mark === 'clean' ? 'btn primary small-btn' : 'btn ghost small-btn'),
-        btn('? 不稳', () => { prog.unseenMarks[item.id] = 'review'; markStudied(); render(); }, mark === 'review' ? 'btn secondary small-btn' : 'btn ghost small-btn')
+        btn('? 不稳', () => { prog.unseenMarks[item.id] = 'review'; upsertCompanionErrorBank(prog, { id: item.id, label: item.text, ipa: item.ipa, audioUrl: item.audioUrl || '', source: '假词解码' }); markStudied(); render(); }, mark === 'review' ? 'btn secondary small-btn' : 'btn ghost small-btn')
       );
       box.append(acts);
       list.append(box);
@@ -7809,6 +8212,7 @@ function renderCompanionLab() {
           }, res.correct === true ? 'btn primary small-btn' : 'btn ghost small-btn'),
           btn('✗ 拼错了（待复练）', () => {
             prog.dictationResults[w.id] = { ...res, revealed: true, correct: false };
+            upsertCompanionErrorBank(prog, { id: w.id, label: w.word, ipa: w.hint || '', audioUrl: w.audioUrl || '', source: '盲听听写' });
             markStudied();
             render();
           }, res.correct === false ? 'btn secondary small-btn' : 'btn ghost small-btn')

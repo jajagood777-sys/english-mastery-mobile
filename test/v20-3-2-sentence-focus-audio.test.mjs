@@ -5,13 +5,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { stripSpeechMarkdown, speechTextHash, getSpeechClip } from '../speech-clips.mjs';
 
-test('v20.4.7 stripSpeechMarkdown removes **bold** markers without altering text', () => {
+test('v20.4.9 stripSpeechMarkdown removes **bold** markers without altering text', () => {
   const raw = 'Nadia was a new **apprentice** at the botanical station, and during her first week she focused on finding steady **footing** before trying anything fancy.';
   const clean = 'Nadia was a new apprentice at the botanical station, and during her first week she focused on finding steady footing before trying anything fancy.';
   assert.equal(stripSpeechMarkdown(raw), clean);
 });
 
-test('v20.4.7 getSpeechClip matches IndexedDB clips stored with **bold** markers when queried with clean text', async () => {
+test('v20.4.9 getSpeechClip matches IndexedDB clips stored with **bold** markers when queried with clean text', async () => {
   const raw = 'Nadia was a new **apprentice** at the botanical station, and during her first week she focused on finding steady **footing** before trying anything fancy.';
   const clean = stripSpeechMarkdown(raw);
   const rawHash = await speechTextHash(raw);
@@ -63,7 +63,7 @@ test('v20.4.7 getSpeechClip matches IndexedDB clips stored with **bold** markers
   }
 });
 
-test('v20.4.7 app.js and styles.css preserve raw sentence text, stop audio on sentence switch, and sync natural player state', () => {
+test('v20.4.9 app.js and styles.css preserve raw sentence text, stop audio on sentence switch, and sync natural player state', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(appSrc, /sentenceTracker=\{list:\[\],rawList:\[\],activeIdx:readingFocusSentenceIdx\}/);
