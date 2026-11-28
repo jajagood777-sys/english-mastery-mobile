@@ -34,7 +34,7 @@ import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash,pruneOldPackSpeechClips} from './speech-clips.mjs';
 import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,buildEndOfDayContinuationCue,buildWeeklyThreePairHighlights,shouldHideVocabTargetHeader} from './ux-100.mjs';
 import {collectCrossModuleLexicon,matchCrossModuleWordsInText} from './cross-link.mjs';
-import { listCompanionModules, resolveActiveCompanionModule, normalizeCompanionModule, summarizeCompanionEvidence } from './adaptive-companion.mjs';
+import { listCompanionModules, resolveActiveCompanionModule, normalizeCompanionModule, summarizeCompanionEvidence, buildCompanionBattleReport, companionBattleReportMarkdown, companionRecordingExt } from './adaptive-companion.mjs';
 import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity,naturalSortTracks,createUnclearMark,buildUnclearReplayQueue,computeScrubberUndoTarget,computeInterruptionResumeAction,computeCommuteReadiness} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings,isSupportedSourcePackSchema} from './handover.mjs';
@@ -7416,7 +7416,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 
-// ===== v20.4.6 Adaptive Paper-Companion Lab =====
+// ===== v20.4.7 Adaptive Paper-Companion Lab =====
 function ensureCompanionState() {
   if (!data.companionState || typeof data.companionState !== 'object') {
     data.companionState = { activeModuleId: '', customModules: [], progress: {} };
@@ -7436,18 +7436,59 @@ function getCompanionProgress(modId) {
   if (!p.unseenMarks || typeof p.unseenMarks !== 'object') p.unseenMarks = {};
   if (!p.dictationResults || typeof p.dictationResults !== 'object') p.dictationResults = {};
   if (!Array.isArray(p.checklistIds)) p.checklistIds = [];
+  if (!p.recordingIds || typeof p.recordingIds !== 'object') p.recordingIds = {};
   return p;
 }
 
-function speakCompanionAudio(text, rate = 1.0) {
+let companionAudioEl = null;
+
+function stopCompanionAudio() {
+  try {
+    if (companionAudioEl) {
+      companionAudioEl.pause();
+      companionAudioEl.currentTime = 0;
+      companionAudioEl = null;
+    }
+  } catch {}
+  try {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  } catch {}
+  companionSpeakUtterance = null;
+}
+
+function speakCompanionAudio(text, rate = 1.0, audioUrl = '') {
+  const safeRate = Math.max(0.65, Math.min(1.25, Number(rate) || 1.0));
+  stopCompanionAudio();
+  const url = String(audioUrl || '').trim();
+  if (url && typeof Audio !== 'undefined') {
+    try {
+      const a = new Audio(url);
+      a.preload = 'auto';
+      a.playbackRate = safeRate;
+      if ('preservesPitch' in a) a.preservesPitch = true;
+      companionAudioEl = a;
+      a.onended = () => { if (companionAudioEl === a) companionAudioEl = null; };
+      a.onerror = () => {
+        if (companionAudioEl === a) companionAudioEl = null;
+        if (text) speakCompanionAudio(text, safeRate, '');
+      };
+      const p = a.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          if (companionAudioEl === a) companionAudioEl = null;
+          if (text) speakCompanionAudio(text, safeRate, '');
+        });
+      }
+      return true;
+    } catch {}
+  }
   const clean = String(text || '').replace(/\*\*([^*\n]{1,80})\*\*/g, '$1').trim();
   if (!clean) return false;
   try {
     if ('speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
-      window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = 'en-US';
-      u.rate = Math.max(0.6, Math.min(1.25, Number(rate) || 1.0));
+      u.rate = safeRate;
       const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
       const enVoice = voices.find(v => /^en-US/i.test(v.lang) && /Samantha|Ava|Allison|Aaron|Alex|Google US/i.test(v.name))
         || voices.find(v => /^en-US/i.test(v.lang))
@@ -7461,6 +7502,50 @@ function speakCompanionAudio(text, rate = 1.0) {
     }
   } catch {}
   return speakDevice(clean);
+}
+
+async function exportCompanionBattleReport(active, prog) {
+  try {
+    const weaknessId = `companion:${active.id}`;
+    const rows = await listRecordings({ weaknessId }).catch(() => []);
+    const enc = new TextEncoder();
+    const recPayloads = [];
+    for (const row of rows) {
+      const full = await getRecording(row.id).catch(() => null);
+      if (!full?.blob) continue;
+      const bytes = new Uint8Array(await full.blob.arrayBuffer());
+      const sha256 = await sha256Hex(bytes);
+      const ext = companionRecordingExt(full.mimeType || row.mimeType || '');
+      const safeBlock = String(full.taskId || row.taskId || 'block').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeId = String(full.id || row.id || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const file = `recordings/${safeBlock}_${safeId}.${ext}`;
+      recPayloads.push({ ...full, bytes, sha256, file });
+    }
+    const exportedAt = new Date().toISOString();
+    const report = buildCompanionBattleReport({
+      module: active,
+      progress: prog,
+      recordings: recPayloads,
+      appVersion: APP_VERSION,
+      exportedAt
+    });
+    const md = companionBattleReportMarkdown(report);
+    const entries = [
+      { name: 'companion-battle-report.json', bytes: enc.encode(JSON.stringify(report, null, 2)) },
+      { name: 'companion-battle-report.md', bytes: enc.encode(md) },
+      ...recPayloads.map(r => ({ name: r.file, bytes: r.bytes }))
+    ];
+    const zip = zipStore(entries);
+    const reread = readZipStore(zip.bytes);
+    if (!reread.some(e => e.name === 'companion-battle-report.json')) {
+      throw Error('ZIP 回读校验失败：缺少 companion-battle-report.json');
+    }
+    const dayStr = exportedAt.slice(0, 10);
+    downloadBytes(`yandao-companion-report-${active.id}-${dayStr}.zip`, zip.bytes, 'application/zip');
+    notify(`伴学战报 ZIP 已导出（含 ${recPayloads.length} 条录音、共 ${entries.length} 个文件），直接发给我就可逐条点评发音！`);
+  } catch (err) {
+    notify(`伴学战报导出失败：${err.message}`);
+  }
 }
 
 function formatCompanionTimer(sec) {
@@ -7510,6 +7595,7 @@ function renderCompanionLab() {
       if (!q.length) { notify('当前没有可冲刺的词句卡片，请先导入学习包。'); return; }
       startSession('mixed', { scope: 'commute', queue: q, dueGoal: 5 });
     }, 'btn ghost small-btn'),
+    btn('📦 导出伴学战报 ZIP', () => exportCompanionBattleReport(active, prog), 'btn primary small-btn'),
     btn(companionImportOpen ? '收起导入' : '📥 导入伴学模块 JSON', () => {
       companionImportOpen = !companionImportOpen;
       render();
@@ -7599,7 +7685,7 @@ function renderCompanionLab() {
         const b = el('button', '', 'companion-sound-chip');
         b.type = 'button';
         b.append(el('strong', `🔊 ${item.label}`), el('span', item.note || '', 'tiny'));
-        b.addEventListener('click', () => { speakCompanionAudio(item.speak || item.label, 0.85); markStudied(); });
+        b.addEventListener('click', () => { speakCompanionAudio(item.speak || item.label, 0.92, item.audioUrl || ''); markStudied(); });
         row.append(b);
       }
       card.append(row);
@@ -7616,7 +7702,7 @@ function renderCompanionLab() {
         el('div', tile.tip || '', 'tiny')
       );
       tEl.addEventListener('click', () => {
-        speakCompanionAudio(tile.speak || tile.anchor || tile.grapheme, 0.85);
+        speakCompanionAudio(tile.speak || tile.anchor || tile.grapheme, 0.95, tile.audioUrl || '');
         if (!prog.doneIds.includes(tile.id)) prog.doneIds.push(tile.id);
         markStudied();
         tEl.classList.add('is-done');
@@ -7631,13 +7717,13 @@ function renderCompanionLab() {
         const row = div('blend-row');
         const partsWrap = div('blend-parts');
         for (const pt of (g.parts || [])) {
-          const pb = btn(pt, () => speakCompanionAudio(pt, 0.78), 'btn ghost small-btn blend-pill');
+          const pb = btn(pt, () => speakCompanionAudio(pt, 0.92, activeBlock.partAudioMap?.[String(pt).toLowerCase()] || ''), 'btn ghost small-btn blend-pill');
           partsWrap.append(pb);
         }
         partsWrap.append(el('span', `→ ${g.word}`, 'blend-target'), el('span', g.ipa || '', 'tiny'));
         const actWrap = lines(
-          btn('🔊 慢速', () => { speakCompanionAudio(g.word, 0.72); markStudied(); }, 'btn secondary small-btn'),
-          btn('🔊 常速', () => { speakCompanionAudio(g.word, 1.0); markStudied(); }, 'btn primary small-btn'),
+          btn('🔊 慢速', () => { speakCompanionAudio(g.word, 0.75, g.audioUrl || ''); markStudied(); }, 'btn secondary small-btn'),
+          btn('🔊 常速', () => { speakCompanionAudio(g.word, 1.0, g.audioUrl || ''); markStudied(); }, 'btn primary small-btn'),
           btn(prog.doneIds.includes(g.id) ? '✓ 已稳' : '标记已稳', () => {
             if (prog.doneIds.includes(g.id)) prog.doneIds = prog.doneIds.filter(x => x !== g.id);
             else prog.doneIds.push(g.id);
@@ -7653,7 +7739,7 @@ function renderCompanionLab() {
       card.append(h('h3', '12 Syllabus Example Words (Tap to Listen)'));
       const wl = div('companion-chip-grid');
       for (const w of activeBlock.wordList) {
-        const b = btn(`🔊 ${w}`, () => { speakCompanionAudio(w, 0.9); markStudied(); }, 'btn secondary small-btn');
+        const b = btn(`🔊 ${w}`, () => { speakCompanionAudio(w, 0.95, activeBlock.wordAudioMap?.[String(w).toLowerCase()] || ''); markStudied(); }, 'btn secondary small-btn');
         wl.append(b);
       }
       card.append(wl);
@@ -7671,7 +7757,7 @@ function renderCompanionLab() {
         el('div', `${item.pattern || ''} · ${item.ipa || ''}`, 'tiny subtle')
       );
       const acts = lines(
-        btn('🔊 参考音', () => { speakCompanionAudio(item.speak || item.text.replace(/\*/g, ''), 0.8); markStudied(); }, 'btn secondary small-btn'),
+        btn('🔊 参考音', () => { speakCompanionAudio(item.speak || item.text.replace(/\*/g, ''), 0.9, item.audioUrl || ''); markStudied(); }, 'btn secondary small-btn'),
         btn('✓ 读准', () => { prog.unseenMarks[item.id] = 'clean'; markStudied(); render(); }, mark === 'clean' ? 'btn primary small-btn' : 'btn ghost small-btn'),
         btn('? 不稳', () => { prog.unseenMarks[item.id] = 'review'; markStudied(); render(); }, mark === 'review' ? 'btn secondary small-btn' : 'btn ghost small-btn')
       );
@@ -7703,8 +7789,8 @@ function renderCompanionLab() {
       inp.addEventListener('input', () => { companionDictationDrafts[w.id] = inp.value; });
 
       const actLine = lines(
-        btn(`🔊 播报第 ${idx + 1} 词`, () => { speakCompanionAudio(w.word, 0.92); markStudied(); }, 'btn primary small-btn'),
-        btn('🔊 慢速', () => { speakCompanionAudio(w.word, 0.7); markStudied(); }, 'btn secondary small-btn'),
+        btn(`🔊 播报第 ${idx + 1} 词`, () => { speakCompanionAudio(w.word, 0.95, w.audioUrl || ''); markStudied(); }, 'btn primary small-btn'),
+        btn('🔊 慢速', () => { speakCompanionAudio(w.word, 0.74, w.audioUrl || ''); markStudied(); }, 'btn secondary small-btn'),
         btn(res.revealed ? '隐藏答案' : '👁 揭晓核对', () => {
           const typed = String(companionDictationDrafts[w.id] ?? res.typed ?? '').trim().toLowerCase();
           const autoCorrect = typed ? typed === String(w.word).trim().toLowerCase() : res.correct;
@@ -7734,14 +7820,14 @@ function renderCompanionLab() {
   } else if (activeBlock.type === 'reading_companion') {
     const sents = activeBlock.sentences || [];
     card.append(lines(
-      btn('🔊 整段朗读 (常速)', () => { speakCompanionAudio(sents.join(' '), 0.95); markStudied(); }, 'btn primary small-btn'),
-      btn('🔊 整段慢读 (0.78×)', () => { speakCompanionAudio(sents.join(' '), 0.78); markStudied(); }, 'btn secondary small-btn')
+      btn('🔊 整段朗读 (常速)', () => { speakCompanionAudio(sents.join(' '), 0.98, activeBlock.fullAudioUrl || ''); markStudied(); }, 'btn primary small-btn'),
+      btn('🔊 整段慢读 (0.78×)', () => { speakCompanionAudio(sents.join(' '), 0.78, activeBlock.fullAudioUrl || ''); markStudied(); }, 'btn secondary small-btn')
     ));
     const passage = div('companion-reading-box');
-    sents.forEach((s) => {
+    sents.forEach((s, sIdx) => {
       const sb = el('button', s, 'companion-sent-btn');
       sb.type = 'button';
-      sb.addEventListener('click', () => { speakCompanionAudio(s, 0.9); markStudied(); });
+      sb.addEventListener('click', () => { speakCompanionAudio(s, 0.95, activeBlock.sentenceAudioUrls?.[sIdx] || ''); markStudied(); });
       passage.append(sb);
     });
     card.append(passage);
@@ -7759,7 +7845,7 @@ function renderCompanionLab() {
   } else if (activeBlock.type === 'tpr_timer') {
     if (activeBlock.teacherVoice) {
       const tv = div('companion-rule-callout');
-      tv.append(el('div', 'Teacher Voice Model', 'eyebrow'), p(activeBlock.teacherVoice, ''), btn('🔊 听示范课堂指令', () => speakCompanionAudio(activeBlock.teacherVoice, 0.95), 'btn secondary small-btn'));
+      tv.append(el('div', 'Teacher Voice Model', 'eyebrow'), p(activeBlock.teacherVoice, ''), btn('🔊 听示范课堂指令', () => speakCompanionAudio(activeBlock.teacherVoice, 0.95, activeBlock.teacherVoiceAudioUrl || ''), 'btn secondary small-btn'));
       card.append(tv);
     }
     const timerBox = div('tpr-timer-box');
@@ -7838,7 +7924,7 @@ function renderCompanionLab() {
   } else if (activeBlock.type === 'qa_checklist') {
     for (const q of (activeBlock.items || [])) {
       const box = div('dictation-row');
-      box.append(el('strong', q.prompt || ''), q.speak ? btn('🔊 朗读', () => speakCompanionAudio(q.speak, 0.92), 'btn secondary small-btn') : el('span', ''));
+      box.append(el('strong', q.prompt || ''), (q.speak || q.audioUrl) ? btn('🔊 朗读', () => speakCompanionAudio(q.speak || '', 0.95, q.audioUrl || ''), 'btn secondary small-btn') : el('span', ''));
       if (q.answer) {
         const det = el('details', '');
         det.append(el('summary', '查看参考要点'), p(q.answer, 'tiny'));
@@ -7848,9 +7934,31 @@ function renderCompanionLab() {
     }
   }
 
+  const recordableTypes = ['sound_board', 'blend_stepper', 'unseen_decoder', 'reading_companion', 'tpr_timer', 'qa_checklist'];
+  if (recordableTypes.includes(activeBlock.type)) {
+    const recWrap = div('companion-record-wrap');
+    recWrap.append(
+      el('div', '🎙 本关口语录音 · 录完可打包战报发我点评', 'eyebrow'),
+      p(activeBlock.recordPrompt || '点击下方开始录音，录下你本关的读音或试讲，最后点「导出伴学战报 ZIP」发给我做发音纠偏。', 'tiny subtle'),
+      renderRecordingControls({
+        weaknessId: `companion:${active.id}`,
+        taskId: activeBlock.id,
+        attemptId: `companion:${active.id}:${activeBlock.id}`,
+        role: 'original',
+        onSaved: row => {
+          if (!prog.recordingIds || typeof prog.recordingIds !== 'object') prog.recordingIds = {};
+          prog.recordingIds[activeBlock.id] = [...new Set([...(prog.recordingIds[activeBlock.id] || []), row.id])];
+          markStudied();
+        }
+      })
+    );
+    card.append(recWrap);
+  }
+
   const curIdx = blocks.findIndex(b => b.id === activeBlock.id);
   const foot = lines(
     curIdx > 0 ? btn('← 上一项', () => { companionActiveBlockId = blocks[curIdx - 1].id; render(); }, 'btn secondary small-btn') : el('span', ''),
+    btn('📦 导出伴学战报 ZIP（含录音）', () => exportCompanionBattleReport(active, prog), 'btn secondary small-btn'),
     curIdx < blocks.length - 1 ? btn('下一项 →', () => { companionActiveBlockId = blocks[curIdx + 1].id; render(); }, 'btn primary small-btn') : btn('✓ 完成本页返回首页', () => { markStudied(); setPage('home'); }, 'btn primary small-btn')
   );
   foot.classList.add('companion-foot');

@@ -5,15 +5,15 @@ import { APP_VERSION } from '../core.mjs';
 import { buildHomeResumeBanner } from '../ux-100.mjs';
 import { collectCrossModuleLexicon, matchCrossModuleWordsInText } from '../cross-link.mjs';
 
-test('v20.4.6 bumps APP_VERSION and registers cross-link.mjs in sw.js', () => {
-  assert.equal(APP_VERSION, '20.4.6');
+test('v20.4.7 bumps APP_VERSION and registers cross-link.mjs in sw.js', () => {
+  assert.equal(APP_VERSION, '20.4.7');
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(sw, /english-cultivation-static-v20\.4\.6/);
+  assert.match(sw, /english-cultivation-static-v20\.4\.7/);
   assert.match(sw, /'\.\/cross-link\.mjs'/);
   assert.match(sw, /'\.\/release-safety\.mjs'/);
 });
 
-test('v20.4.6 preserves legacy spelling Home CTA for scripts/test-spelling-progress.mjs', () => {
+test('v20.4.7 preserves legacy spelling Home CTA for scripts/test-spelling-progress.mjs', () => {
   const res = buildHomeResumeBanner({
     dailyPack: { packId: 'P1', spellingTasks: [{ id: 's1', target: 'scramble' }] },
     dailyJourney: {
@@ -27,7 +27,7 @@ test('v20.4.6 preserves legacy spelling Home CTA for scripts/test-spelling-progr
   assert.equal(res.primaryLabel, '开始／继续今日完整学习');
 });
 
-test('v20.4.6 cross-module linkage matches vocab misses, reading marks & historical learned words', () => {
+test('v20.4.7 cross-module linkage matches vocab misses, reading marks & historical learned words', () => {
   const data = {
     dailyPack: {
       packId: 'P1',

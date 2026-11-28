@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { annotateConnectedSpeechAndWeakForms } from '../sla-enhancers.mjs';
 
-test('v20.4.6 reading modes are wired into app.js and styles.css', () => {
+test('v20.4.7 reading modes are wired into app.js and styles.css', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
@@ -24,7 +24,7 @@ test('v20.4.6 reading modes are wired into app.js and styles.css', () => {
   assert.match(css, /body\.pure-book-mode #reading-article/);
 });
 
-test('v20.4.6 weak-form prosody helper annotates weak forms, links, and pauses', () => {
+test('v20.4.7 weak-form prosody helper annotates weak forms, links, and pauses', () => {
   const tokens = annotateConnectedSpeechAndWeakForms('We went to an old house, and for a moment we stood still.');
   assert.ok(tokens.some(t => t.weak && t.weakIpa));
   assert.ok(tokens.some(t => t.linkNext));
