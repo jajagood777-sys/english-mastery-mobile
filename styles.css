@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.4.2 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.4.4 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3065,7 +3065,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   line-height: 1.6;
 }
 
-/* === v20.4.2 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
+/* === v20.4.4 Reading Focus Bar, Prosody Spacing & Compact Strip Polish === */
 .reading-mode-compact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -3105,7 +3105,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   opacity: 0.78;
 }
 
-/* v20.4.2 Live 4/3/2 Speech Countdown Card */
+/* v20.4.4 Live 4/3/2 Speech Countdown Card */
 .speech-432-card {
   margin: 10px 0 12px;
   padding: 12px 14px;
@@ -3155,7 +3155,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   gap: 8px;
 }
 
-/* v20.4.2 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
+/* v20.4.4 Word Harvest Bridge 2.0 (Encode-First + 3-Choice Check + Self-Explanatory Triage Cards) */
 .harvest-context-sentence {
   font-size: 1rem;
   line-height: 1.65;
@@ -3241,7 +3241,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   font-weight: 400;
 }
 
-/* v20.4.2 Standalone Complex Imitation Lab 2.0 */
+/* v20.4.4 Standalone Complex Imitation Lab 2.0 */
 .complex-swap-builder {
   margin-top: 10px;
   display: flex;
@@ -3261,4 +3261,50 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   border: 1px solid rgba(15, 118, 110, 0.2);
   font-size: 0.88rem;
   line-height: 1.55;
+}
+
+
+/* === v20.4.4 Cross-Module Vocabulary & Historical-Word Linkage Strip === */
+.cross-link-strip {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid rgba(15, 118, 110, 0.16);
+}
+.cross-link-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f766e;
+  margin-bottom: 7px;
+}
+.cross-link-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cross-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+  color: #134e4a;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.cross-link-chip[data-source="vocab_miss"],
+.cross-link-chip[data-source="reading_mark"] {
+  border-color: rgba(180, 83, 9, 0.32);
+  background: rgba(255, 251, 235, 0.95);
+  color: #92400e;
+}
+.cross-link-word {
+  font-weight: 600;
+}
+.cross-link-badge {
+  font-size: 0.68rem;
+  opacity: 0.78;
 }

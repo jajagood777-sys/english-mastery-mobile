@@ -75,7 +75,7 @@ test('15.1.4 battle report and central feedback include manualReviewMarks from o
     items: [],
     manualReviewMarks: manualMarks
   });
-  assert.equal(report.app_version, '20.4.2');
+  assert.equal(report.app_version, '20.4.4');
   assert.equal(report.manual_review_marks.length, 1);
   assert.equal(report.manual_review_marks[0].word, 'vortex');
 
