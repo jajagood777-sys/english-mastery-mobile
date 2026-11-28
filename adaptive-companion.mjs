@@ -1,5 +1,5 @@
 /**
- * YanDao Cultivation Palace — Adaptive Paper-Companion Lab (v20.4.9)
+ * YanDao Cultivation Palace — Adaptive Paper-Companion Lab (v20.5.0)
  * Schema-driven companion engine that lives directly inside the website (zero ZIP import needed)
  * with IPA-exact Kokoro audio, 5 evidence-based review modes (Bidirectional GPC Flash,
  * Word Chains, 4-Talker HVPT Minimal-Pair Listening, Cross-Day Error Bank + Connected Text,
@@ -463,7 +463,7 @@ export function buildCompanionBattleReport({
   module = PHONICS_DAY_01_MODULE,
   progress = {},
   recordings = [],
-  appVersion = '20.4.9',
+  appVersion = '20.5.0',
   exportedAt = new Date().toISOString()
 } = {}) {
   const doneIds = Array.isArray(progress?.doneIds) ? [...new Set(progress.doneIds)] : [];
@@ -507,7 +507,7 @@ export function buildCompanionBattleReport({
 
   return {
     schema: 'yandao-companion-battle-report-v1',
-    app_version: String(appVersion || '20.4.9'),
+    app_version: String(appVersion || '20.5.0'),
     exported_at: String(exportedAt),
     module_id: String(module?.id || ''),
     module_title: String(module?.title || ''),

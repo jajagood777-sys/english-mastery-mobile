@@ -382,6 +382,12 @@ function stopSpeech432Countdown() {
   speech432Running = false;
 }
 let complexLabOpen = false;
+let vocabTriageFilter = 'all'; // 'all' | 'core' | 'leech' (P0 two-speed triage)
+let pendingStageGate = null; // { completedStage, nextStage } (P1 consolidation gate)
+let stageGateRevealed = false;
+let stageGateRestSec = 0;
+let stageGateRestTimer = null;
+let complexInterleaveMode = false; // (P2 grammar-contrast interleaving)
 let complexTopicId = 'work_routine';
 let complexDrillIdx = 0;
 let complexStage = 'imitate';
@@ -3670,6 +3676,7 @@ if(page==='complexLab')return renderComplexImitationPage();
     if(page==='transferPractice')return renderTransferPractice();
     if(page==='progress')return renderProgress();
     if(page==='reports')return renderReports();
+    if(page==='stageSummary')return renderStageSummary();
     if(page==='summary')return renderSummary();
   }catch(error){renderError(error);}
   finally{
@@ -4380,9 +4387,29 @@ function findNextUnansweredVocabIndex(tasks, journey, globalAttempts = []) {
   }
   return tasks.length;
 }
+function shouldShowStageConsolidationGate(j, nextStage) {
+  if (!j || !Array.isArray(j.steps) || j.steps.length < 3) return false;
+  if (typeof window !== 'undefined' && window.__yandaoSkipStageGate) return false;
+  if (!Array.isArray(j.completed) || !j.completed.length) return false;
+  const last = j.completed[j.completed.length - 1];
+  if (!last || last.status === 'skipped') return false;
+  if (!['sentences', 'listening', 'speech', 'complexLab'].includes(last.stage)) return false;
+  const gateKey = `${j.id}:${last.stage}->${nextStage}`;
+  if (j.dismissedStageGates && j.dismissedStageGates.includes(gateKey)) return false;
+  return true;
+}
 function beginJourneyStage(){
   const j=data.dailyJourney;if(!j||j.finishedAt)return;
   const stage=journeyStage();if(!stage)return finishDailyJourney();
+  if(shouldShowStageConsolidationGate(j, stage)){
+    const last=j.completed[j.completed.length-1];
+    pendingStageGate={completedStage:last.stage,nextStage:stage};
+    stageGateRevealed=false;
+    stageGateRestSec=0;
+    if(stageGateRestTimer){clearInterval(stageGateRestTimer);stageGateRestTimer=null;}
+    if(save())setPage('stageSummary');
+    return;
+  }
   if(stage==='vocabulary'){
     const tasks=journeyVocabularyTasks();
     if(!tasks.length){j.completed.push({stage:'vocabulary',status:'skipped',count:0});j.index++;if(save())beginJourneyStage();return;}
@@ -4560,6 +4587,14 @@ function resumeSession(){const s=data.activeSession;if(s){s.running=true;s.lastT
 function fmtTime(ms){const min=Math.floor(ms/60000),sec=Math.floor(ms%60000/1000);return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
 function practiceTop(s){const head=div('practice-top');const info=div();info.append(el('div',`当前模式：${modeLabel(s.mode)} · ${scopeLabel(s.scope)}`,'eyebrow'),h('h2','专注修炼'),el('span',`${s.completed.length} 已完成 · ${s.queue.length-s.index} 题剩余`,'tiny'));const t=div();if(s.journeyStage)info.append(p(`今日综合学习 · ${JOURNEY_LABELS[s.journeyStage]} · 正向累计 ${fmtTime(journeyElapsedMs())}`,'tiny'));const timer=h('div',fmtTime(s.journeyStage?journeyElapsedMs():s.activeMs),'timer');timer.id='timer';t.append(timer,el('div',`正向计时 · 参考 ${s.dueGoal} 分钟，不强制结束`,'time-goal'));head.append(info,t);return head;}
 function renderPractice(){const s=data.activeSession;if(!s){setPage('home');return;}const item=currentItem();if(s.journeyStage==='listening'&&!s.sentenceStyle)s.sentenceStyle='listening';const outer=section();if(s.journeyStage)outer.append(renderJourneyFlowRibbon(s.journeyStage));if(item&&!s.step)triggerAutoPlayIfEnabled(`practice:${item.id}`,item.target||item.text,item.audioUrl);outer.append(practiceTop(s));const progress=div('bar-track');const fill=div('bar-fill');fill.id='timer-bar';fill.style.width=`${Math.min(100,(s.journeyStage?journeyElapsedMs():s.activeMs)/(s.dueGoal*60000)*100)}%`;progress.append(fill);outer.append(progress);
+if(s.journeyStage==='sentences'&&s.index===0){
+  const phBridge=div('p2-phonics-bridge-banner');
+  phBridge.append(
+    el('span','🔤 P2 句前口腔热身（推荐每 3–7 天 1 次，10–15 分钟）：先练音标锚点与多音色辨音，再做句子模仿效果翻倍。','tiny'),
+    btn('打开伴学拼读/HVPT →',()=>{companionMainTab='review';companionReviewTab='hvpt';setPage('companion');},'btn ghost small-btn')
+  );
+  outer.append(phBridge);
+}
 const lastJourneyStage=Boolean(s.journeyStage&&data.dailyJourney?.index===data.dailyJourney.steps.length-1);outer.append(lines(btn(s.running?'暂停':'继续',()=>{if(s.running){pauseSession();render();}else resumeSession();},'btn'),btn(s.journeyStage?'提前结束本模块':'结束训练',()=>{if(s.journeyStage&&s.index<s.queue.length&&!confirm('本模块还有未完成题目。提前结束会记录为部分完成并进入下一模块，确定吗？'))return;finishSession();},'btn danger'),btn('返回首页',()=>setPage('home'),'btn ghost')));
 if(!s.running){outer.append(h('h3','训练已暂停'),p('计时已停止。准备好后点击“继续”。','subtle'));app.append(outer);return;}
 if(!item){outer.append(h('h3','当前范围已完成'),p(s.journeyStage?(lastJourneyStage?'全部模块已完成，可以查看综合战报。':'本模块已完成，可以继续下一模块。'):'可以结束训练并查看战报，也可以导入更多材料。','subtle'),lines(btn(s.journeyStage?(lastJourneyStage?'完成并查看综合战报':'保存并继续下一模块'):'完成并查看战报',finishSession,'btn primary')));app.append(outer);return;}
@@ -4866,6 +4901,92 @@ function exportReportMarkdown(report){const x=reportFor(report);if(!x)return not
 function markReportExported(report){const x=data.reports?.find(r=>r.report_id===report.report_id);if(x&&x.sync_status==='NOT_SUBMITTED'){x.sync_status='EXPORTED';save();}}
 async function copyReport(report){const x=reportFor(report);if(!x)return notify('请先完成一次训练，再复制修炼战报。');const text=battleReportMarkdown(x);try{await navigator.clipboard.writeText(text);markReportExported(x);notify('战报已复制，可以打开 ChatGPT 粘贴。');}catch{const area=textarea(text,'');area.style.position='fixed';area.style.left='-9999px';document.body.append(area);area.select();const ok=document.execCommand('copy');area.remove();if(ok){markReportExported(x);notify('战报已复制。');}else notify('复制不可用，请改用下载 Markdown。');}}
 async function shareReport(report){const x=reportFor(report);if(!x)return notify('请先完成一次训练，再分享修炼战报。');const text=battleReportMarkdown(x);if(!navigator.share){notify('系统分享不可用，请使用复制战报或下载 Markdown。');return;}try{await navigator.share({title:'English Cultivation Battle Report',text});markReportExported(x);notify('分享菜单已打开；如果有 ChatGPT，请选择它。');}catch(err){if(err?.name!=='AbortError')notify('无法打开分享菜单，请使用复制战报。');}}
+function gatherStageAnchors(completedStage) {
+  const j = data?.dailyJourney;
+  const out = [];
+  if (completedStage === 'sentences' || completedStage === 'listening') {
+    const sessIds = new Set(j?.sessionIds || []);
+    const atts = (data.attempts || []).filter(a => sessIds.has(a.sessionId));
+    for (const a of atts.slice(-3)) {
+      const it = (data.items || []).find(x => x.id === a.itemId);
+      if (it) out.push({ title: it.target || it.text, note: it.meaningZh || it.englishMeaning || '保持整句节奏与重音搭配' });
+    }
+  } else if (completedStage === 'speech') {
+    for (const sp of (j?.speechAttempts || []).slice(-2)) {
+      out.push({ title: sp.title || '演讲段落', note: '聚焦刚才的 2–3 个高分连接词与口语停顿节奏' });
+    }
+  } else if (completedStage === 'complexLab') {
+    for (const ent of (data.complexLabProgress?.entries || []).slice(-3)) {
+      out.push({ title: ent.frame || '高分复杂句骨架', note: ent.sentence || '用自己的已学词汇套入该从句骨架' });
+    }
+  }
+  return out;
+}
+function dismissStageGateAndContinue() {
+  const j = data?.dailyJourney;
+  if (j && pendingStageGate) {
+    j.dismissedStageGates = [...new Set([...(j.dismissedStageGates || []), `${j.id}:${pendingStageGate.completedStage}->${pendingStageGate.nextStage}`])];
+  }
+  if (stageGateRestTimer) { clearInterval(stageGateRestTimer); stageGateRestTimer = null; }
+  pendingStageGate = null;
+  stageGateRevealed = false;
+  stageGateRestSec = 0;
+  if (save()) beginJourneyStage();
+}
+function renderStageSummary() {
+  const j = data?.dailyJourney;
+  if (!j || !pendingStageGate) { setPage('home'); return; }
+  const { completedStage, nextStage } = pendingStageGate;
+  const doneLabel = JOURNEY_LABELS[completedStage] || completedStage;
+  const nextLabel = JOURNEY_LABELS[nextStage] || nextStage;
+  const prompts = {
+    sentences: '不看屏幕，口头回忆刚才练过的 2 个核心搭配或句型骨架，并想一句可以用在雅思口语里的例句。',
+    listening: '闭眼回想刚才听写时最容易听漏或连读吞音的 1–2 处词块，小声跟读一遍。',
+    speech: '不看原稿，用 15 秒说出刚才演讲段落的核心论点 + 2 个高分连接词。',
+    complexLab: '脱离提示词，快速口头造 1 句刚才练过的复杂句骨架（如让步/条件/定语从句）。',
+  };
+  const anchors = gatherStageAnchors(completedStage);
+  const card = section('stage-consolidation-card');
+  card.append(
+    renderJourneyFlowRibbon(completedStage),
+    el('div', `P1 阶段巩固小结 · ${doneLabel} → ${nextLabel}`, 'eyebrow'),
+    h('h1', `「${doneLabel}」已完成 · 30–60 秒巩固缓冲`),
+    p(prompts[completedStage] || '用 30 秒主动回忆刚才的核心收获，再进入下一模块。', 'lead')
+  );
+  const acts = lines(
+    btn(stageGateRevealed ? '🙈 收起刚才练过的锚点' : '👁️ 查看刚才真实练过的锚点（解释反馈）', () => {
+      stageGateRevealed = !stageGateRevealed;
+      render();
+    }, 'btn secondary'),
+    btn(stageGateRestSec > 0 ? `🌿 静默巩固中（${stageGateRestSec}s）` : '🌿 开启 15 秒闭眼静默缓冲', () => {
+      if (stageGateRestTimer) return;
+      stageGateRestSec = 15;
+      stageGateRestTimer = setInterval(() => {
+        stageGateRestSec = Math.max(0, stageGateRestSec - 1);
+        if (stageGateRestSec === 0) {
+          clearInterval(stageGateRestTimer);
+          stageGateRestTimer = null;
+          notify('✨ 15 秒静默巩固完成，大脑已清空残留，继续下一关！');
+        }
+        if (page === 'stageSummary') render();
+      }, 1000);
+      render();
+    }, 'btn ghost'),
+    btn(`▶ 进入下一关（${nextLabel}）`, dismissStageGateAndContinue, 'btn primary')
+  );
+  card.append(acts);
+  if (stageGateRevealed) {
+    const revBox = section('panel soft');
+    revBox.append(el('div', '本阶段真实训练锚点', 'eyebrow'));
+    if (anchors.length) {
+      anchors.forEach(a => revBox.append(p(`• **${a.title}**：${a.note}`, 'tiny')));
+    } else {
+      revBox.append(p('• 本阶段已完成，建议直接闭眼回忆 2 个刚才印象最深的表达后进入下一关。', 'tiny'));
+    }
+    card.append(revBox);
+  }
+  app.append(card);
+}
 function renderSummary(){const x=reportFor();if(!x){setPage('home');return;}app.append(el('div','修炼战报 · BATTLE REPORT','eyebrow'),h('h1','本次修炼完成'),renderGritQuoteBanner('complete',(data.reports?.length||0)),p('基于本机真实训练记录生成。','lead'));
 const cue=buildEndOfDayContinuationCue(data);
 const cueCard=div('continuation-cue-card');
@@ -5254,6 +5375,34 @@ function renderVocabularyStage(){
     }
   }
   const allMistakes=[...mistakeMap.values()];
+  const ret85 = (data.settings?.backlogRetentionMode || '85') === '85';
+  const coreTasksCount = tasks.filter(t => t.isReviewMistake || t.batchGroup === 'core' || t.priorityTier === 'T0' || t.priorityTier === 'T1').length;
+  const leechTasksCount = tasks.filter(t => t.priorityTier === 'T0' || (t.lapses || 0) >= 2).length;
+  const triageBar = div('vocab-triage-bar');
+  triageBar.append(
+    el('span', '✓ 单轮答对 1 次即出栈 · 双速分流', 'badge'),
+    lines(
+      btn(`全部待练 (${tasks.length})`, () => { vocabTriageFilter = 'all'; render(); }, vocabTriageFilter === 'all' ? 'btn primary small-btn' : 'btn ghost small-btn'),
+      coreTasksCount ? btn(`🌅 核心抢救 (${coreTasksCount})`, () => {
+        vocabTriageFilter = 'core';
+        const idxCore = tasks.findIndex((t, i) => i >= j.vocabularyIndex && (t.isReviewMistake || t.batchGroup === 'core' || t.priorityTier === 'T0' || t.priorityTier === 'T1'));
+        if (idxCore !== -1) j.vocabularyIndex = idxCore;
+        render();
+      }, vocabTriageFilter === 'core' ? 'btn primary small-btn' : 'btn ghost small-btn') : el('span', ''),
+      leechTasksCount ? btn(`🚑 顽固急救 (${leechTasksCount})`, () => {
+        vocabTriageFilter = 'leech';
+        const idxLeech = tasks.findIndex((t, i) => i >= j.vocabularyIndex && (t.priorityTier === 'T0' || (t.lapses || 0) >= 2));
+        if (idxLeech !== -1) j.vocabularyIndex = idxLeech;
+        render();
+      }, vocabTriageFilter === 'leech' ? 'btn primary small-btn' : 'btn ghost small-btn') : el('span', ''),
+      btn(ret85 ? '⚙️ 保留率 85%（清积压省时）' : '⚙️ 保留率 90%（标准稳固）', () => {
+        data.settings.backlogRetentionMode = ret85 ? '90' : '85';
+        save();
+        notify(data.settings.backlogRetentionMode === '85' ? '已切至 85% 抗积压模式：优先保住核心高频词净留存。' : '已切回 90% 标准稳固模式。');
+        render();
+      }, ret85 ? 'btn secondary small-btn' : 'btn ghost small-btn')
+    )
+  );
   const commuteBar=div('vocab-commute-bar');
   const batchLeft=vocabBatchTargetCount?Math.max(0,vocabBatchTargetCount-j.vocabularyIndex):Math.max(0,tasks.length-j.vocabularyIndex);
   commuteBar.append(
@@ -5283,7 +5432,7 @@ function renderVocabularyStage(){
       },'btn ghost small-btn'):el('span','')
     )
   );
-  box.append(topBar,barTrack,commuteBar);
+  box.append(topBar,barTrack,triageBar,commuteBar);
   if(vocabMistakeDrawerOpen&&allMistakes.length){
     const mBox=section('vocab-mistake-drawer');
     mBox.append(el('div',`🔁 历史错题回顾（累计 ${allMistakes.length} 词 · 点词即读发音）`,'eyebrow'));
@@ -6086,7 +6235,15 @@ function renderComplexImitationPage() {
   topBar.append(
     btn('← 返回首页', () => setPage('home'), 'btn ghost small-btn'),
     btn('🎙 回演讲室', () => setPage('speech'), 'btn ghost small-btn'),
-    el('span', `今日已练熟 ${getComplexLabTodayCount()} 句`, 'badge')
+    el('span', `今日已练熟 ${getComplexLabTodayCount()} 句`, 'badge'),
+    btn(complexInterleaveMode ? '🔀 语法交错:开' : '🔀 语法交错:关', () => {
+      complexInterleaveMode = !complexInterleaveMode;
+      if (complexInterleaveMode) {
+        complexFrameFilter = 'all';
+        notify('🔀 已开启 P2 语法对比交错：混合练习让步/条件/定语从句骨架，防止单一句型麻木。');
+      }
+      render();
+    }, complexInterleaveMode ? 'btn secondary small-btn' : 'btn ghost small-btn')
   );
   if (data?.dailyJourney && !data.dailyJourney.finishedAt) {
     app.append(renderJourneyFlowRibbon('complexLab'));
@@ -7416,7 +7573,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 
-// ===== v20.4.9 Adaptive Paper-Companion Lab =====
+// ===== v20.5.0 Adaptive Paper-Companion Lab =====
 function ensureCompanionState() {
   if (!data.companionState || typeof data.companionState !== 'object') {
     data.companionState = { activeModuleId: '', customModules: [], progress: {} };
