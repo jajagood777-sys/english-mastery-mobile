@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { computeStateProgressScore, pickNewerStateSnapshot } from '../state-mirror.mjs';
 
-test('v20.4.9 pickNewerStateSnapshot recovers newer IndexedDB mirror when same-journey localStorage rolls back or wipes', () => {
+test('v20.5.0 pickNewerStateSnapshot recovers newer IndexedDB mirror when same-journey localStorage rolls back or wipes', () => {
   const staleLocal = { stateRevision: 12, attempts: [{ id: 'a1' }], vocabularyAttempts: [], sessions: [], dailyJourney: { id: 'j-today', vocabularyIndex: 0, index: 0 } };
   const newerIdb = { stateRevision: 28, attempts: [{ id: 'a1' }, { id: 'a2' }], vocabularyAttempts: [{ id: 'v1' }], sessions: [{ id: 's1' }], dailyJourney: { id: 'j-today', vocabularyIndex: 25, index: 2 } };
   assert.ok(computeStateProgressScore(newerIdb) > computeStateProgressScore(staleLocal));
@@ -12,7 +12,7 @@ test('v20.4.9 pickNewerStateSnapshot recovers newer IndexedDB mirror when same-j
   assert.equal(pickNewerStateSnapshot({ stateRevision: 0, attempts: [], dailyJourney: null, dailyPack: null }, newerIdb), 'idb');
 });
 
-test('v20.4.9 protects distinct localStorage dailyJourney.id (legacy Safari recovery / backup import) and counts spelling progress', () => {
+test('v20.5.0 protects distinct localStorage dailyJourney.id (legacy Safari recovery / backup import) and counts spelling progress', () => {
   const legacyLocal = {
     stateRevision: 0,
     attempts: [],
@@ -27,7 +27,7 @@ test('v20.4.9 protects distinct localStorage dailyJourney.id (legacy Safari reco
   assert.equal(pickNewerStateSnapshot(legacyLocal, finishedIdb), 'local');
 });
 
-test('v20.4.9 app.js and sw.js integrate IndexedDB dual-write mirror and controllerchange pre-flush', () => {
+test('v20.5.0 app.js and sw.js integrate IndexedDB dual-write mirror and controllerchange pre-flush', () => {
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(app, /mirrorStateToIdb/);

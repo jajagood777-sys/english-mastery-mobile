@@ -1637,7 +1637,7 @@ html[data-theme="night"] .daily-module-list {
 
 
 /* ==========================================================================
-   v20.4.9 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
+   v20.5.0 Apple HIG Minimal Craft · Calm Typography, Generous Whitespace & Tactile Polish
    Inspired by Apple iOS HIG, Things 3, Readwise Reader & Linear
    ========================================================================== */
 
@@ -3309,7 +3309,7 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
   opacity: 0.78;
 }
 
-/* ===== v20.4.9 Adaptive Paper-Companion Lab ===== */
+/* ===== v20.5.0 Adaptive Paper-Companion Lab ===== */
 .companion-hero { display: flex; flex-direction: column; gap: 10px; }
 .companion-paper-ref { font-size: 12px; color: var(--accent, #1e5f4b); font-weight: 600; background: rgba(30,95,75,0.08); padding: 6px 10px; border-radius: 10px; }
 .companion-switcher, .companion-block-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -3349,12 +3349,17 @@ body.sentence-focus-mode #reading-article p.reading-paragraph{line-height:1.95;f
 .companion-check-btn { justify-content: flex-start; text-align: left; width: 100%; }
 .companion-foot { display: flex; justify-content: space-between; margin-top: 8px; }
 
-/* v20.4.9 Companion per-block recording panel */
+/* v20.5.0 Companion per-block recording panel */
 .companion-record-wrap{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
 .companion-record-wrap .recording-panel{margin-top:8px;padding:12px;border-radius:14px;}
 
-/* v20.4.9 Companion 5-in-1 Review Suite */
+/* v20.5.0 Companion 5-in-1 Review Suite */
 .companion-mode-switch{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);}
 .companion-flash-card{background:var(--surface-soft,rgba(0,0,0,0.03));border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;display:flex;flex-direction:column;gap:10px;}
 .companion-flash-big{font-size:2.6rem;font-weight:800;letter-spacing:0.04em;text-align:center;padding:12px 0;}
 .chain-diff-mark{background:rgba(20,120,90,0.18);color:inherit;border-radius:4px;padding:0 3px;font-weight:800;}
+
+/* v20.5.0 P0/P1/P2 Flow Enhancements */
+.vocab-triage-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: rgba(15, 118, 110, 0.06); border: 1px solid rgba(15, 118, 110, 0.16); }
+.stage-consolidation-card { max-width: 680px; margin: 16px auto; }
+.p2-phonics-bridge-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.22); }

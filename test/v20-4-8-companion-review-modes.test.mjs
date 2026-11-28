@@ -13,7 +13,7 @@ import {
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
-test('v20.4.9 PHONICS_DAY_01_MODULE includes all 5 review modes and every review/HVPT MP3 exists on disk', () => {
+test('v20.5.0 PHONICS_DAY_01_MODULE includes all 5 review modes and every review/HVPT MP3 exists on disk', () => {
   const rs = PHONICS_DAY_01_MODULE.reviewSuite;
   assert.ok(rs?.gpcFlash?.visualCards?.length >= 8);
   assert.ok(rs?.gpcFlash?.auditoryCards?.length >= 6);
@@ -36,7 +36,7 @@ test('v20.4.9 PHONICS_DAY_01_MODULE includes all 5 review modes and every review
   }
 });
 
-test('v20.4.9 Error Bank requires 2 consecutive clean passes to clear and feeds into Battle Report', () => {
+test('v20.5.0 Error Bank requires 2 consecutive clean passes to clear and feeds into Battle Report', () => {
   const prog = { errorBank: {}, hvptResults: { 'hv-01': { picked: 'sot', correct: false }, 'hv-02': { picked: 'sot', correct: true } }, flashDoneIds: ['vf-a'], chainDoneIds: ['wc-1'], microDemoDoneIds: ['md-1'] };
   upsertCompanionErrorBank(prog, { id: 'hv-01', label: 'sat', ipa: '/sæt/', source: 'hvpt' });
   assert.equal(collectCompanionErrorBank(prog).open.length, 1);
@@ -46,7 +46,7 @@ test('v20.4.9 Error Bank requires 2 consecutive clean passes to clear and feeds 
   assert.equal(collectCompanionErrorBank(prog).open.length, 0, '2 consecutive passes should clear');
   assert.equal(collectCompanionErrorBank(prog).cleared.length, 1);
 
-  const rep = buildCompanionBattleReport({ module: PHONICS_DAY_01_MODULE, progress: prog, recordings: [], appVersion: '20.4.9' });
+  const rep = buildCompanionBattleReport({ module: PHONICS_DAY_01_MODULE, progress: prog, recordings: [], appVersion: '20.5.0' });
   assert.equal(rep.summary.hvpt_total, 2);
   assert.equal(rep.summary.hvpt_correct, 1);
   assert.equal(rep.summary.error_bank_cleared, 1);
@@ -55,7 +55,7 @@ test('v20.4.9 Error Bank requires 2 consecutive clean passes to clear and feeds 
   assert.match(md, /已清零 1/);
 });
 
-test('v20.4.9 app.js renders all 5 review modes and includes companion recordings in main handover export', () => {
+test('v20.5.0 app.js renders all 5 review modes and includes companion recordings in main handover export', () => {
   const src = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
   assert.match(src, /全能复习（5 模式）/);
   assert.match(src, /双向快闪/);
