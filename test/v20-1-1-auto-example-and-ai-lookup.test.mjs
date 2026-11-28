@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-test('v20.4.4 defines captureCurrentSelectionText and wires quick-lookup chips & backdrop close in AI lexicon drawer', () => {
+test('v20.4.5 defines captureCurrentSelectionText and wires quick-lookup chips & backdrop close in AI lexicon drawer', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
@@ -14,7 +14,7 @@ test('v20.4.4 defines captureCurrentSelectionText and wires quick-lookup chips &
   assert.match(cssSrc, /\.lexicon-input-row/);
 });
 
-test('v20.4.4 auto-reads example sentence after Smart Vocab choice and adds clickable replay + 1-tap lookup', () => {
+test('v20.4.5 auto-reads example sentence after Smart Vocab choice and adds clickable replay + 1-tap lookup', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
