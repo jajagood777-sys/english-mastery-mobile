@@ -9,7 +9,7 @@ import {
   parseHarvestAiGlossResponse
 } from '../reading-harvest.mjs';
 
-test('v20.4.1: splitSentenceWithHighlight bolds exact target word inside original sentence', () => {
+test('v20.4.2: splitSentenceWithHighlight bolds exact target word inside original sentence', () => {
   const segs = splitSentenceWithHighlight('Nadia was an apprentice at the botanical station.', 'botanical');
   const hit = segs.find(s => s.highlight);
   assert.ok(hit, 'target word must be highlighted');
@@ -17,7 +17,7 @@ test('v20.4.1: splitSentenceWithHighlight bolds exact target word inside origina
   assert.equal(segs.map(s => s.text).join(''), 'Nadia was an apprentice at the botanical station.');
 });
 
-test('v20.4.1: buildHarvestQuizOptions returns 3 unique deterministic options including target', () => {
+test('v20.4.2: buildHarvestQuizOptions returns 3 unique deterministic options including target', () => {
   const marks = [
     { wordText: 'oasis' },
     { wordText: 'botanical' },
@@ -32,7 +32,7 @@ test('v20.4.1: buildHarvestQuizOptions returns 3 unique deterministic options in
   assert.equal(new Set(opts1.map(x => x.toLowerCase())).size, 3);
 });
 
-test('v20.4.1: parseHarvestAiGlossResponse extracts ZH, EN, and CHUNK cleanly', () => {
+test('v20.4.2: parseHarvestAiGlossResponse extracts ZH, EN, and CHUNK cleanly', () => {
   const prompt = buildHarvestAiGlossPrompt('gauge', 'The gauge read slightly low.');
   assert.match(prompt, /ZH:/);
   const parsed = parseHarvestAiGlossResponse('ZH: 仪表、测量计\nEN: an instrument for measuring pressure or level\nCHUNK: pressure gauge');
@@ -41,7 +41,7 @@ test('v20.4.1: parseHarvestAiGlossResponse extracts ZH, EN, and CHUNK cleanly', 
   assert.equal(parsed.chunk, 'pressure gauge');
 });
 
-test('v20.4.1: app.js and styles.css wire Encode-First Word Harvest 2.0 and clear triage cards', () => {
+test('v20.4.2: app.js and styles.css wire Encode-First Word Harvest 2.0 and clear triage cards', () => {
   const appSrc = fs.readFileSync(path.join(process.cwd(), 'app.js'), 'utf8');
   const cssSrc = fs.readFileSync(path.join(process.cwd(), 'styles.css'), 'utf8');
   assert.match(appSrc, /fetchHarvestInlineGloss/);

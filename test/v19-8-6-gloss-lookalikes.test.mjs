@@ -9,7 +9,7 @@ import {
   compressEnglishGloss
 } from '../vocab.mjs';
 
-test('v20.4.1 resolveOptionMicroGloss returns concise L2 gloss from option.gloss, builtin, or archive (never for full definition options)', () => {
+test('v20.4.2 resolveOptionMicroGloss returns concise L2 gloss from option.gloss, builtin, or archive (never for full definition options)', () => {
   const archive = [
     { id: 'W1', target: 'driftwood', definition_en: 'Pieces of wood floating on the sea or washed onto the shore.', example: 'Workers cleared driftwood.' }
   ];
@@ -22,7 +22,7 @@ test('v20.4.1 resolveOptionMicroGloss returns concise L2 gloss from option.gloss
   assert.equal(/\b(?:or|and|the)$/.test(compressEnglishGloss('To pull or twist something suddenly and')), false);
 });
 
-test('v20.4.1 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypocrisy, pack lookalikes, and archive similarity', () => {
+test('v20.4.2 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypocrisy, pack lookalikes, and archive similarity', () => {
   const la1 = findLookAlikeWords({ target: 'acquaintance', lookalikes: [] }, []);
   assert.ok(la1.some((x) => x.word === 'apprentice'), 'should surface apprentice for acquaintance');
 
@@ -37,13 +37,13 @@ test('v20.4.1 findLookAlikeWords surfaces acquaintance/apprentice, prophecy/hypo
   assert.equal(la3[0].gloss, 'guarded room');
 });
 
-test('v20.4.1 highlightLookAlikeDiff isolates differing core letters cleanly', () => {
+test('v20.4.2 highlightLookAlikeDiff isolates differing core letters cleanly', () => {
   const segs = highlightLookAlikeDiff('acquaintance', 'apprentice');
   assert.equal(segs.map((s) => s.text).join(''), 'apprentice');
   assert.ok(segs.some((s) => s.diff), 'should mark differing segments');
 });
 
-test('v20.4.1 normalizeVocabularyPractice preserves opt.gloss and task.lookalikes, and app.js gates both behind post-answer prior', () => {
+test('v20.4.2 normalizeVocabularyPractice preserves opt.gloss and task.lookalikes, and app.js gates both behind post-answer prior', () => {
   const res = normalizeVocabularyPractice([
     {
       id: 'V1',

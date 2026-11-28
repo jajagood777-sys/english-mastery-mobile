@@ -1,4 +1,4 @@
-const CACHE='english-cultivation-static-v20.4.1';
+const CACHE='english-cultivation-static-v20.4.2';
 const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './discourse.mjs',
   './immersion.mjs',
@@ -10,13 +10,14 @@ const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './motivation.mjs',
   './ai-tutor.mjs','./learning-engines.mjs','./skills-studio.mjs','./continuity-os.mjs','./index.html','./styles.css','./app.js','./scroll-stability.mjs','./neural-tts.mjs','./speech-clips.mjs','./release-safety.mjs','./core.mjs','./english-first.mjs','./recordings.mjs','./state-mirror.mjs','./fsrs-engine.mjs','./sla-enhancers.mjs','./complex-imitation.mjs','./reading-harvest.mjs','./pipeline-mastery.mjs','./visuals.mjs','./manifest.webmanifest','./assets/icon.svg','./assets/visuals/calligraphy-01.webp','./assets/visuals/calligraphy-02.webp','./assets/visuals/archive-03.webp','./assets/visuals/calligraphy-04.webp','./assets/visuals/quote-05.webp','./assets/visuals/archive-06.webp','./assets/visuals/portrait-07.webp','./assets/visuals/portrait-08.webp','./assets/visuals/hero-09.webp'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
+self.addEventListener('message',event=>{if(event.data&&event.data.type==='SKIP_WAITING')self.skipWaiting();});
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('english-cultivation-static-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
   const url=new URL(event.request.url);
   if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
   // Never double-cache large ONNX/WASM assets in the app shell cache.
   if(url.pathname.includes('/kokoro-preview/runtime/')||url.pathname.includes('/kokoro-preview/live.'))return;
-  // v20.4.1 iOS Safari HTTP 206 Byte-Range handler for offline cached audio
+  // v20.4.2 iOS Safari HTTP 206 Byte-Range handler for offline cached audio
   if (/\.(?:mp3|m4a|wav|aac)$/i.test(url.pathname) && event.request.headers.has('range')) {
     event.respondWith((async () => {
       const rangeHeader = event.request.headers.get('range') || '';
