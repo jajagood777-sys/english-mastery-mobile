@@ -11,7 +11,7 @@ import {
 } from '../reading-harvest.mjs';
 import { mergeReadingMarks } from '../core.mjs';
 
-test('v20.4.7 reading-harvest builds contextual cloze, resolves offline gloss, and tracks 3-way triage', () => {
+test('v20.4.9 reading-harvest builds contextual cloze, resolves offline gloss, and tracks 3-way triage', () => {
   assert.equal(HARVEST_TRIAGE_TIERS.length, 3);
   const cloze = buildContextualCloze('A calm sense of purpose seemed to pervade the quiet study hall.', 'pervade');
   assert.equal(cloze, 'A calm sense of purpose seemed to ______ the quiet study hall.');
@@ -30,7 +30,7 @@ test('v20.4.7 reading-harvest builds contextual cloze, resolves offline gloss, a
   assert.match(card.senseEn, /spread through/i);
 });
 
-test('v20.4.7 summarizeHarvestProgress and filterMarksForTomorrowPack exclude passive/drop and keep promoted/legacy marks', () => {
+test('v20.4.9 summarizeHarvestProgress and filterMarksForTomorrowPack exclude passive/drop and keep promoted/legacy marks', () => {
   const marks = [
     { id: '1', wordText: 'pervade', harvestTier: 'promote', harvestRecalled: true },
     { id: '2', wordText: 'insulated', harvestTier: 'passive', harvestRecalled: false },
@@ -51,7 +51,7 @@ test('v20.4.7 summarizeHarvestProgress and filterMarksForTomorrowPack exclude pa
   assert.deepEqual(tomorrow.map(m => m.wordText), ['pervade', 'bracket']);
 });
 
-test('v20.4.7 mergeReadingMarks preserves harvestTier, harvestRecalled, and harvestedAt across backup merge', () => {
+test('v20.4.9 mergeReadingMarks preserves harvestTier, harvestRecalled, and harvestedAt across backup merge', () => {
   const merged = mergeReadingMarks(
     [{
       readingId: 'r1',
@@ -77,7 +77,7 @@ test('v20.4.7 mergeReadingMarks preserves harvestTier, harvestRecalled, and harv
   assert.equal(merged[0].harvestedAt, '2026-11-26T08:00:00.000Z');
 });
 
-test('v20.4.7 app.js, styles.css, and sw.js wire Word Harvest Bridge cleanly', () => {
+test('v20.4.9 app.js, styles.css, and sw.js wire Word Harvest Bridge cleanly', () => {
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const cssSrc = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
@@ -88,5 +88,5 @@ test('v20.4.7 app.js, styles.css, and sw.js wire Word Harvest Bridge cleanly', (
   assert.match(cssSrc, /\.reading-harvest-bridge/);
   assert.match(cssSrc, /\.harvest-triage-bar/);
   assert.match(swSrc, /\.\/reading-harvest\.mjs/);
-  assert.match(swSrc, /english-cultivation-static-v20\.4\.7/);
+  assert.match(swSrc, /english-cultivation-static-v20\.4\.9/);
 });
