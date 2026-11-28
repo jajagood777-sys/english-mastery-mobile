@@ -128,7 +128,25 @@ export function buildHomeResumeBanner(data = {}) {
         lastLeaveReceipt = `上次离开前：初答已保存${lastAttempt.recordingIds?.length ? '，录音仍在本机' : ''}，重答尚未提交。`;
       }
     } else if (stage === 'vocabulary') {
-      primaryLabel = `继续词汇阶段 · 第 ${(Number(j.vocabIndex) || 0) + 1} 题`;
+      const vTasks = Array.isArray(pack?.vocabularyPractice) ? pack.vocabularyPractice : [];
+      const attemptedIds = new Set([
+        ...(Array.isArray(j.vocabularyAttempts) ? j.vocabularyAttempts : []),
+        ...(Array.isArray(data?.vocabularyAttempts) ? data.vocabularyAttempts.filter(r => r && r.packId === j.packId) : [])
+      ].map(r => r?.taskId).filter(Boolean));
+      let nextIdx = Math.max(0, Number(j.vocabularyIndex) || 0);
+      if (vTasks.length) {
+        const firstUnanswered = vTasks.findIndex((t, i) => i >= nextIdx && !attemptedIds.has(t?.id));
+        if (firstUnanswered >= 0) nextIdx = firstUnanswered;
+        else if (vTasks.every(t => attemptedIds.has(t?.id))) nextIdx = vTasks.length;
+      }
+      primaryLabel = vTasks.length && nextIdx >= vTasks.length
+        ? '完成词汇收尾 → 进入下一模块'
+        : `继续词汇阶段 · 第 ${nextIdx + 1} 题`;
+
+    } else if (stage === 'speech') {
+      primaryLabel = '继续演讲跟读';
+    } else if (stage === 'complexLab') {
+      primaryLabel = '继续复杂句仿说';
     } else if (stage === 'sentences') {
       primaryLabel = '继续句子与听力训练';
     }

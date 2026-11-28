@@ -1,10 +1,11 @@
-const CACHE='english-cultivation-static-v20.4.2';
+const CACHE='english-cultivation-static-v20.4.4';
 const ASSETS=['./','./vocab.mjs','./cdtl.mjs',
   './discourse.mjs',
   './immersion.mjs',
   './mastery-os.mjs',
   './radio.mjs',
   './radio-offline.mjs','./ux-100.mjs',
+  './cross-link.mjs',
   './studio.mjs',
   './handover.mjs',
   './motivation.mjs',
@@ -17,7 +18,7 @@ self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
   // Never double-cache large ONNX/WASM assets in the app shell cache.
   if(url.pathname.includes('/kokoro-preview/runtime/')||url.pathname.includes('/kokoro-preview/live.'))return;
-  // v20.4.2 iOS Safari HTTP 206 Byte-Range handler for offline cached audio
+  // v20.4.4 iOS Safari HTTP 206 Byte-Range handler for offline cached audio
   if (/\.(?:mp3|m4a|wav|aac)$/i.test(url.pathname) && event.request.headers.has('range')) {
     event.respondWith((async () => {
       const rangeHeader = event.request.headers.get('range') || '';

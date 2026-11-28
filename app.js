@@ -33,6 +33,7 @@ import {englishDefinitionFor,englishSpellingCue,maskSpellingTarget,englishWordHi
 import {VISUAL_ASSETS,VISUAL_ASSET_NOTICE,visualAsset} from './visuals.mjs';
 import {unpackSpeechZip,importSpeechClips,createClipPlayer,splitSpeechSegments,getSpeechClip,getSpeechClipRecord,hasLocalSpeechClip,deleteSpeechClip,putRawAudioBlob,getRawAudioBlob,getRawAudioRecord,updateRawAudioSegments,deleteRawAudioBlob,hasRawAudioBlob,speechTextHash,pruneOldPackSpeechClips} from './speech-clips.mjs';
 import {insertDictationAtCursor,buildWordDiffHighlight,buildHomeResumeBanner,buildEndOfDayContinuationCue,buildWeeklyThreePairHighlights,shouldHideVocabTargetHeader} from './ux-100.mjs';
+import {collectCrossModuleLexicon,matchCrossModuleWordsInText} from './cross-link.mjs';
 import {RADIO_SOURCE_LABELS,resolveRadioSourceLabel,episodeBookmarkKey,resolveVersionedBookmark,findSentenceStartForTime,searchEpisodeSegments,createRadioMoment,mergeRadioQueue,createEpisodeCoverageTracker,shouldTriggerCloudPreload,planRawAudioImport,reorderMyAudioTrack,renameMyAudioTrack,formatDurationZh,formatBytesHuman,formatRadioImportSummary,parseSubtitleText,findActiveSegmentIndex,shouldAutoPauseAfterQuestion,pairAudioAndSubtitleFiles,evaluateRadioPlaybackPolicy,resolveEpisodeByIdentity,naturalSortTracks,createUnclearMark,buildUnclearReplayQueue,computeScrubberUndoTarget,computeInterruptionResumeAction,computeCommuteReadiness} from './radio-offline.mjs';
 import {splitStudioSegments,isExtendedListening} from './studio.mjs';
 import {zipStore,handoverEntries,readZipStore,sha256Hex,describeHandoverRecordings,isSupportedSourcePackSchema} from './handover.mjs';
@@ -3133,7 +3134,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.2)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.4)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -4350,12 +4351,32 @@ function pauseJourneyVocabulary(){
   const j=data.dailyJourney;if(!j||!j.vocabularyRunning)return;
   accrueJourneyVocabulary();j.vocabularyRunning=false;j.vocabularyLastTick=null;save();
 }
+function findNextUnansweredVocabIndex(tasks, journey, globalAttempts = []) {
+  if (!Array.isArray(tasks) || !tasks.length) return 0;
+  const packId = journey?.packId || '';
+  const attempted = new Set([
+    ...(Array.isArray(journey?.vocabularyAttempts) ? journey.vocabularyAttempts : []),
+    ...(Array.isArray(globalAttempts) ? globalAttempts.filter(r => r && (!packId || r.packId === packId)) : [])
+  ].map(r => r?.taskId).filter(Boolean));
+  const cur = Math.max(0, Number.isInteger(journey?.vocabularyIndex) ? journey.vocabularyIndex : 0);
+  if (cur >= tasks.length) return tasks.length;
+  // Advance past any already-answered tasks from cur onward
+  for (let i = cur; i < tasks.length; i++) {
+    if (!attempted.has(tasks[i]?.id)) return i;
+  }
+  // If everything from cur..end is answered, check if any earlier task was missed
+  for (let i = 0; i < cur; i++) {
+    if (!attempted.has(tasks[i]?.id)) return i;
+  }
+  return tasks.length;
+}
 function beginJourneyStage(){
   const j=data.dailyJourney;if(!j||j.finishedAt)return;
   const stage=journeyStage();if(!stage)return finishDailyJourney();
   if(stage==='vocabulary'){
     const tasks=journeyVocabularyTasks();
     if(!tasks.length){j.completed.push({stage:'vocabulary',status:'skipped',count:0});j.index++;if(save())beginJourneyStage();return;}
+    j.vocabularyIndex=findNextUnansweredVocabIndex(tasks,j,data.vocabularyAttempts);
     j.vocabularyRunning=true;j.vocabularyLastTick=Date.now();
     if(save())setPage('vocabulary');
     return;
@@ -6106,6 +6127,7 @@ function renderComplexImitationLab({ standalone = false } = {}) {
 
   const card = section('complex-imitation-lab');
   const headTop = div('journey-flow-top');
+  const complexLinkStrip = renderCrossModuleLinkStrip(`${drill?.model||''} ${drill?.prompt||''} ${(linkedWords||[]).join(' ')}`, '本句', { fallbackTop: true });
   headTop.append(
     el('div', '🧩 口语复杂句仿说工坊 · COMPLEX IMITATION LAB', 'eyebrow'),
     standalone
@@ -6117,6 +6139,7 @@ function renderComplexImitationLab({ standalone = false } = {}) {
     h('h2', `${topic.label} · ${frame.label}`),
     p(frame.tip, 'tiny')
   );
+  if (complexLinkStrip) card.append(complexLinkStrip);
 
   // Top controls: topic select + 8-frame direct filter + next sentence + AI custom generator
   const ctrlRow = div('complex-lab-controls');
@@ -7021,6 +7044,40 @@ function renderReadingWordHarvestBridge(reading, marks) {
   return box;
 }
 
+function renderCrossModuleLinkStrip(sourceText, stageLabel = '本篇', { fallbackTop = false } = {}) {
+  try {
+    const lex = collectCrossModuleLexicon(data);
+    if (!lex.length) return null;
+    let hits = matchCrossModuleWordsInText(sourceText, lex, 10);
+    let isFallback = false;
+    if (!hits.length && fallbackTop) {
+      hits = lex.filter(x => x.priority >= 70).slice(0, 6);
+      isFallback = true;
+    }
+    if (!hits.length) return null;
+    const wrap = div('cross-link-strip');
+    const title = isFallback
+      ? `🔗 全流程联动 · 建议复用词汇（${hits.length}）`
+      : `🔗 全流程联动 · ${stageLabel}复现已学/核心词（${hits.length}）`;
+    wrap.append(el('div', title, 'cross-link-title'));
+    const row = div('cross-link-chips');
+    for (const item of hits) {
+      const chip = el('button', '', 'cross-link-chip');
+      chip.type = 'button';
+      chip.dataset.source = item.source || 'vocab';
+      chip.append(el('span', item.word, 'cross-link-word'), el('span', item.badge, 'cross-link-badge'));
+      chip.addEventListener('click', () => {
+        openAiLexiconDrawer(item.word);
+        try { speakEnglish(item.word); } catch {}
+      });
+      row.append(chip);
+    }
+    wrap.append(row);
+    return wrap;
+  } catch {
+    return null;
+  }
+}
 function renderReading(){
   const curRead=data.dailyPack?.readings?.[0];
   const knownSet=new Set([...(Array.isArray(data.masteredVocabWords)?data.masteredVocabWords:Object.keys(data.masteredVocabWords||{})),...Object.keys(data.fsrsState||{}),...(data.items||[]).filter(x=>x.kind==='word'&&x.status==='K').map(x=>x.target)]);
@@ -7043,6 +7100,7 @@ function renderReading(){
 const readingJourney=journeyStage()==='reading'?data.dailyJourney:null;
 if(readingJourney){app.append(renderJourneyFlowRibbon('reading'));const remaining=journeyReadings().filter(a=>!readingJourney.readingDoneIds.includes(a.id));if(remaining.length)selectedReadingId=remaining[0].id;const box=section('daily-journey-card');box.append(el('div','今日综合学习 · 第三模块','eyebrow'),h('h2','英文阅读'),p('正向计时，不强制结束；读完点击确认即可。','subtle'));const timer=el('div',fmtTime(journeyElapsedMs()),'timer');timer.id='journey-reading-timer';box.append(timer,p(`今日正向累计 · 阅读阶段 ${fmtTime(readingJourney.readingMs)} · 参考 ${readingJourney.targetMinutes} 分钟，不强制结束`,'tiny'));const recallActive=Boolean(readingJourney.readingRecallQueue?.length);box.append(lines(btn(readingJourney.readingRunning?'暂停阅读计时':'继续阅读计时',()=>{if(readingJourney.readingRunning){pauseJourneyReading();render();}else resumeJourneyReading();},'btn secondary'),btn(recallActive?'完成即时回忆后继续':remaining.length>1?'完成本篇，阅读下一篇':'完成阅读，进入下一模块',completeJourneyReading,'btn primary',!readingJourney.readingRunning||recallActive)));app.append(box);}
 if(!data.readings?.length){const empty=section();empty.append(h('h2','还没有阅读材料'),p('从资料库导入 TXT 或 Markdown 后，文章会出现在这里。','subtle'),lines(btn('打开资料库',()=>setPage('library'),'btn primary')));app.append(empty);return;}const list=section('reading-page');const select=el('select','','select');for(const reading of data.readings){const option=el('option',reading.title);option.value=reading.id;select.append(option);}select.value=selectedReadingId||data.readings[0].id;selectedReadingId=select.value;select.addEventListener('change',()=>{stopSpeech();selectedReadingId=select.value;selectedText='';selectedParagraphText='';selectedParagraphIndex=0;readingFocusSentenceIdx=0;render();});if(!readingJourney)list.append(field('选择文章',select));const reading=data.readings.find(x=>x.id===selectedReadingId)||data.readings[0];const paragraphs=readingParagraphs(reading.text);const rfSize=data.settings?.readingFontSize||'md';const article=div(`reading-article font-${rfSize}${readingBlurMode?' is-blind-blur':''}`);const scrollRibbon=div('reading-scroll-bar');const scrollFill=div('reading-scroll-fill');scrollRibbon.append(scrollFill);list.append(scrollRibbon);const syncReadScroll=()=>{if(!article.isConnected)return;const rect=article.getBoundingClientRect();const total=Math.max(1,article.offsetHeight-window.innerHeight*0.5);const pct=Math.max(0,Math.min(100,Math.round((-rect.top/total)*100)));scrollFill.style.width=`${pct}%`;};if(typeof window!=='undefined'){window.removeEventListener('scroll',window.__ydReadScroll);window.__ydReadScroll=syncReadScroll;window.addEventListener('scroll',syncReadScroll,{passive:true});}article.id='reading-article';const readingLabel=reading.sectionTitle?`${reading.storyTitle||reading.title} — ${reading.sectionTitle}`:reading.title;const rMetrics=analyzeReadingPassageMetrics(reading.text,readingJourney?.readingMs||0,[...(data.dailyPack?.vocabularyPractice||[]).map(t=>t.target),...todayPackItems().filter(i=>i.kind==='word').map(i=>i.target)]);article.append(h('h2',readingLabel),p(`来源：${reading.source||'本机导入'}${reading.sectionId?` · Section ${reading.sectionId}`:''} · 全文 ${rMetrics.wordCount} 词（预计 ${rMetrics.estimatedMinutesAt160Wpm} 分钟）${rMetrics.observedWpm?` · 实测配速 ~${rMetrics.observedWpm} WPM`:``}${rMetrics.matchedPackCount?` · 含今日核心词 ${rMetrics.matchedPackCount} 处（${rMetrics.matchedPackWords.slice(0,5).join(", ")}）`:``}`,'tiny reading-meta-line'));
+const readLinkStrip=renderCrossModuleLinkStrip(reading.text,'本文');if(readLinkStrip&&!readingPureBookMode)article.append(readLinkStrip);
 const totalSentences=readingSentenceFocusMode?paragraphs.reduce((acc,para)=>acc+splitReadingSentences(para).length,0):0;
 if(readingSentenceFocusMode&&totalSentences>0){
   readingFocusSentenceIdx=Math.max(0,Math.min(totalSentences-1,readingFocusSentenceIdx));
