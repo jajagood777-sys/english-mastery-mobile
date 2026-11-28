@@ -49,7 +49,7 @@ export async function importSpeechClips(files,{onProgress=()=>{}}={}){
     const coverage=byCategory[category]??={total:0,imported:0,missing:0};
     coverage.total++;
     const voice=item.voice||'af_heart';
-    if(!['af_heart','af_bella'].includes(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');
+    if(typeof voice!=='string'||!/^[A-Za-z0-9._+-]{2,64}$/.test(voice)||typeof item.text!=='string'||!item.text.trim())throw Error('音频清单包含无效文字或音色。');
     const rawFile=String(item.file||'').trim();
     if(rawFile.includes('..')||rawFile.includes('\\'))throw Error(`音频清单包含不安全文件名：${rawFile}`);
     const filename=rawFile.split('/').pop()||'';

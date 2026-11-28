@@ -3133,7 +3133,7 @@ function renderOfflineLexiconDrawer() {
   const panel = section("lexicon-drawer-panel");
   const head = div("journey-flow-top");
   head.append(
-    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.1)", "eyebrow"),
+    el("span", "🔍 AI 全英文词典与自由教练 · AI COACH (20.4.2)", "eyebrow"),
     btn("关闭 ✕", () => { invalidateAiDictRequest(); lexiconDrawerOpen = false; render(); }, "btn secondary small-btn")
   );
   const input = textInput(lexiconQuery, "长按选中页面单词后点「AI 查词」，或直接输入英文词/短语……");
@@ -3441,6 +3441,7 @@ function triggerAutoPlayIfEnabled(key, text, audioUrl = "") {
   }, 60);
 }
 function renderJourneyFlowRibbon(activeStage = "") {
+  ensureVocabularyInActiveJourney();
   const j = data?.dailyJourney;
   if (!j || j.finishedAt || !Array.isArray(j.steps) || !j.steps.length) return el("span", "");
   const bar = section("journey-flow-ribbon");
@@ -3605,12 +3606,23 @@ let lastInteractionTarget=null;
 // Capture the action before its button is removed by a same-page re-render.
 document.addEventListener('click',event=>{if(app.contains(event.target))lastInteractionTarget=event.target;},true);
 let pwaUpdateReady = false;
+let pwaUpdateReloading = false;
+function applyPendingPwaUpdate() {
+  try { save(); } catch {}
+  if (swWaitingWorker && typeof swWaitingWorker.postMessage === 'function') {
+    pwaUpdateReloading = true;
+    try { swWaitingWorker.postMessage({ type: 'SKIP_WAITING' }); } catch {}
+    setTimeout(() => { try { location.reload(); } catch {} }, 600);
+    return;
+  }
+  try { location.reload(); } catch {}
+}
 function renderPwaUpdateBanner() {
-  if (!pwaUpdateReady) return el('span', '');
+  if (!pwaUpdateReady && !swWaitingWorker) return el('span', '');
   const bar = div('pwa-update-banner');
   bar.append(
-    el('span', '✨ 新版本已就绪，刷新即可生效（学习记录与录音完整保留）', 'tiny'),
-    btn('立即刷新', () => { try { location.reload(); } catch {} }, 'btn primary small-btn')
+    el('span', '✨ 发现新版本，点此一键更新（学习记录与录音完整保留）', 'tiny'),
+    btn('一键更新', applyPendingPwaUpdate, 'btn primary small-btn')
   );
   return bar;
 }
@@ -4273,7 +4285,7 @@ function renderMore(){
 }
 
 
-const JOURNEY_LABELS={vocabulary:'触控词汇｜SMART VOCAB',words:'炼词',spelling:'炼字｜SPELLING FORGE',sentences:'炼句',reading:'阅读',listening:'听力',speech:'演讲跟读',transfer:'综合输出'};
+const JOURNEY_LABELS={vocabulary:'触控词汇｜SMART VOCAB',words:'炼词',spelling:'炼字｜SPELLING FORGE',sentences:'炼句',reading:'阅读',listening:'听力',speech:'演讲跟读',complexLab:'复杂句仿说',transfer:'综合输出'};
 function moduleForItem(item){return item.module==='listening'?'listening':item.kind==='word'?'words':'sentences';}
 function journeyVocabularyTasks(){return Array.isArray(data.dailyPack?.vocabularyPractice)?data.dailyPack.vocabularyPractice:[];}
 function journeyStages(){
@@ -4283,7 +4295,7 @@ function journeyStages(){
   const hasReading=(data.readings||[]).some(reading=>readingIds.has(reading.id));
   const hasVocab=journeyVocabularyTasks().length>0;
   const stages=[...(hasVocab?['vocabulary']:[]),'words','reading',...(data.dailyPack?.spellingTasks?.length?['spelling']:[]),'sentences','listening'].filter(stage=>stage==='vocabulary'?hasVocab:stage==='reading'?hasReading:stage==='spelling'?true:relevant.some(item=>moduleForItem(item)===stage));
-  if(journeySpeeches().length)stages.push('speech');
+  if(journeySpeeches().length){stages.push('speech');stages.push('complexLab');}
   if((data.dailyPack?.transferTasks||[]).length)stages.push('transfer');
   return stages;
 }
@@ -4305,6 +4317,14 @@ function ensureVocabularyInActiveJourney(){
     j.vocabularyIndex=Number(j.vocabularyIndex)||0;
     j.vocabularyAttempts=Array.isArray(j.vocabularyAttempts)?j.vocabularyAttempts:[];
     j.vocabularyMs=Number(j.vocabularyMs)||0;
+  }
+  const shouldIncludeComplexLab=journeySpeeches().length>0;
+  if(shouldIncludeComplexLab&&!j.steps.includes('complexLab')&&!(j.completed||[]).some(c=>c.stage==='complexLab')){
+    const speechIdx=j.steps.indexOf('speech');
+    const transferIdx=j.steps.indexOf('transfer');
+    const insertPos=speechIdx>=0?speechIdx+1:(transferIdx>=0?transferIdx:j.steps.length);
+    j.steps.splice(insertPos,0,'complexLab');
+    if(j.index>=insertPos)j.index++;
   }
 }
 function startDailyJourney(){
@@ -4346,6 +4366,7 @@ function beginJourneyStage(){
     if(!pending.length){j.completed.push({stage,status:'completed',count:j.speechDoneIds.length});j.index++;if(save())beginJourneyStage();return;}
     selectedSpeechId=pending[0].id;if(save())setPage('speech');return;
   }
+  if(stage==='complexLab'){if(save())setPage('complexLab');return;}
   if(stage==='transfer'){j.transferRunning=true;j.transferLastTick=Date.now();if(save())setPage('transfer');return;}
   if(stage==='reading'){
     const pending=journeyReadings().filter(article=>!j.readingDoneIds.includes(article.id));
@@ -6017,14 +6038,28 @@ function markComplexDrillMastered(drillId) {
   notify(already ? '这句已经在已练熟列表里啦，可点「换一句」继续冲刺！' : `✓ 已记入今日练熟（今日累计 ${todayCount} 句，已同步进战报）！`);
 }
 
+function completeComplexLabJourneyStage(skipped = false) {
+  const j = data?.dailyJourney;
+  if (!j || j.finishedAt || journeyStage() !== 'complexLab') {
+    setPage('home');
+    return;
+  }
+  j.completed.push({ stage: 'complexLab', status: skipped ? 'skipped' : 'completed', count: getComplexLabTodayCount() });
+  j.index++;
+  if (save()) beginJourneyStage();
+}
 function renderComplexImitationPage() {
   stopActiveAudio();
+  const inJourneyStage = journeyStage() === 'complexLab';
   const topBar = div('v20-commute-bar');
   topBar.append(
     btn('← 返回首页', () => setPage('home'), 'btn ghost small-btn'),
     btn('🎙 回演讲室', () => setPage('speech'), 'btn ghost small-btn'),
     el('span', `今日已练熟 ${getComplexLabTodayCount()} 句`, 'badge')
   );
+  if (data?.dailyJourney && !data.dailyJourney.finishedAt) {
+    app.append(renderJourneyFlowRibbon('complexLab'));
+  }
   app.append(
     topBar,
     el('div', '独立专练 · COMPLEX IMITATION LAB 2.0', 'eyebrow'),
@@ -6032,6 +6067,16 @@ function renderComplexImitationPage() {
     p('按 8 大雅思 Band 7.5+ 口语骨架专项打磨：先听慢→常速连播 → 骨架脱稿 → 换入你的已学词造句并让 AI 秒评升级。', 'lead'),
     renderComplexImitationLab({ standalone: true })
   );
+  if (inJourneyStage) {
+    const foot = section('complex-journey-footer');
+    foot.append(
+      lines(
+        btn('✅ 完成复杂句仿说 → 进入下一环节', () => completeComplexLabJourneyStage(false), 'btn primary'),
+        btn('跳过本环节 →', () => completeComplexLabJourneyStage(true), 'btn ghost')
+      )
+    );
+    app.append(foot);
+  }
 }
 
 function renderComplexImitationLab({ standalone = false } = {}) {
@@ -7245,7 +7290,7 @@ window.addEventListener('pagehide',()=>{/* pagehide-v19-resume */const s=data.ac
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 const themeToggle=document.getElementById('theme-toggle');if(themeToggle)themeToggle.addEventListener('click',()=>setTheme(data.settings.theme==='night'?'day':'night'));
 const helpButton=document.getElementById('help-button');if(helpButton)helpButton.addEventListener('click',showGuide);
-if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{if(reg.waiting){swWaitingWorker=reg.waiting;render();}reg.addEventListener('updatefound',()=>{const inst=reg.installing;if(!inst)return;inst.addEventListener('statechange',()=>{if(inst.state==='installed'&&navigator.serviceWorker.controller){swWaitingWorker=inst;render();}});});return reg.update();}).catch(()=>{});
 render();
 if(migrationNotice){notify(migrationNotice);migrationNotice='';}
 void (async()=>{try{const snap=await readStateMirrorFromIdb(STORE);if(!snap?.serialized)return;const parsed=JSON.parse(snap.serialized);if(pickNewerStateSnapshot(data,parsed)==='idb'){const restored=migrateBackupPayload(parsed);if(parsed.activeSession&&typeof parsed.activeSession==='object'&&Array.isArray(parsed.activeSession.queue))restored.activeSession={...parsed.activeSession,running:false,lastTick:null};data=restored;lastPersistedRaw=JSON.stringify(restored);try{localStorage.setItem(STORE,lastPersistedRaw);}catch{}render();notify('🛡️ 检测到本地双保险有更新的学习记录，已自动恢复！');}}catch{}})();
@@ -7284,6 +7329,6 @@ if (typeof window !== 'undefined' && window.visualViewport) {
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     try { save(); } catch {}
-    pwaUpdateReady = true; if (typeof notify === 'function') notify('新版本已就绪：当前草稿与学习记录已双保险落盘，完成本题后刷新即可生效。');
+    pwaUpdateReady = true; if (pwaUpdateReloading) { try { location.reload(); } catch {} return; } if (typeof notify === 'function') notify('新版本已就绪：当前草稿与学习记录已双保险落盘，点顶部「一键更新」即可生效。'); render();
   });
 }
