@@ -8,7 +8,7 @@ import {
   buildCentralLearningFeedback
 } from '../core.mjs';
 
-test('v20.4.5: mergeReadingMarks preserves Word Harvest 2.0 savedGloss across backup merge', () => {
+test('v20.4.6: mergeReadingMarks preserves Word Harvest 2.0 savedGloss across backup merge', () => {
   const merged = mergeReadingMarks(
     [{
       readingId: 'r1',
@@ -31,7 +31,7 @@ test('v20.4.5: mergeReadingMarks preserves Word Harvest 2.0 savedGloss across ba
   assert.equal(merged[0].savedGloss?.chunk, 'botanical station');
 });
 
-test('v20.4.5: Battle Report, Markdown, Central Feedback & Backup preserve complex_imitation_evidence', () => {
+test('v20.4.6: Battle Report, Markdown, Central Feedback & Backup preserve complex_imitation_evidence', () => {
   const complexLabProgress = {
     doneIds: ['work-wh-1', 'teach-frame-2'],
     todayDate: '2026-11-27',

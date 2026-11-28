@@ -9,7 +9,7 @@ import {
   pickNextRadioIndex
 } from '../radio.mjs';
 
-test('v20.4.5: playback modes cycle cleanly auto_next -> single_loop -> shuffle -> auto_next', () => {
+test('v20.4.6: playback modes cycle cleanly auto_next -> single_loop -> shuffle -> auto_next', () => {
   assert.equal(RADIO_PLAYBACK_MODES.length, 3);
   assert.equal(normalizeRadioPlaybackMode(''), 'auto_next');
   assert.equal(normalizeRadioPlaybackMode('unknown'), 'auto_next');
@@ -18,7 +18,7 @@ test('v20.4.5: playback modes cycle cleanly auto_next -> single_loop -> shuffle 
   assert.equal(nextRadioPlaybackMode('shuffle'), 'auto_next');
 });
 
-test('v20.4.5: pickNextRadioIndex handles auto_next, single_loop, and non-repeating shuffle', () => {
+test('v20.4.6: pickNextRadioIndex handles auto_next, single_loop, and non-repeating shuffle', () => {
   assert.equal(pickNextRadioIndex({ currentIndex: 0, total: 0, mode: 'auto_next' }), -1);
   assert.equal(pickNextRadioIndex({ currentIndex: 0, total: 5, mode: 'auto_next' }), 1);
   assert.equal(pickNextRadioIndex({ currentIndex: 4, total: 5, mode: 'auto_next' }), 0);
@@ -35,7 +35,7 @@ test('v20.4.5: pickNextRadioIndex handles auto_next, single_loop, and non-repeat
   }
 });
 
-test('v20.4.5: app.js guards iOS lockscreen auto-advance and exposes visible 3-mode toggle', () => {
+test('v20.4.6: app.js guards iOS lockscreen auto-advance and exposes visible 3-mode toggle', () => {
   const appSrc = fs.readFileSync(path.join(process.cwd(), 'app.js'), 'utf8');
   assert.match(appSrc, /let radioStopAfterRound = false;/);
   assert.match(appSrc, /if\(document\.hidden&&!radioPlaying\)\{radioAudioUnlocked=false;\}/);

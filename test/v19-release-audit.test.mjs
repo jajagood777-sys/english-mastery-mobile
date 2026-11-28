@@ -15,8 +15,8 @@ import { createRadioPlaybackClock } from '../radio.mjs';
 import { captureExactResumeState, restoreExactResumeState } from '../continuity-os.mjs';
 import { alignSpeakingTranscript, editAsrSegment } from '../skills-studio.mjs';
 
-test('v20.4.5 Regression Guard (BUG #1-#4): app.js has zero undefined v19 callbacks and core.mjs preserves v19 across backup/reload', () => {
-  assert.equal(APP_VERSION, '20.4.5');
+test('v20.4.6 Regression Guard (BUG #1-#4): app.js has zero undefined v19 callbacks and core.mjs preserves v19 across backup/reload', () => {
+  assert.equal(APP_VERSION, '20.4.6');
   const appSrc = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   assert.ok(!appSrc.includes('showToast?.('), 'app.js must call notify(), not undefined showToast');
   assert.ok(!appSrc.includes('saveData?.('), 'app.js must call save(), not undefined saveData');
@@ -46,7 +46,7 @@ test('v20.4.5 Regression Guard (BUG #1-#4): app.js has zero undefined v19 callba
   assert.equal(merged.v19.lifeTasks.length, 1, 'mergeBackupState must deduplicate v19 lifeTasks');
 });
 
-test('v20.4.5 Pre-Release Audit Scenarios 1-7: synthetic pack, evidence separation, recording ZIP readback, radio clock, storage rollback, 110-word pack', () => {
+test('v20.4.6 Pre-Release Audit Scenarios 1-7: synthetic pack, evidence separation, recording ZIP readback, radio clock, storage rollback, 110-word pack', () => {
   // Scenario 1 & 6: 110-word synthetic schema 2.0 pack + idempotent re-import
   const syntheticPack = {
     schema_version: '2.0',
@@ -141,7 +141,7 @@ test('v20.4.5 Pre-Release Audit Scenarios 1-7: synthetic pack, evidence separati
   assert.equal(editAsrSegment(aligned, 's1', 'I went yesterday').feedbackItems[0].status, 'PENDING_REVIEW');
 });
 
-test('v20.4.5 Seeded Randomized Cross-Feature Invariant Fuzzing (50 deterministic seeds)', () => {
+test('v20.4.6 Seeded Randomized Cross-Feature Invariant Fuzzing (50 deterministic seeds)', () => {
   function mulberry32(seed) {
     let a = seed >>> 0;
     return () => {
