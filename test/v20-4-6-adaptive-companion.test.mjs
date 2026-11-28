@@ -10,7 +10,7 @@ import {
   summarizeCompanionEvidence
 } from '../adaptive-companion.mjs';
 
-test('v20.4.6 Phonics Day 01 built-in companion matches printed Day 01 sheet', () => {
+test('v20.4.7 Phonics Day 01 built-in companion matches printed Day 01 sheet', () => {
   assert.equal(PHONICS_DAY_01_MODULE.id, 'phonics-day-01');
   assert.equal(BUILTIN_COMPANION_MODULES.length >= 1, true);
   const byType = Object.fromEntries(PHONICS_DAY_01_MODULE.blocks.map(b => [b.type, b]));
@@ -25,7 +25,7 @@ test('v20.4.6 Phonics Day 01 built-in companion matches printed Day 01 sheet', (
   assert.equal(byType.tpr_timer.phases.length, 5);
 });
 
-test('v20.4.6 adaptive companion resolves dailyPack > custom > builtin priority', () => {
+test('v20.4.7 adaptive companion resolves dailyPack > custom > builtin priority', () => {
   const defaultMod = resolveActiveCompanionModule({});
   assert.equal(defaultMod.id, 'phonics-day-01');
 
@@ -62,7 +62,7 @@ test('v20.4.6 adaptive companion resolves dailyPack > custom > builtin priority'
   assert.equal(resolveActiveCompanionModule(switched).id, 'phonics-day-02');
 });
 
-test('v20.4.6 summarizeCompanionEvidence tracks unseen marks & dictation honestly', () => {
+test('v20.4.7 summarizeCompanionEvidence tracks unseen marks & dictation honestly', () => {
   const ev = summarizeCompanionEvidence({
     companionState: {
       activeModuleId: 'phonics-day-01',
@@ -89,12 +89,12 @@ test('v20.4.6 summarizeCompanionEvidence tracks unseen marks & dictation honestl
   assert.equal(ev.modules[0].dictation_correct, 1);
 });
 
-test('v20.4.6 app.js, core.mjs, sw.js wire Adaptive Companion Lab cleanly', () => {
+test('v20.4.7 app.js, core.mjs, sw.js wire Adaptive Companion Lab cleanly', () => {
   const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
   const core = fs.readFileSync(new URL('../core.mjs', import.meta.url), 'utf8');
   const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(core, /APP_VERSION\s*=\s*'20\.4\.6'/);
-  assert.match(sw, /english-cultivation-static-v20\.4\.6/);
+  assert.match(core, /APP_VERSION\s*=\s*'20\.4\.7'/);
+  assert.match(sw, /english-cultivation-static-v20\.4\.7/);
   assert.match(sw, /\.\/adaptive-companion\.mjs/);
   assert.match(app, /from '\.\/adaptive-companion\.mjs'/);
   assert.match(app, /if\(page==='companion'\)return renderCompanionLab\(\);/);
